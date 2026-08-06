@@ -1,0 +1,26 @@
+import React from 'react';
+import { Tabs } from 'expo-router';
+import { tabIcon, useTabScreenOptions } from '@/components/TabBar';
+
+export default function ParentLayout() {
+  return (
+    <Tabs screenOptions={useTabScreenOptions()}>
+      <Tabs.Screen
+        name="index"
+        options={{ title: 'Approvals', tabBarIcon: tabIcon('checkmark-done-outline'), tabBarBadge: 2 }}
+      />
+      <Tabs.Screen
+        name="history"
+        options={{ title: 'History', tabBarIcon: tabIcon('albums-outline') }}
+      />
+      <Tabs.Screen
+        name="ward"
+        options={{ title: 'Ward', tabBarIcon: tabIcon('school-outline') }}
+      />
+      <Tabs.Screen
+        name="profile"
+        options={{ title: 'Profile', tabBarIcon: tabIcon('person-outline') }}
+      />
+    </Tabs>
+  );
+}

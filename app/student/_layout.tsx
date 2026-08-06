@@ -1,0 +1,27 @@
+import React from 'react';
+import { Tabs } from 'expo-router';
+import { tabIcon, useTabScreenOptions } from '@/components/TabBar';
+
+export default function StudentLayout() {
+  const screenOptions = useTabScreenOptions();
+  return (
+    <Tabs screenOptions={screenOptions}>
+      <Tabs.Screen
+        name="index"
+        options={{ title: 'Home', tabBarIcon: tabIcon('home-outline') }}
+      />
+      <Tabs.Screen
+        name="request"
+        options={{ title: 'Request', tabBarIcon: tabIcon('add-circle-outline') }}
+      />
+      <Tabs.Screen
+        name="history"
+        options={{ title: 'History', tabBarIcon: tabIcon('albums-outline') }}
+      />
+      <Tabs.Screen
+        name="profile"
+        options={{ title: 'Profile', tabBarIcon: tabIcon('person-outline') }}
+      />
+    </Tabs>
+  );
+}
