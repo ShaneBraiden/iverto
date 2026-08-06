@@ -1,12 +1,14 @@
 /**
  * Guardian home — requests awaiting a decision, with inline approve/reject.
  *
- * A guardian with several children on campus sees one ward at a time. The
- * header carries the ward in view and is itself the switch: tapping it opens
- * the sibling picker, and the queue below re-filters to whoever was chosen.
- *
  * The signed-in guardian is shown by relation ("Father" / "Mother"), and the
  * ward by roll number. No personal names anywhere.
+ *
+ * SIBLINGS: a guardian with more than one child on campus sees one ward at a
+ * time. The only sign of that is a caret on the roll number in the header —
+ * tap it, pick a sibling, and the queue below re-filters. A guardian with a
+ * single ward gets no caret and no switcher at all, so the screen looks
+ * exactly as it did before siblings existed.
  */
 import React, { useState } from 'react';
 import { View, Text, StyleSheet } from 'react-native';
@@ -35,18 +37,19 @@ export default function ParentHome() {
 
   const queue = pendingFor(ward.rollNo);
   const elsewhere = parentQueue.length - queue.length;
-  const index = wards.findIndex((w) => w.rollNo === ward.rollNo) + 1;
 
   return (
     <View style={{ flex: 1 }}>
+      {/* Unchanged from the single-ward layout apart from the roll number,
+          which grows a caret when there is a sibling to switch to. */}
       <AppHeader
-        greeting={`Signed in as ${parent.relation} · viewing`}
-        title={ward.rollNo}
-        meta={`${ward.label} · ${ward.hostel}`}
-        icon="school-outline"
+        greeting="Signed in as"
+        title={parent.relation}
+        meta={`Guardian of ${ward.name} ·`}
+        metaAction={ward.rollNo}
+        onMetaPress={hasSiblings ? () => setSwitching(true) : undefined}
+        icon="people-outline"
         badgeCount={queue.length}
-        onTitlePress={hasSiblings ? () => setSwitching(true) : undefined}
-        switchHint={hasSiblings ? `${index} OF ${wards.length}` : undefined}
       />
 
       <Screen>
@@ -58,22 +61,18 @@ export default function ParentHome() {
           />
         ) : null}
 
-        {/* When a sibling is waiting on the guardian, say so here rather than
-            letting it sit unseen behind the switcher. */}
+        {/* A sibling's request would otherwise sit unseen behind the switch,
+            so it gets called out — with a pointer at where the switch is. */}
         {hasSiblings && elsewhere > 0 ? (
           <Note
             icon="people-outline"
             tone="brand"
-            text={`${elsewhere} more request${elsewhere === 1 ? '' : 's'} waiting under your other ward${elsewhere === 1 ? '' : 's'} — tap the name above to switch.`}
+            text={`${elsewhere} more request${elsewhere === 1 ? '' : 's'} waiting under your other ward${elsewhere === 1 ? '' : 's'} — tap the roll number above to switch.`}
           />
         ) : null}
 
         <View>
-          <SectionHeader
-            title="Awaiting your decision"
-            actionLabel={hasSiblings ? 'Switch ward' : undefined}
-            onAction={() => setSwitching(true)}
-          />
+          <SectionHeader title="Awaiting your decision" />
           {queue.length === 0 ? (
             <EmptyState
               icon="checkmark-done-outline"

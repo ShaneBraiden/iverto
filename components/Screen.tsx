@@ -64,54 +64,31 @@ export function AppHeader({
   greeting,
   title,
   meta,
+  metaAction,
+  onMetaPress,
   icon = 'person-outline',
   onBell,
   badgeCount,
-  onTitlePress,
-  switchHint,
 }: {
   greeting: string;
   title: string;
   meta?: string;
+  /**
+   * A short value tacked onto the end of the meta line — a roll number, say.
+   * With `onMetaPress` it becomes the only interactive thing in the header.
+   */
+  metaAction?: string;
+  /**
+   * Turns `metaAction` into a tap target with a small caret beside it.
+   * Leave undefined and it renders as plain text, so the caret only ever
+   * appears when there is genuinely something to choose between.
+   */
+  onMetaPress?: () => void;
   icon?: IconName;
   onBell?: () => void;
   badgeCount?: number;
-  /**
-   * Makes the identity block tappable. Used by the guardian dashboard, where
-   * the title is the ward in view and tapping it swaps to a sibling.
-   */
-  onTitlePress?: () => void;
-  /** Small pill shown beside the title when it is a switcher, e.g. "1 of 3". */
-  switchHint?: string;
 }) {
   const insets = useSafeAreaInsets();
-  const switchable = Boolean(onTitlePress);
-
-  const identity = (
-    <View style={{ flex: 1 }}>
-      <Text style={[type.small, { color: colors.textMuted }]}>{greeting}</Text>
-      <View style={styles.titleRow}>
-        <Text style={[type.h2, { color: colors.text, flexShrink: 1 }]} numberOfLines={1}>
-          {title}
-        </Text>
-        {switchable ? (
-          <>
-            <View style={styles.caret}>
-              <Ionicons name="chevron-down" size={13} color={colors.primary} />
-            </View>
-            {switchHint ? (
-              <Text style={[type.caption, { color: colors.primary }]}>{switchHint}</Text>
-            ) : null}
-          </>
-        ) : null}
-      </View>
-      {meta ? (
-        <Text style={[type.small, { color: colors.textFaint }]} numberOfLines={1}>
-          {meta}
-        </Text>
-      ) : null}
-    </View>
-  );
 
   return (
     <GlassPanel intensity={blur.header} strong style={styles.header}>
@@ -126,23 +103,42 @@ export function AppHeader({
           </Text>
         </View>
         <View style={styles.headerRow}>
-          {switchable ? (
-            /* The avatar travels with the name — the whole block is one target,
-               so there is no ambiguity about what the tap will change. */
-            <Pressable
-              onPress={onTitlePress}
-              style={({ pressed }) => [styles.switcher, pressed && { opacity: 0.7 }]}
-              hitSlop={6}
-            >
-              <Avatar size={46} icon={icon} />
-              {identity}
-            </Pressable>
-          ) : (
-            <>
-              <Avatar size={46} icon={icon} />
-              {identity}
-            </>
-          )}
+          <Avatar size={46} icon={icon} />
+          <View style={{ flex: 1 }}>
+            <Text style={[type.small, { color: colors.textMuted }]}>{greeting}</Text>
+            <Text style={[type.h2, { color: colors.text }]} numberOfLines={1}>
+              {title}
+            </Text>
+            {meta || metaAction ? (
+              <View style={styles.metaRow}>
+                {meta ? (
+                  <Text style={[type.small, { color: colors.textFaint }]} numberOfLines={1}>
+                    {meta}
+                  </Text>
+                ) : null}
+
+                {metaAction ? (
+                  onMetaPress ? (
+                    /* The number is the switch. Underlined and carried in the
+                       brand colour so it reads as a control, with a caret to
+                       say a list drops out of it. */
+                    <Pressable
+                      onPress={onMetaPress}
+                      hitSlop={10}
+                      style={({ pressed }) => [styles.metaChip, pressed && { opacity: 0.6 }]}
+                    >
+                      <Text style={[type.smallMed, { color: colors.primary }]}>{metaAction}</Text>
+                      <Ionicons name="chevron-down" size={12} color={colors.primary} />
+                    </Pressable>
+                  ) : (
+                    <Text style={[type.small, { color: colors.textFaint }]} numberOfLines={1}>
+                      {metaAction}
+                    </Text>
+                  )
+                ) : null}
+              </View>
+            ) : null}
+          </View>
           <Pressable onPress={onBell} style={styles.bell} hitSlop={8}>
             <Ionicons name="notifications-outline" size={20} color={colors.text} />
             {badgeCount ? (
@@ -231,27 +227,15 @@ const styles = StyleSheet.create({
     color: colors.text,
   },
   headerRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.md },
-  switcher: {
-    flex: 1,
+  metaRow: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  metaChip: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing.md,
-    marginLeft: -spacing.sm,
-    marginRight: -spacing.xs,
-    paddingLeft: spacing.sm,
-    paddingRight: spacing.xs,
-    paddingVertical: spacing.xs,
-    borderRadius: radius.lg,
+    gap: 2,
+    paddingHorizontal: 6,
+    paddingVertical: 1,
+    borderRadius: radius.sm,
     backgroundColor: colors.primarySoft,
-  },
-  titleRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  caret: {
-    width: 20,
-    height: 20,
-    borderRadius: 10,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: 'rgba(185,0,14,0.12)',
   },
   barMark: { width: 38, alignItems: 'center', justifyContent: 'center' },
   bell: {

@@ -6,7 +6,8 @@
  * "Late returns" is a link, not a number — the detail is on `late-entries`.
  */
 import React, { useState } from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import { View, Text, StyleSheet, Pressable } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { Screen, TopBar } from '@/components/Screen';
 import { useWard } from '@/components/WardContext';
@@ -33,27 +34,29 @@ export default function Ward() {
 
   return (
     <View style={{ flex: 1 }}>
-      <TopBar
-        title={hasSiblings ? 'My wards' : 'My ward'}
-        subtitle={`${ward.rollNo} · ${ward.label}`}
-        back={false}
-        rightIcon={hasSiblings ? 'swap-horizontal-outline' : undefined}
-        onRight={() => setSwitching(true)}
-      />
+      <TopBar title="My ward" subtitle={`${ward.name} · ${ward.label}`} back={false} />
       <Screen>
-        <Card onPress={hasSiblings ? () => setSwitching(true) : undefined}>
+        <Card>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md }}>
             <Avatar size={54} icon="school-outline" />
             <View style={{ flex: 1 }}>
-              <Text style={[type.h3, { color: colors.text }]}>{ward.rollNo}</Text>
+              {/* Same caret as the dashboard: the roll number is the switch,
+                  and only carries one when there is a sibling behind it. */}
+              {hasSiblings ? (
+                <Pressable
+                  onPress={() => setSwitching(true)}
+                  hitSlop={8}
+                  style={({ pressed }) => [styles.rollSwitch, pressed && { opacity: 0.6 }]}
+                >
+                  <Text style={[type.h3, { color: colors.primary }]}>{ward.rollNo}</Text>
+                  <Ionicons name="chevron-down" size={14} color={colors.primary} />
+                </Pressable>
+              ) : (
+                <Text style={[type.h3, { color: colors.text }]}>{ward.rollNo}</Text>
+              )}
               <Text style={[type.small, { color: colors.textMuted }]}>{ward.name}</Text>
               <Text style={[type.small, { color: colors.textFaint }]}>{ward.department}</Text>
             </View>
-            {hasSiblings ? (
-              <View style={styles.switchTag}>
-                <Text style={[type.caption, { color: colors.primary }]}>SWITCH</Text>
-              </View>
-            ) : null}
           </View>
 
           <View
@@ -178,10 +181,5 @@ const styles = StyleSheet.create({
     borderRadius: radius.pill,
     backgroundColor: colors.primarySoft,
   },
-  switchTag: {
-    paddingHorizontal: spacing.sm,
-    paddingVertical: 3,
-    borderRadius: radius.pill,
-    backgroundColor: colors.primarySoft,
-  },
+  rollSwitch: { flexDirection: 'row', alignItems: 'center', gap: 4, alignSelf: 'flex-start' },
 });
