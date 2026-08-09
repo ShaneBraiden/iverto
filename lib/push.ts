@@ -23,6 +23,37 @@ export function currentPushToken() {
 }
 
 /**
+ * Why the last `registerForPush()` gave up, or 'registered' if it did not.
+ *
+ * Every failure path returns the same `null`, so without this a device that never gets a
+ * push is indistinguishable from one that was never asked. Read it from a screen, or watch
+ * for the tag below in `adb logcat -s ReactNativeJS`.
+ */
+export type PushStatus =
+  | 'registered'
+  | 'not-a-device'
+  | 'ios-unsupported'
+  | 'permission-denied'
+  | 'no-token'
+  | 'register-failed';
+
+let lastStatus: PushStatus | null = null;
+let lastDetail: string | null = null;
+
+export function pushStatus() {
+  return { status: lastStatus, detail: lastDetail };
+}
+
+/* console.warn survives release builds — babel.config.js adds no transform-remove-console,
+   and the `-assumenosideeffects` rule in proguard-rules.pro only strips android.util.Log
+   from Java, not Hermes' console bridge. So this is readable on the installed APK. */
+function note(status: PushStatus, detail?: unknown) {
+  lastStatus = status;
+  lastDetail = detail === undefined ? null : String(detail);
+  console.warn(`[push] ${status}${lastDetail ? `: ${lastDetail}` : ''}`);
+}
+
+/**
  * Android 8+ ignores importance set at notify time, so the channel has to exist before the
  * first message or every push arrives silently with no heads-up banner. `defaultChannel` in
  * the app.json plugin config points at this id, and the server's `channel_id` must match.
@@ -46,12 +77,20 @@ async function ensureChannel() {
  */
 export async function registerForPush(): Promise<string | null> {
   /* Emulators without Google Play Services and every simulator have no FCM at all. */
-  if (!Device.isDevice) return null;
+  if (!Device.isDevice) {
+    note('not-a-device');
+    return null;
+  }
 
   /* Remove this guard when the backend accepts APNs tokens, or when RNFirebase is added
      for iOS. See Dev/fcm-integration.md §2. */
-  if (Platform.OS !== 'android') return null;
+  if (Platform.OS !== 'android') {
+    note('ios-unsupported');
+    return null;
+  }
 
+  /* Guarded because every caller is `void registerForPush()` — this function is documented
+     never to throw, and an unhandled rejection here would take out the sign-in path. */
   try {
     await ensureChannel();
 
@@ -61,17 +100,40 @@ export async function registerForPush(): Promise<string | null> {
       /* Android 13+ POST_NOTIFICATIONS. On 12 and below this resolves granted at once. */
       status = (await Notifications.requestPermissionsAsync()).status;
     }
-    if (status !== 'granted') return null;
-
-    const { data } = await Notifications.getDevicePushTokenAsync();
-    const token = String(data);
-    await pushApi.register('android', token);
-    currentToken = token;
-    return token;
-  } catch {
-    /* A missing google-services.json, a package-name mismatch, or no network. */
+    if (status !== 'granted') {
+      note('permission-denied', status);
+      return null;
+    }
+  } catch (err) {
+    note('permission-denied', err);
     return null;
   }
+
+  /* Split from the register call below on purpose: "Firebase never gave us a token" and
+     "the server refused the token we had" are different bugs with different owners, and
+     one shared catch reported them as the same silence. */
+  let token: string;
+  try {
+    const { data } = await Notifications.getDevicePushTokenAsync();
+    token = String(data);
+  } catch (err) {
+    /* A missing google-services.json, a package-name mismatch, or no Play Services. */
+    note('no-token', err);
+    return null;
+  }
+
+  try {
+    await pushApi.register('android', token);
+  } catch (err) {
+    note('register-failed', err);
+    return null;
+  }
+
+  currentToken = token;
+  /* The token itself, so a Firebase console test message can be aimed at this device
+     without instrumenting the app further. */
+  note('registered', token);
+  return token;
 }
 
 /**
@@ -110,7 +172,10 @@ export function watchTokenRefresh() {
     const token = String(data);
     if (token === currentToken) return;
     currentToken = token;
-    void pushApi.register('android', token).catch(() => {});
+    void pushApi
+      .register('android', token)
+      .then(() => note('registered', token))
+      .catch((err) => note('register-failed', err));
   });
 }
 
