@@ -59,7 +59,7 @@ export function Sheet({
       <View style={styles.grabber} />
 
       <View style={styles.head}>
-        <View style={{ flex: 1 }}>
+        <View style={{ flex: 1, minWidth: 0 }}>
           <Text style={[type.h3, { color: colors.text }]}>{title}</Text>
           {subtitle ? (
             <Text style={[type.small, { color: colors.textMuted, marginTop: 2 }]}>{subtitle}</Text>
@@ -142,6 +142,7 @@ const styles = StyleSheet.create({
   close: {
     width: 32,
     height: 32,
+    flexShrink: 0,
     borderRadius: 16,
     backgroundColor: colors.glassStrong,
     borderWidth: 1,

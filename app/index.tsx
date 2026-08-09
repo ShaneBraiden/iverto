@@ -28,16 +28,16 @@
  * reach on a short screen.
  */
 import React, { useEffect, useRef, useState } from 'react';
-import { View, Text, StyleSheet, Pressable, TextInput } from 'react-native';
+import { View, Text, StyleSheet, Pressable, TextInput, ActivityIndicator } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { router } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Button, Field, GlassPanel, Loader, Note, PoweredBy } from '@/components/ui';
+import { Button, Field, GlassPanel, Note, PoweredBy } from '@/components/ui';
 import { BrandLockup } from '@/components/Logo';
 import { KeyboardAwareScroll, useKeyboardVisible } from '@/components/KeyboardAware';
 import { blur, colors, font, radius, shadow, spacing, type } from '@/theme';
 import { auth } from '@/lib/api/endpoints';
-import { errorCode, errorMessage, useMutation } from '@/lib/api/useQuery';
+import { errorCode, errorCopy, errorMessage, useMutation } from '@/lib/api/useQuery';
 import { lastIdentifier, rememberIdentifier } from '@/lib/session';
 import { routeFor, useAuth } from '@/lib/auth';
 
@@ -114,6 +114,13 @@ export default function LoginScreen() {
      "Unauthorized", which tells the user nothing they can act on. */
   const wrongCredentials = errorCode(login.error) === 'UNAUTHORIZED';
 
+  /* The server throttles repeated sign-in attempts. Saying "check your
+     details" to somebody whose details are fine, and who is only being asked
+     to wait, sends them off resetting a password that was never wrong. */
+  const tooManyAttempts = errorCode(login.error) === 'TOO_MANY_REQUESTS';
+
+  const loginCopy = errorCopy(login.error, "That didn't work. Check your details.");
+
   const [forgotTo, setForgotTo] = useState<string | null>(null);
   const forgot = useMutation(
     () => auth.forgotPassword({ identifier: email.trim(), tenantId: tenantId.trim() || undefined }),
@@ -125,11 +132,25 @@ export default function LoginScreen() {
     if (canSubmit) login.mutate();
   };
 
+  /**
+   * The gap between the splash image disappearing and a dashboard appearing.
+   *
+   * It is short — a keystore read plus, at worst, one token refresh — but it is
+   * not nothing on a cold start over a bad connection, and an empty screen for
+   * a second reads as a crash. So this picks up exactly where the splash left
+   * off: the same mark on the same canvas, with a line saying what is happening.
+   */
   if (restoring) {
     return (
       <View style={styles.gate}>
         <BrandLockup size={96} layout="stacked" />
-        <Loader />
+        <View style={{ alignItems: 'center', gap: spacing.md }}>
+          <ActivityIndicator color={colors.primary} />
+          <Text style={[type.small, { color: colors.textMuted }]}>Restoring your session…</Text>
+        </View>
+        <View style={styles.gateFooter}>
+          <PoweredBy />
+        </View>
       </View>
     );
   }
@@ -238,6 +259,11 @@ export default function LoginScreen() {
                 {/* A 404 is not a typo to try again — it means the record
                     exists but nobody has provisioned a login for it, and there
                     is no self-service sign-up to offer. Say who to ask. */}
+                {/* Ordered most specific first. The three credential cases are
+                    worded here because only this screen knows what they mean;
+                    everything else — offline, rate-limited, a 500 — is worded
+                    once in `errorCopy` and shown with its own icon, so the same
+                    failure reads the same way wherever it happens. */}
                 {unprovisioned ? (
                   <Note
                     icon="information-circle-outline"
@@ -250,16 +276,22 @@ export default function LoginScreen() {
                     tone="danger"
                     text="That email and password don't match an account. Check the password, or use “Forgot password?” below."
                   />
+                ) : tooManyAttempts ? (
+                  <Note
+                    icon="hourglass-outline"
+                    tone="warning"
+                    text="Too many sign-in attempts from this device. Wait a minute, then try again."
+                  />
                 ) : login.error ? (
                   <Note
-                    icon="alert-circle-outline"
+                    icon={loginCopy.icon as never}
                     tone="danger"
-                    text={errorMessage(login.error, "That didn't work. Check your details.")}
+                    text={loginCopy.message}
                   />
                 ) : null}
                 {forgot.error ? (
                   <Note
-                    icon="alert-circle-outline"
+                    icon={errorCopy(forgot.error).icon as never}
                     tone="danger"
                     text={errorMessage(forgot.error)}
                   />
@@ -310,6 +342,7 @@ export default function LoginScreen() {
 
 const styles = StyleSheet.create({
   gate: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: spacing.xl },
+  gateFooter: { position: 'absolute', bottom: spacing.xl },
   brandRow: {
     paddingTop: spacing.xxl,
     paddingBottom: spacing.xxl,

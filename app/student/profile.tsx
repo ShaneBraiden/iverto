@@ -80,8 +80,13 @@ function LocationSheet({ visible, onClose }: { visible: boolean; onClose: () => 
     >
       <View style={{ paddingHorizontal: spacing.lg, gap: spacing.lg }}>
         <View style={[styles.state, { backgroundColor: TONE[status].bg }]}>
-          <Ionicons name={TONE[status].icon} size={18} color={TONE[status].fg} />
-          <View style={{ flex: 1 }}>
+          <Ionicons
+            name={TONE[status].icon}
+            size={18}
+            color={TONE[status].fg}
+            style={{ flexShrink: 0 }}
+          />
+          <View style={{ flex: 1, minWidth: 0 }}>
             <Text style={[type.bodyMed, { color: TONE[status].fg }]}>{TONE[status].title}</Text>
             <Text style={[type.small, { color: colors.textMuted }]}>
               {STATUS_SUMMARY[status]}

@@ -29,12 +29,12 @@ import {
   EmptyState,
   ErrorState,
   Field,
-  Loader,
   Note,
   PoweredBy,
   SectionHeader,
   StatusPill,
 } from '@/components/ui';
+import { SkeletonApprovals } from '@/components/Skeleton';
 import { colors, radius, spacing, type } from '@/theme';
 import { parent as parentApi } from '@/lib/api/endpoints';
 import { errorCode, errorMessage, useMutation } from '@/lib/api/useQuery';
@@ -121,9 +121,9 @@ export default function ParentHome() {
 
       <Screen>
         {loading ? (
-          <Loader label="Loading your wards…" />
+          <SkeletonApprovals />
         ) : error ? (
-          <ErrorState message={errorMessage(error)} onRetry={refresh} />
+          <ErrorState error={error} onRetry={refresh} />
         ) : !ward ? (
           <EmptyState
             icon="people-outline"
@@ -225,17 +225,22 @@ function ApprovalCard({
     <Card>
       <View style={styles.top}>
         <Avatar size={42} icon="school-outline" />
-        <View style={{ flex: 1 }}>
-          <Text style={[type.bodyMed, { color: colors.text }]}>{item.student?.name ?? '—'}</Text>
-          <Text style={[type.small, { color: colors.textMuted }]}>
+        <View style={{ flex: 1, minWidth: 0 }}>
+          <Text style={[type.bodyMed, { color: colors.text }]} numberOfLines={1}>
+            {item.student?.name ?? '—'}
+          </Text>
+          <Text style={[type.small, { color: colors.textMuted }]} numberOfLines={1}>
             {item.student?.rollNumber} · asked {timeAgo(item.createdAt)}
           </Text>
         </View>
         <StatusPill status={item.status} small />
       </View>
 
+      {/* The reason is never truncated here. This card is the decision, and a
+          guardian approving on a clipped sentence is the one thing the screen
+          must not allow — it grows instead. */}
       <View style={styles.reasonBox}>
-        <Text style={[type.caption, { color: colors.primary }]}>
+        <Text style={[type.caption, { color: colors.primary }]} numberOfLines={2}>
           {shortId(item.id)} · {item.type.toUpperCase()}
         </Text>
         <Text style={[type.bodyMed, { color: colors.text, marginTop: 2 }]}>{item.reason}</Text>
@@ -365,9 +370,12 @@ function Line({
   text: string;
 }) {
   return (
-    <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
-      <Ionicons name={icon} size={14} color={colors.textMuted} />
-      <Text style={[type.small, { color: colors.textMuted, flex: 1 }]} numberOfLines={1}>
+    <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: spacing.sm }}>
+      <Ionicons name={icon} size={14} color={colors.textMuted} style={{ marginTop: 3 }} />
+      {/* Two lines: a destination or a "reachable on" number pushed onto one
+          line loses the half that matters, and this is the block a guardian
+          reads before approving. */}
+      <Text style={[type.small, { color: colors.textMuted, flex: 1 }]} numberOfLines={2}>
         {text}
       </Text>
     </View>
@@ -387,6 +395,9 @@ const styles = StyleSheet.create({
   actions: { flexDirection: 'row', gap: spacing.md, marginTop: spacing.lg },
   linkRow: {
     flexDirection: 'row',
+    /* Two links and a separator do not fit one line on a small phone, so the
+       row wraps rather than pushing the second link off the card. */
+    flexWrap: 'wrap',
     justifyContent: 'center',
     alignItems: 'center',
     gap: spacing.sm,

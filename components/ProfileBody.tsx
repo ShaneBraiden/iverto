@@ -13,11 +13,11 @@ import {
   Field,
   GlassPanel,
   ListTile,
-  Loader,
   Note,
   PoweredBy,
   Row,
 } from '@/components/ui';
+import { Bone } from '@/components/Skeleton';
 import { LogoWatermark } from '@/components/Logo';
 import { useApp } from '@/components/AppContext';
 import { blur, colors, radius, shadow, spacing, type } from '@/theme';
@@ -105,10 +105,28 @@ export function ProfileBody({
         <LogoWatermark size={230} opacity={0.045} />
         <View style={[styles.headerPad, { paddingTop: insets.top + spacing.xl }]}>
           <Avatar size={76} icon={icon} />
-          <Text style={[type.h2, { color: colors.text, marginTop: spacing.md }]}>{name}</Text>
-          <Text style={[type.small, { color: colors.textMuted }]}>{subtitle}</Text>
+          {/* Centred and allowed to wrap — a full name or a long email is the
+              header's whole content, so it sets the height rather than being
+              cut to fit one. */}
+          <Text
+            style={[
+              type.h2,
+              { color: colors.text, marginTop: spacing.md, textAlign: 'center' },
+            ]}
+            numberOfLines={2}
+          >
+            {name}
+          </Text>
+          <Text
+            style={[type.small, { color: colors.textMuted, textAlign: 'center' }]}
+            numberOfLines={2}
+          >
+            {subtitle}
+          </Text>
           <View style={styles.tag}>
-            <Text style={[type.caption, { color: colors.primary }]}>{tag.toUpperCase()}</Text>
+            <Text style={[type.caption, { color: colors.primary }]} numberOfLines={1}>
+              {tag.toUpperCase()}
+            </Text>
           </View>
         </View>
       </GlassPanel>
@@ -132,16 +150,23 @@ export function ProfileBody({
         {canRequestChanges ? (
           <Card>
             <View style={styles.reqHead}>
-              <View style={{ flex: 1 }}>
+              <View style={{ flex: 1, minWidth: 0 }}>
                 <Text style={[type.h3, { color: colors.text }]}>Something out of date?</Text>
                 <Text style={[type.small, { color: colors.textMuted, marginTop: 2 }]}>
                   Send the change to the admin — they apply it to your record.
                 </Text>
               </View>
-              <Ionicons name="create-outline" size={22} color={colors.primary} />
+              <Ionicons
+                name="create-outline"
+                size={22}
+                color={colors.primary}
+                style={{ flexShrink: 0 }}
+              />
             </View>
 
-            {requests.loading ? <Loader /> : null}
+            {requests.loading ? (
+              <Bone width="100%" height={64} round={radius.md} style={{ marginTop: spacing.lg }} />
+            ) : null}
             {open ? <RequestStatus request={open} /> : null}
             {!open && lastDecided ? <RequestStatus request={lastDecided} /> : null}
 
@@ -359,7 +384,13 @@ function PreferencesSheet({ visible, onClose }: { visible: boolean; onClose: () 
       subtitle="Turning push off stops alerts — the in-app inbox still fills."
     >
       <View style={{ paddingHorizontal: spacing.lg, gap: spacing.md }}>
-        {prefs.loading ? <Loader /> : null}
+        {prefs.loading ? (
+          <View style={{ gap: spacing.md }}>
+            <Bone width="100%" height={40} round={radius.md} />
+            <Bone width="100%" height={40} round={radius.md} />
+            <Bone width="100%" height={40} round={radius.md} />
+          </View>
+        ) : null}
         {prefs.error ? (
           <Note icon="cloud-offline-outline" tone="danger" text={errorMessage(prefs.error)} />
         ) : null}
@@ -367,7 +398,7 @@ function PreferencesSheet({ visible, onClose }: { visible: boolean; onClose: () 
         {current
           ? rows.map((r) => (
               <View key={r.key} style={styles.prefRow}>
-                <View style={{ flex: 1 }}>
+                <View style={{ flex: 1, minWidth: 0 }}>
                   <Text style={[type.bodyMed, { color: colors.text }]}>{r.label}</Text>
                   <Text style={[type.small, { color: colors.textMuted }]}>{r.hint}</Text>
                 </View>

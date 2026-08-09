@@ -16,14 +16,14 @@ import {
   ErrorState,
   GlassPanel,
   LoadMore,
-  Loader,
   PoweredBy,
 } from '@/components/ui';
+import { SkeletonList } from '@/components/Skeleton';
 import { OutpassCard } from '@/components/OutpassCard';
 import { blur, colors, spacing, type } from '@/theme';
 import { PAGE_SIZE } from '@/constants/config';
 import { parent as parentApi } from '@/lib/api/endpoints';
-import { errorMessage, fromParentPage, usePagedQuery } from '@/lib/api/useQuery';
+import { fromParentPage, usePagedQuery } from '@/lib/api/useQuery';
 import { useRefetchOnFocus } from '@/lib/useFocusRefetch';
 import { statusParam } from '@/lib/status';
 import type { StatusChip } from '@/types';
@@ -85,9 +85,9 @@ export default function ParentHistory() {
       </GlassPanel>
       <Screen>
         {list.loading || !ward ? (
-          <Loader />
+          <SkeletonList count={5} />
         ) : list.error ? (
-          <ErrorState message={errorMessage(list.error)} onRetry={list.refetch} />
+          <ErrorState error={list.error} onRetry={list.refetch} />
         ) : (
           <>
             <Text style={[type.small, { color: colors.textMuted }]}>

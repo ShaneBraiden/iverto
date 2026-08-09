@@ -23,12 +23,11 @@ import {
   ErrorState,
   Field,
   IconTile,
-  Loader,
-  Note,
   PoweredBy,
   SectionHeader,
   StatCard,
 } from '@/components/ui';
+import { SkeletonRows, SkeletonStats } from '@/components/Skeleton';
 import { useApp, useLivePermissions } from '@/components/AppContext';
 import { colors, glassFill, radius, shadow, spacing, type } from '@/theme';
 import { activityIcon, ANNOUNCEMENT_AUDIENCES } from '@/constants/config';
@@ -156,20 +155,28 @@ export default function AdminHome() {
           <View style={{ gap: spacing.sm }}>
             {alerts.map((a) => (
               <View key={a.id} style={styles.alert}>
-                <Ionicons name="warning" size={18} color={colors.danger} />
-                <View style={{ flex: 1 }}>
-                  <Text style={[type.smallMed, { color: colors.danger }]}>
+                <Ionicons
+                  name="warning"
+                  size={18}
+                  color={colors.danger}
+                  style={{ flexShrink: 0, marginTop: 2 }}
+                />
+                <View style={{ flex: 1, minWidth: 0, gap: 2 }}>
+                  <Text style={[type.smallMed, { color: colors.danger }]} numberOfLines={2}>
                     {a.category.toUpperCase()} · {a.student?.name ?? a.studentId}
                   </Text>
+                  {/* The guardian's own words — never clipped, this is what the
+                      warden acts on. */}
                   <Text style={[type.small, { color: colors.textMuted }]}>{a.message}</Text>
                   {a.contactPhone ? (
-                    <Text style={[type.small, { color: colors.textFaint }]}>
+                    <Text style={[type.small, { color: colors.textFaint }]} numberOfLines={2}>
                       Call back on {a.contactPhone} · raised {timeAgo(a.createdAt)}
                     </Text>
                   ) : null}
                 </View>
                 <Pressable
                   hitSlop={8}
+                  style={{ flexShrink: 0 }}
                   disabled={resolve.pending}
                   onPress={() =>
                     Alert.alert('Resolve this alert?', a.message, [
@@ -186,9 +193,9 @@ export default function AdminHome() {
         ) : null}
 
         {loading ? (
-          <Loader />
+          <SkeletonStats count={4} columns={2} />
         ) : error ? (
-          <ErrorState message={errorMessage(error)} onRetry={refresh} />
+          <ErrorState error={error} onRetry={refresh} />
         ) : (
           <View style={{ gap: spacing.md }}>
             <View style={{ flexDirection: 'row', gap: spacing.md }}>
@@ -249,10 +256,10 @@ export default function AdminHome() {
           <SectionHeader title="Recent activity" />
           <Card padded={false}>
             {activity.loading ? (
-              <Loader />
+              <SkeletonRows count={5} />
             ) : activity.error ? (
               <View style={{ padding: spacing.lg }}>
-                <ErrorState message={errorMessage(activity.error)} onRetry={activity.refetch} />
+                <ErrorState error={activity.error} onRetry={activity.refetch} />
               </View>
             ) : rows.length === 0 ? (
               <EmptyState
@@ -265,8 +272,14 @@ export default function AdminHome() {
                 <View key={a.id}>
                   <View style={styles.activityRow}>
                     <IconTile icon={activityIcon(a.action) as IconName} size={32} />
-                    <Text style={[type.small, { color: colors.text, flex: 1 }]}>{a.summary}</Text>
-                    <Text style={[type.small, { color: colors.textFaint }]}>{timeAgo(a.at)}</Text>
+                    <Text style={[type.small, { color: colors.text, flex: 1 }]} numberOfLines={3}>
+                      {a.summary}
+                    </Text>
+                    {/* The relative time is short and fixed — it holds its
+                        width and the summary wraps around it. */}
+                    <Text style={[type.small, { color: colors.textFaint, flexShrink: 0 }]}>
+                      {timeAgo(a.at)}
+                    </Text>
                   </View>
                   {i < rows.length - 1 ? (
                     <View style={{ height: 1, backgroundColor: colors.border, marginLeft: 60 }} />
@@ -372,8 +385,13 @@ function AnnounceSheet({ visible, onClose }: { visible: boolean; onClose: () => 
             <Text style={[type.caption, { color: colors.textFaint }]}>RECENTLY SENT</Text>
             {history.data.slice(0, 5).map((a) => (
               <View key={a.id} style={styles.sentRow}>
-                <Ionicons name="megaphone-outline" size={14} color={colors.textMuted} />
-                <View style={{ flex: 1 }}>
+                <Ionicons
+                  name="megaphone-outline"
+                  size={14}
+                  color={colors.textMuted}
+                  style={{ flexShrink: 0 }}
+                />
+                <View style={{ flex: 1, minWidth: 0 }}>
                   <Text style={[type.smallMed, { color: colors.text }]} numberOfLines={1}>
                     {a.title}
                   </Text>
@@ -418,7 +436,9 @@ const styles = StyleSheet.create({
   },
   activityRow: {
     flexDirection: 'row',
-    alignItems: 'center',
+    /* Top-aligned: a summary that wraps to three lines should keep its icon
+       and its timestamp level with the first one, not floating in the middle. */
+    alignItems: 'flex-start',
     gap: spacing.md,
     padding: spacing.lg,
   },

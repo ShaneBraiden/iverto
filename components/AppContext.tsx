@@ -15,6 +15,7 @@ import { appConfig as configApi, me as meApi, notifications as notificationApi }
 import { useQuery } from '@/lib/api/useQuery';
 import { connectLive, disconnectLive, onLive } from '@/lib/live';
 import { loadSession } from '@/lib/session';
+import { watchTokenRefresh } from '@/lib/push';
 import { useAuth } from '@/lib/auth';
 import { DEFAULT_APP_NAME } from '@/constants/config';
 import type { AppConfig, Branding } from '@/types';
@@ -52,7 +53,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   }, [unreadQuery.data]);
 
   /* One socket per session. The token is read back from the keystore rather
-     than threaded through context, so this stays independent of sign-in order. */
+     than threaded through context, so this stays independent of sign-in order.
+     The FCM token listener has the same lifetime: FCM rotates tokens on app
+     restore, a data clear, or ~270 days idle, and a rotated token nobody
+     re-registers means the device goes quiet with no visible error. */
   useEffect(() => {
     if (!signedIn) {
       disconnectLive();
@@ -61,6 +65,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
     let alive = true;
     let unsubscribe: (() => void) | undefined;
+    const tokenSub = watchTokenRefresh();
 
     void loadSession().then((stored) => {
       if (!alive || !stored?.accessToken) return;
@@ -71,6 +76,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     return () => {
       alive = false;
       unsubscribe?.();
+      tokenSub.remove();
       disconnectLive();
     };
   }, [signedIn]);

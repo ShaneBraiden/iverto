@@ -131,11 +131,118 @@ export function useMutation<TArgs extends unknown[], TResult>(
   return { mutate, pending, error, reset };
 }
 
-/** Human-readable message for anything thrown by the client. */
+/* ------------------------------------------------------------ Error copy */
+
+/**
+ * What a failure looks like on screen.
+ *
+ * The server's own `message` is the right thing to show when it describes
+ * something the user did — a validation failure, a duplicate request, a rule
+ * they broke. It is the wrong thing to show for everything else: a dropped
+ * connection surfaces as "Network request failed", a 500 as "Internal server
+ * error", an unrouted path as "Cannot GET /v1/mobile/…". None of those tell
+ * anyone what to do next, so those cases are worded here instead.
+ */
+export type ErrorCopy = {
+  title: string;
+  message: string;
+  /** Ionicons name. */
+  icon: string;
+  /** False when trying the exact same thing again cannot possibly help. */
+  canRetry: boolean;
+};
+
+export function errorCopy(error: unknown, fallback?: string): ErrorCopy {
+  const status = errorStatus(error);
+  const code = errorCode(error);
+  const raw = error instanceof Error ? error.message : '';
+
+  if (code === 'NETWORK' || status === 0) {
+    return {
+      title: "You're offline",
+      message:
+        "This device can't reach Iverto.ai right now. Check your Wi-Fi or mobile data, then try again.",
+      icon: 'cloud-offline-outline',
+      canRetry: true,
+    };
+  }
+
+  if (code === 'TIMEOUT') {
+    return {
+      title: 'That took too long',
+      message:
+        'The server did not answer in time. It may be busy, or the connection may be weak — try again in a moment.',
+      icon: 'time-outline',
+      canRetry: true,
+    };
+  }
+
+  if (status === 401 || code === 'UNAUTHORIZED') {
+    return {
+      title: 'Your session ended',
+      message: 'You have been signed out. Sign in again to carry on.',
+      icon: 'log-out-outline',
+      canRetry: false,
+    };
+  }
+
+  if (status === 403 || code === 'FORBIDDEN') {
+    return {
+      title: 'Not yours to see',
+      message:
+        "This account doesn't have access to that. If you think it should, the campus office can check your record.",
+      icon: 'lock-closed-outline',
+      canRetry: false,
+    };
+  }
+
+  if (status === 404 || code === 'NOT_FOUND') {
+    return {
+      title: 'Not found',
+      message: fallback ?? "That record isn't there any more. It may have been removed or cancelled.",
+      icon: 'help-circle-outline',
+      canRetry: false,
+    };
+  }
+
+  if (status === 429 || code === 'TOO_MANY_REQUESTS') {
+    return {
+      title: 'Slow down a moment',
+      message: 'That was sent a few too many times in a row. Give it five seconds and try again.',
+      icon: 'hourglass-outline',
+      canRetry: true,
+    };
+  }
+
+  if (status !== undefined && status >= 500) {
+    return {
+      title: 'The server had a problem',
+      message:
+        "Nothing you did — the campus server failed to answer. It usually clears on its own; try again in a moment.",
+      icon: 'server-outline',
+      canRetry: true,
+    };
+  }
+
+  /* Everything left is the server describing something concrete about this
+     request, which is worth showing verbatim. */
+  return {
+    title: "Couldn't load this",
+    message: raw || fallback || 'Something went wrong. Try again.',
+    icon: 'alert-circle-outline',
+    canRetry: true,
+  };
+}
+
+/**
+ * Human-readable message for anything thrown by the client.
+ *
+ * Goes through `errorCopy`, so an offline phone reads the same sentence
+ * wherever the failure happens to surface — a full-screen error state, a note
+ * under a form, or an alert after a button press.
+ */
 export function errorMessage(error: unknown, fallback = 'Something went wrong.') {
-  if (error instanceof ApiError) return error.message;
-  if (error instanceof Error) return error.message || fallback;
-  return fallback;
+  return errorCopy(error, fallback).message;
 }
 
 /** The documented error code, for branching on a specific failure. */

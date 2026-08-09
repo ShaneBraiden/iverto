@@ -59,7 +59,7 @@ export function WardSwitcher({
             >
               <Avatar size={44} icon="school-outline" />
 
-              <View style={{ flex: 1 }}>
+              <View style={{ flex: 1, minWidth: 0 }}>
                 <Text style={[type.bodyMed, { color: colors.text }]} numberOfLines={1}>
                   {w.name}
                 </Text>
@@ -115,7 +115,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.glass,
   },
   rowActive: { borderColor: colors.primary, backgroundColor: colors.primarySoft },
-  tagRow: { flexDirection: 'row', gap: 6, marginTop: 6 },
+  tagRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 6 },
   tag: {
     paddingHorizontal: spacing.sm,
     paddingVertical: 2,

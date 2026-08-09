@@ -1,11 +1,12 @@
-import React, { useCallback } from 'react';
+import React, { useCallback, useEffect, useRef } from 'react';
 import { View, StyleSheet } from 'react-native';
-import { Stack } from 'expo-router';
+import { Stack, useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as SplashScreen from 'expo-splash-screen';
+import * as Notifications from 'expo-notifications';
 // Imported one weight at a time. The package's root barrel `require()`s all 18
 // Poppins faces, and Metro bundles every asset it sees a require for — so the
 // barrel would ship ~2.7 MB of weights and italics this app never renders.
@@ -15,10 +16,28 @@ import { Poppins_500Medium } from '@expo-google-fonts/poppins/500Medium';
 import { Poppins_600SemiBold } from '@expo-google-fonts/poppins/600SemiBold';
 import { Poppins_700Bold } from '@expo-google-fonts/poppins/700Bold';
 import { colors } from '@/theme';
-import { AuthProvider } from '@/lib/auth';
+import { AuthProvider, useAuth } from '@/lib/auth';
 import { AppProvider } from '@/components/AppContext';
+import { routeForUri, uriFromNotification } from '@/lib/push';
 
 SplashScreen.preventAutoHideAsync().catch(() => {});
+
+/* Module scope, so it is installed before any listener can fire.
+
+   The socket (lib/live.ts) already updates the screen the user is looking at, so a banner
+   on top of it is redundant for the current screen — but a push about a *different* pass
+   still deserves one. Showing it is the lesser evil; suppressing per-screen is not worth
+   the bookkeeping.
+
+   The badge stays off here on purpose: AppContext already increments `unread` from the
+   socket's `notification:new`, and counting it twice is worse than not counting it here. */
+Notifications.setNotificationHandler({
+  handleNotification: async () => ({
+    shouldShowAlert: true,
+    shouldPlaySound: true,
+    shouldSetBadge: false,
+  }),
+});
 
 /**
  * Soft colour blooms behind the glass. They give the translucent surfaces
@@ -32,6 +51,56 @@ function Canvas() {
       <View style={[styles.bloom, styles.bloomBottom, { backgroundColor: colors.bloomB }]} />
     </View>
   );
+}
+
+/**
+ * Sends a notification tap to the screen it is about.
+ *
+ * Rendered inside `<AuthProvider>` because it needs `useAuth()` — and because routing to
+ * `/outpass/<id>` before the session restores would bounce off the auth guard anyway.
+ */
+function PushRouting() {
+  const router = useRouter();
+  const { shell, restoring, user } = useAuth();
+  /* `getLastNotificationResponseAsync` keeps answering with the same launch response for
+     the life of the process, so without this latch the cold-start route fires again every
+     time `shell` settles. */
+  const handled = useRef<string | null>(null);
+
+  useEffect(() => {
+    /* Hold every deep link until the keystore has been read. `shell` is 'student' by
+       default while restoring, so routing now would send a guardian to the student
+       endpoint — the same 403 the `?role=` param exists to avoid. */
+    if (restoring || !user) return;
+
+    let alive = true;
+
+    const go = (response: Notifications.NotificationResponse) => {
+      const id = response.notification.request.identifier;
+      if (handled.current === id) return;
+      const route = routeForUri(uriFromNotification(response.notification), shell);
+      if (!route) return;
+      handled.current = id;
+      router.push(route);
+    };
+
+    /* Cold start: the tap that launched the process is never delivered to the listener
+       below, only to this. Without it, tapping a push on a killed app opens the home
+       screen and drops the deep link. */
+    void Notifications.getLastNotificationResponseAsync().then((response) => {
+      if (alive && response) go(response);
+    });
+
+    /* Warm start: app already running, foreground or background. */
+    const sub = Notifications.addNotificationResponseReceivedListener(go);
+
+    return () => {
+      alive = false;
+      sub.remove();
+    };
+  }, [router, shell, restoring, user]);
+
+  return null;
 }
 
 export default function RootLayout() {
@@ -61,6 +130,7 @@ export default function RootLayout() {
               three need a token before they can be fetched. */}
           <AuthProvider>
             <AppProvider>
+              <PushRouting />
               <Stack
                 screenOptions={{
                   headerShown: false,

@@ -5,10 +5,11 @@ import { router } from 'expo-router';
 import { ProfileBody } from '@/components/ProfileBody';
 import { Sheet } from '@/components/Sheet';
 import { useAdmin } from '@/components/AdminContext';
-import { Avatar, Chip, Divider, ErrorState, ListTile, Loader } from '@/components/ui';
+import { Avatar, Chip, Divider, ErrorState, ListTile } from '@/components/ui';
+import { Bone } from '@/components/Skeleton';
 import { colors, radius, spacing, type } from '@/theme';
 import { admin as adminApi } from '@/lib/api/endpoints';
-import { errorMessage, useQuery } from '@/lib/api/useQuery';
+import { useQuery } from '@/lib/api/useQuery';
 import { displayName, useAuth } from '@/lib/auth';
 
 export default function AdminProfile() {
@@ -130,17 +131,23 @@ function RolesSheet({
       }
     >
       <View style={{ paddingHorizontal: spacing.lg, gap: spacing.md, paddingBottom: spacing.lg }}>
-        {roles.loading ? <Loader /> : null}
-        {roles.error ? (
-          <ErrorState message={errorMessage(roles.error)} onRetry={roles.refetch} />
+        {roles.loading ? (
+          <View style={{ gap: spacing.md }}>
+            <Bone width="100%" height={72} round={radius.md} />
+            <Bone width="100%" height={72} round={radius.md} />
+            <Bone width="100%" height={72} round={radius.md} />
+          </View>
         ) : null}
+        {roles.error ? <ErrorState error={roles.error} onRetry={roles.refetch} /> : null}
 
         {roles.data?.roles.map((r) => (
           <View key={String(r.role)} style={styles.roleBox}>
             <View style={styles.roleTop}>
-              <Text style={[type.bodyMed, { color: colors.text, flex: 1 }]}>{r.label}</Text>
+              <Text style={[type.bodyMed, { color: colors.text, flex: 1 }]} numberOfLines={2}>
+                {r.label}
+              </Text>
               <View style={styles.countTag}>
-                <Text style={[type.caption, { color: colors.primary }]}>
+                <Text style={[type.caption, { color: colors.primary }]} numberOfLines={1}>
                   {r.members} MEMBER{r.members === 1 ? '' : 'S'}
                 </Text>
               </View>
@@ -159,7 +166,7 @@ function RolesSheet({
             {roles.data.staff.map((s) => (
               <View key={s.userId} style={styles.staffRow}>
                 <Avatar size={36} icon="person-outline" />
-                <View style={{ flex: 1 }}>
+                <View style={{ flex: 1, minWidth: 0 }}>
                   <Text style={[type.smallMed, { color: colors.text }]} numberOfLines={1}>
                     {s.displayName ?? s.email ?? s.userId}
                   </Text>
@@ -203,6 +210,7 @@ const styles = StyleSheet.create({
     paddingVertical: 2,
     borderRadius: radius.pill,
     backgroundColor: colors.primarySoft,
+    flexShrink: 0,
   },
   staffRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.md },
 });

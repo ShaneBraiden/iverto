@@ -27,10 +27,10 @@ import {
   Checkbox,
   ErrorState,
   Field,
-  Loader,
   Note,
   PoweredBy,
 } from '@/components/ui';
+import { SkeletonForm } from '@/components/Skeleton';
 import { colors, radius, spacing, type } from '@/theme';
 import { DEFAULT_FIELD_ICON, FIELD_ICONS } from '@/constants/config';
 import { profileRequests as profileRequestApi } from '@/lib/api/endpoints';
@@ -128,12 +128,9 @@ export default function ProfileRequestScreen() {
           extraBottomSpace={96}
         >
           {fieldsQuery.loading ? (
-            <Loader label="Loading what you can change…" />
+            <SkeletonForm fields={5} />
           ) : fieldsQuery.error ? (
-            <ErrorState
-              message={errorMessage(fieldsQuery.error)}
-              onRetry={fieldsQuery.refetch}
-            />
+            <ErrorState error={fieldsQuery.error} onRetry={fieldsQuery.refetch} />
           ) : pending ? (
             /* One open request at a time — showing the form here would only
                earn a 409 on submit. */
@@ -150,13 +147,17 @@ export default function ProfileRequestScreen() {
                 <View style={{ gap: spacing.sm, marginTop: spacing.md }}>
                   {Object.entries(pending.changes ?? {}).map(([field, change]) => (
                     <View key={field} style={styles.summaryRow}>
-                      <Text style={[type.small, { color: colors.textMuted, width: 110 }]}>
+                      <Text style={[type.small, { color: colors.textMuted, width: 96, flexShrink: 0 }]}>
                         {fields.find((f) => f.field === field)?.label ?? field}
                       </Text>
                       <Text
                         style={[
                           type.small,
-                          { color: colors.textFaint, textDecorationLine: 'line-through' },
+                          {
+                            color: colors.textFaint,
+                            textDecorationLine: 'line-through',
+                            flex: 1,
+                          },
                         ]}
                         numberOfLines={1}
                       >
@@ -206,8 +207,10 @@ export default function ProfileRequestScreen() {
                             size={18}
                             color={on ? colors.primary : colors.textMuted}
                           />
-                          <View style={{ flex: 1 }}>
-                            <Text style={[type.bodyMed, { color: colors.text }]}>{f.label}</Text>
+                          <View style={{ flex: 1, minWidth: 0 }}>
+                            <Text style={[type.bodyMed, { color: colors.text }]} numberOfLines={2}>
+                              {f.label}
+                            </Text>
                             <Text
                               style={[type.small, { color: colors.textMuted }]}
                               numberOfLines={1}
@@ -266,7 +269,7 @@ export default function ProfileRequestScreen() {
                   size={20}
                   color={colors.primary}
                 />
-                <View style={{ flex: 1 }}>
+                <View style={{ flex: 1, minWidth: 0 }}>
                   <Text style={[type.smallMed, { color: colors.text }]} numberOfLines={1}>
                     {attaching
                       ? 'Uploading…'
@@ -274,7 +277,7 @@ export default function ProfileRequestScreen() {
                         ? `${attachment.name} attached`
                         : 'Attach supporting proof'}
                   </Text>
-                  <Text style={[type.small, { color: colors.textFaint }]}>
+                  <Text style={[type.small, { color: colors.textFaint }]} numberOfLines={2}>
                     Optional · speeds up approval for phone and address changes
                   </Text>
                 </View>
@@ -297,13 +300,17 @@ export default function ProfileRequestScreen() {
                       const f = fields.find((x) => x.field === key)!;
                       return (
                         <View key={key} style={styles.summaryRow}>
-                          <Text style={[type.small, { color: colors.textMuted, width: 110 }]}>
+                          <Text style={[type.small, { color: colors.textMuted, width: 96, flexShrink: 0 }]}>
                             {f.label}
                           </Text>
                           <Text
                             style={[
                               type.small,
-                              { color: colors.textFaint, textDecorationLine: 'line-through' },
+                              {
+                                color: colors.textFaint,
+                                textDecorationLine: 'line-through',
+                                flex: 1,
+                              },
                             ]}
                             numberOfLines={1}
                           >
@@ -394,5 +401,9 @@ const styles = StyleSheet.create({
     borderColor: colors.primary,
     backgroundColor: colors.primarySoft,
   },
+  /* Fixed label column, then the old and new values splitting what is left
+     evenly. Letting the old value size to its content and the new one take the
+     remainder collapsed the new one to nothing whenever the old was long —
+     which is the half the admin actually has to read. */
   summaryRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
 });

@@ -11,23 +11,17 @@
  * arrives here or on the lock screen.
  */
 import React from 'react';
-import { View, Text, StyleSheet, Pressable } from 'react-native';
+import { View, Text, StyleSheet } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { router } from 'expo-router';
 import { Screen, TopBar } from '@/components/Screen';
-import {
-  Card,
-  EmptyState,
-  ErrorState,
-  LoadMore,
-  Loader,
-  PoweredBy,
-} from '@/components/ui';
+import { Card, EmptyState, ErrorState, LoadMore, PoweredBy } from '@/components/ui';
+import { SkeletonList } from '@/components/Skeleton';
 import { useApp } from '@/components/AppContext';
 import { colors, radius, spacing, type } from '@/theme';
 import { PAGE_SIZE } from '@/constants/config';
 import { notifications as notificationApi } from '@/lib/api/endpoints';
-import { errorMessage, fromPage, usePagedQuery, useMutation } from '@/lib/api/useQuery';
+import { fromPage, usePagedQuery, useMutation } from '@/lib/api/useQuery';
 import { timeAgo } from '@/lib/datetime';
 import { shellFor, useAuth } from '@/lib/auth';
 import type { AppNotification } from '@/types';
@@ -102,9 +96,9 @@ export default function Notifications() {
       />
       <Screen clearTabBar={false}>
         {list.loading ? (
-          <Loader />
+          <SkeletonList count={6} />
         ) : list.error ? (
-          <ErrorState message={errorMessage(list.error)} onRetry={list.refetch} />
+          <ErrorState error={list.error} onRetry={list.refetch} />
         ) : rows.length === 0 ? (
           <EmptyState
             icon="notifications-off-outline"
@@ -126,7 +120,7 @@ export default function Notifications() {
                           color={unread ? colors.primary : colors.textMuted}
                         />
                       </View>
-                      <View style={{ flex: 1, gap: 2 }}>
+                      <View style={{ flex: 1, minWidth: 0, gap: 2 }}>
                         <Text
                           style={[
                             unread ? type.bodyMed : type.body,
@@ -136,7 +130,7 @@ export default function Notifications() {
                         >
                           {n.title}
                         </Text>
-                        <Text style={[type.small, { color: colors.textMuted }]} numberOfLines={3}>
+                        <Text style={[type.small, { color: colors.textMuted }]} numberOfLines={4}>
                           {n.body}
                         </Text>
                         <Text style={[type.small, { color: colors.textFaint }]}>
@@ -174,6 +168,7 @@ const styles = StyleSheet.create({
   icon: {
     width: 38,
     height: 38,
+    flexShrink: 0,
     borderRadius: radius.md,
     backgroundColor: colors.neutralBg,
     alignItems: 'center',

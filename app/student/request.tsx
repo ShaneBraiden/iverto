@@ -16,7 +16,8 @@ import { View, Text, StyleSheet, Pressable, TextInput } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { router } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Button, Card, Chip, Field, Loader, Note, PoweredBy, Row } from '@/components/ui';
+import { Button, Card, Chip, Field, Note, PoweredBy, Row } from '@/components/ui';
+import { SkeletonChips } from '@/components/Skeleton';
 import { TopBar } from '@/components/Screen';
 import { DateSheet, TimeSheet } from '@/components/DateTimeSheet';
 import { KeyboardAwareScroll, useKeyboardVisible } from '@/components/KeyboardAware';
@@ -141,7 +142,7 @@ export default function NewRequest() {
           <View style={{ gap: spacing.md }}>
             <Text style={[type.smallMed, { color: colors.textMuted }]}>Category</Text>
             {categoriesQuery.loading ? (
-              <Loader />
+              <SkeletonChips count={4} />
             ) : categoriesQuery.error ? (
               <Note
                 icon="cloud-offline-outline"
@@ -272,11 +273,13 @@ export default function NewRequest() {
               size={20}
               color={colors.primary}
             />
-            <View style={{ flex: 1 }}>
+            <View style={{ flex: 1, minWidth: 0 }}>
+              {/* A picked filename is arbitrary and often long — it truncates
+                  from the tail rather than widening the dashed box. */}
               <Text style={[type.smallMed, { color: colors.text }]} numberOfLines={1}>
                 {attaching ? 'Uploading…' : (attachment?.name ?? 'Attach supporting document')}
               </Text>
-              <Text style={[type.small, { color: colors.textFaint }]}>
+              <Text style={[type.small, { color: colors.textFaint }]} numberOfLines={2}>
                 {category?.requiresSupportingDoc ? 'Required' : 'Optional'} · PDF or image, max 5 MB
               </Text>
             </View>
@@ -365,17 +368,24 @@ function PickerBox({
 }) {
   return (
     <Pressable style={styles.picker} onPress={onPress}>
-      <Ionicons name={icon} size={18} color={colors.primary} />
-      <View>
-        <Text style={[type.caption, { color: colors.textFaint }]}>{label.toUpperCase()}</Text>
-        <Text style={[type.smallMed, { color: colors.text }]}>{value}</Text>
+      <Ionicons name={icon} size={18} color={colors.primary} style={{ flexShrink: 0 }} />
+      {/* Two of these share a row, so each has half the screen for a formatted
+          date — "Mon, 12 Feb 2026" has to be allowed to shrink to fit rather
+          than shoulder the caret out of the box. */}
+      <View style={{ flex: 1, minWidth: 0 }}>
+        <Text style={[type.caption, { color: colors.textFaint }]} numberOfLines={1}>
+          {label.toUpperCase()}
+        </Text>
+        <Text
+          style={[type.smallMed, { color: colors.text }]}
+          numberOfLines={1}
+          adjustsFontSizeToFit
+          minimumFontScale={0.8}
+        >
+          {value}
+        </Text>
       </View>
-      <Ionicons
-        name="chevron-down"
-        size={16}
-        color={colors.textFaint}
-        style={{ marginLeft: 'auto' }}
-      />
+      <Ionicons name="chevron-down" size={16} color={colors.textFaint} style={{ flexShrink: 0 }} />
     </Pressable>
   );
 }
@@ -387,7 +397,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.sm,
-    height: 58,
+    minHeight: 58,
+    paddingVertical: spacing.sm,
     paddingHorizontal: spacing.md,
     borderRadius: radius.lg,
     borderWidth: 1,

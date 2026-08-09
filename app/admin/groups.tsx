@@ -21,11 +21,11 @@ import {
   EmptyState,
   ErrorState,
   Field,
-  Loader,
   Note,
   PoweredBy,
   SectionHeader,
 } from '@/components/ui';
+import { SkeletonList } from '@/components/Skeleton';
 import { colors, font, radius, spacing, type } from '@/theme';
 import { SHAPE_RADIUS } from '@/constants/config';
 import { admin as adminApi } from '@/lib/api/endpoints';
@@ -101,9 +101,9 @@ export default function Groups() {
         </ScrollView>
 
         {groups.loading ? (
-          <Loader />
+          <SkeletonList count={4} />
         ) : groups.error ? (
-          <ErrorState message={errorMessage(groups.error)} onRetry={groups.refetch} />
+          <ErrorState error={groups.error} onRetry={groups.refetch} />
         ) : (
           <View>
             <SectionHeader
@@ -130,15 +130,24 @@ export default function Groups() {
                       >
                         <Text style={styles.appIconText}>{g.iconLabel || 'IV'}</Text>
                       </LinearGradient>
-                      <View style={{ flex: 1, gap: 2 }}>
-                        <Text style={[type.bodyMed, { color: colors.text }]}>{g.name}</Text>
+                      <View style={{ flex: 1, minWidth: 0, gap: 2 }}>
+                        <Text style={[type.bodyMed, { color: colors.text }]} numberOfLines={2}>
+                          {g.name}
+                        </Text>
                         <View style={styles.metaRow}>
                           <Ionicons
                             name="phone-portrait-outline"
                             size={12}
                             color={colors.textMuted}
+                            style={{ flexShrink: 0 }}
                           />
-                          <Text style={[type.small, { color: colors.textMuted }]}>
+                          {/* The app name is admin-authored and capped at 14
+                              characters server-side, but the BRANDED tag beside
+                              it must survive one that is not. */}
+                          <Text
+                            style={[type.small, { color: colors.textMuted, flexShrink: 1 }]}
+                            numberOfLines={1}
+                          >
                             {g.appName}
                           </Text>
                           {g.hasCustomBranding ? (
@@ -147,12 +156,17 @@ export default function Groups() {
                             </View>
                           ) : null}
                         </View>
-                        <Text style={[type.small, { color: colors.textFaint }]}>
+                        <Text style={[type.small, { color: colors.textFaint }]} numberOfLines={1}>
                           {g.memberCount} member{g.memberCount === 1 ? '' : 's'} ·{' '}
                           {timeAgo(g.updatedAt)}
                         </Text>
                       </View>
-                      <Ionicons name="chevron-forward" size={18} color={colors.textFaint} />
+                      <Ionicons
+                        name="chevron-forward"
+                        size={18}
+                        color={colors.textFaint}
+                        style={{ flexShrink: 0 }}
+                      />
                     </View>
                   </Card>
                 ))}
@@ -210,10 +224,12 @@ const styles = StyleSheet.create({
     paddingVertical: 1,
     borderRadius: radius.pill,
     backgroundColor: colors.primarySoft,
+    flexShrink: 0,
   },
   appIcon: {
     width: 54,
     height: 54,
+    flexShrink: 0,
     alignItems: 'center',
     justifyContent: 'center',
   },

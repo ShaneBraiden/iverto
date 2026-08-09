@@ -21,15 +21,15 @@ import {
   EmptyState,
   ErrorState,
   LoadMore,
-  Loader,
   Note,
   PoweredBy,
   Row,
 } from '@/components/ui';
+import { SkeletonList } from '@/components/Skeleton';
 import { colors, radius, spacing, type } from '@/theme';
 import { PAGE_SIZE } from '@/constants/config';
 import { parent as parentApi } from '@/lib/api/endpoints';
-import { errorMessage, usePagedQuery } from '@/lib/api/useQuery';
+import { usePagedQuery } from '@/lib/api/useQuery';
 import { formatMinutes, isoToDate, isoToTime } from '@/lib/datetime';
 import type { LateEntry } from '@/types';
 
@@ -81,9 +81,9 @@ export default function LateEntries() {
           bar is on screen and the content has to clear it. */}
       <Screen>
         {list.loading || !ward ? (
-          <Loader />
+          <SkeletonList count={3} avatar={false} />
         ) : list.error ? (
-          <ErrorState message={errorMessage(list.error)} onRetry={list.refetch} />
+          <ErrorState error={list.error} onRetry={list.refetch} />
         ) : entries.length === 0 ? (
           <EmptyState
             icon="checkmark-done-outline"
@@ -127,33 +127,59 @@ function EntryCard({ entry }: { entry: LateEntry }) {
   return (
     <Card>
       <View style={styles.head}>
-        <View style={{ flex: 1 }}>
-          <Text style={[type.caption, { color: colors.primary }]}>
+        <View style={{ flex: 1, minWidth: 0 }}>
+          <Text style={[type.caption, { color: colors.primary }]} numberOfLines={2}>
             {entry.severity.toUpperCase()}
             {entry.resolution ? ` · ${entry.resolution.toUpperCase()}` : ''}
           </Text>
-          <Text style={[type.bodyMed, { color: colors.text, marginTop: 2 }]}>
+          <Text style={[type.bodyMed, { color: colors.text, marginTop: 2 }]} numberOfLines={1}>
             {isoToDate(entry.date)}
           </Text>
         </View>
+        {/* `delayLabel` is the server's phrasing ("2 h 40 m late"), so its
+            length is not ours to assume. */}
         <View style={[styles.sev, { backgroundColor: bg }]}>
-          <Ionicons name={major ? 'alert-circle' : 'time'} size={12} color={fg} />
-          <Text style={[type.caption, { color: fg }]}>{delayText(entry).toUpperCase()}</Text>
+          <Ionicons
+            name={major ? 'alert-circle' : 'time'}
+            size={12}
+            color={fg}
+            style={{ flexShrink: 0 }}
+          />
+          <Text style={[type.caption, { color: fg, flexShrink: 1 }]} numberOfLines={1}>
+            {delayText(entry).toUpperCase()}
+          </Text>
         </View>
       </View>
 
       {/* Expected vs actual, side by side — the whole point of the screen. */}
       <View style={styles.timeRow}>
+        {/* Two boxes of equal width with an arrow between. The times are short
+            but the server decides their format, so each shrinks its own type
+            rather than letting one box grow and unbalance the pair. */}
         <View style={styles.timeBox}>
           <Text style={[type.caption, { color: colors.textFaint }]}>DUE BACK</Text>
-          <Text style={[type.h3, { color: colors.text }]}>{entry.dueBackAt ?? '—'}</Text>
+          <Text
+            style={[type.h3, { color: colors.text }]}
+            numberOfLines={1}
+            adjustsFontSizeToFit
+            minimumFontScale={0.7}
+          >
+            {entry.dueBackAt ?? '—'}
+          </Text>
         </View>
         <View style={styles.arrow}>
           <Ionicons name="arrow-forward" size={16} color={fg} />
         </View>
         <View style={[styles.timeBox, { backgroundColor: bg, borderColor: 'transparent' }]}>
           <Text style={[type.caption, { color: fg }]}>SCANNED IN</Text>
-          <Text style={[type.h3, { color: fg }]}>{isoToTime(entry.scannedInAt)}</Text>
+          <Text
+            style={[type.h3, { color: fg }]}
+            numberOfLines={1}
+            adjustsFontSizeToFit
+            minimumFontScale={0.7}
+          >
+            {isoToTime(entry.scannedInAt)}
+          </Text>
         </View>
       </View>
 
@@ -192,6 +218,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.md,
     paddingVertical: 5,
     borderRadius: radius.pill,
+    flexShrink: 1,
+    maxWidth: '55%',
   },
   timeRow: {
     flexDirection: 'row',
@@ -208,7 +236,7 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
     backgroundColor: colors.glassSoft,
   },
-  arrow: { alignItems: 'center', justifyContent: 'center' },
+  arrow: { alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
   reasonBox: {
     marginTop: spacing.md,
     padding: spacing.md,

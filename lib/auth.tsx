@@ -37,6 +37,12 @@ import {
   updateStoredTokens,
   updateStoredUser,
 } from '@/lib/session';
+import {
+  currentPushToken,
+  forgetPushToken,
+  registerForPush,
+  unregisterForPush,
+} from '@/lib/push';
 import type { AuthUser, Linkage, Me, Role, Session, Shell } from '@/types';
 
 /**
@@ -208,6 +214,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             /* 401 is handled globally; anything else leaves the cached user in
                place so the app still opens. */
           });
+
+        /* Re-registering the same token is a refresh, not a duplicate
+           (mobile-api-documentation.md §8), so doing this on every launch is
+           correct and is what keeps `lastSeenAt` warm. */
+        void registerForPush();
       }
       setRestoring(false);
     })();
@@ -268,15 +279,32 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       );
     }
 
+    /* Fire-and-forget, and deliberately after the guard above: a denied notification
+       permission must not hold up landing on the dashboard, and there is no point
+       registering a token against a session the server just rejected. */
+    void registerForPush();
+
     return routeFor(session.user, session.linkage);
   }, []);
 
   const signOut = useCallback(async () => {
+    const pushToken = currentPushToken();
+    let loggedOut = false;
     try {
-      await authApi.logout();
+      /* Passing the token disables it server-side in the same round trip — one call
+         instead of logout plus DELETE /push/token. Without it the server keeps
+         pushing to a device nobody is signed in on. */
+      await authApi.logout(pushToken ?? undefined);
+      loggedOut = true;
     } catch {
       /* Signing out locally matters more than the server acknowledging it. */
     }
+
+    /* The DELETE is a fallback, not a follow-up: after a successful logout the token is
+       already disabled and the session is gone, so calling it would 401, attempt a
+       refresh, and fire the global "session expired" handler on a deliberate sign-out. */
+    if (loggedOut) forgetPushToken();
+    else await unregisterForPush();
     clear();
     setSessionEnd({ reason: 'signed-out', at: Date.now() });
   }, [clear]);

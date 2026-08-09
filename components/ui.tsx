@@ -38,6 +38,7 @@ import {
   type,
 } from '@/theme';
 import { statusInfo } from '@/lib/status';
+import { errorCopy } from '@/lib/api/useQuery';
 import type { PermissionStatus } from '@/types';
 
 type IconName = React.ComponentProps<typeof Ionicons>['name'];
@@ -110,8 +111,18 @@ export function Button({
     <ActivityIndicator color={p.fg} size="small" />
   ) : (
     <>
-      {icon ? <Ionicons name={icon} size={18} color={p.fg} /> : null}
-      <Text style={[type.bodyMed, { color: p.fg }]}>{label}</Text>
+      {icon ? <Ionicons name={icon} size={18} color={p.fg} style={{ flexShrink: 0 }} /> : null}
+      {/* Two buttons sharing a row each get half the width, and half of a
+          narrow screen is not much: "Talk to the warden first" or "Confirm
+          override" have to be allowed to wrap onto a second line rather than
+          be clipped by a fixed height. `flexShrink` lets the label give up
+          space to the icon instead of pushing it out of the button. */}
+      <Text
+        style={[type.bodyMed, { color: p.fg, flexShrink: 1, textAlign: 'center' }]}
+        numberOfLines={2}
+      >
+        {label}
+      </Text>
     </>
   );
 
@@ -245,15 +256,25 @@ export function Field({
 
   return (
     <View style={{ gap: spacing.sm }}>
-      {label ? <Text style={[type.smallMed, { color: colors.textMuted }]}>{label}</Text> : null}
+      {label ? (
+        <Text style={[type.smallMed, { color: colors.textMuted }]}>{label}</Text>
+      ) : null}
       <View
         style={[
           styles.input,
-          multiline && { height: 108, alignItems: 'flex-start', paddingTop: spacing.md },
+          multiline && {
+            minHeight: 108,
+            height: undefined,
+            alignItems: 'flex-start',
+            paddingTop: spacing.md,
+            paddingBottom: spacing.md,
+          },
           !editable && { backgroundColor: colors.glassSoft },
         ]}
       >
-        {icon ? <Ionicons name={icon} size={18} color={colors.textFaint} /> : null}
+        {icon ? (
+          <Ionicons name={icon} size={18} color={colors.textFaint} style={{ flexShrink: 0 }} />
+        ) : null}
         <TextInput
           ref={inputRef}
           placeholder={placeholder}
@@ -304,10 +325,21 @@ export function StatusPill({
   const m = statusInfo(status);
   const live = m.tone === 'active' || m.tone === 'pending';
   return (
-    <View style={[styles.pill, { backgroundColor: m.bg }, small && { paddingVertical: 3 }]}>
+    /* The pill is the trailing item in rows whose leading item is a name or a
+       reason. Without `flexShrink` a long label ("Waiting on the warden") wins
+       the layout and pushes the text it sits beside off the card, so it gives
+       ground first and truncates rather than overflowing. */
+    <View
+      style={[styles.pill, { backgroundColor: m.bg }, small && { paddingVertical: 3 }]}
+    >
       {live ? <View style={[styles.dot, { backgroundColor: m.fg }]} /> : null}
       <Ionicons name={m.icon as IconName} size={small ? 12 : 14} color={m.fg} />
-      <Text style={[small ? type.caption : type.smallMed, { color: m.fg }]}>{m.label}</Text>
+      <Text
+        style={[small ? type.caption : type.smallMed, { color: m.fg, flexShrink: 1 }]}
+        numberOfLines={1}
+      >
+        {m.label}
+      </Text>
     </View>
   );
 }
@@ -333,6 +365,9 @@ export function Avatar({
         width: size,
         height: size,
         borderRadius: size / 2,
+        /* Fixed-size decoration in a flex row is still shrinkable by default,
+           so a long name beside it squashes the circle into an oval. */
+        flexShrink: 0,
         alignItems: 'center',
         justifyContent: 'center',
         backgroundColor: colors.glassStrong,
@@ -364,6 +399,7 @@ export function IconTile({
         height: size,
         borderRadius: size * 0.36,
         backgroundColor: bg,
+        flexShrink: 0,
         alignItems: 'center',
         justifyContent: 'center',
       }}
@@ -386,9 +422,13 @@ export function SectionHeader({
 }) {
   return (
     <View style={styles.sectionHeader}>
-      <Text style={[type.h3, { color: colors.text }]}>{title}</Text>
+      {/* A generated title ("Awaiting your decision", "12 groups") has to give
+          way to the action rather than shove it off the right edge. */}
+      <Text style={[type.h3, { color: colors.text, flexShrink: 1 }]} numberOfLines={2}>
+        {title}
+      </Text>
       {actionLabel ? (
-        <Pressable onPress={onAction} hitSlop={8}>
+        <Pressable onPress={onAction} hitSlop={8} style={{ flexShrink: 0 }}>
           <Text style={[type.smallMed, { color: colors.primary }]}>{actionLabel}</Text>
         </Pressable>
       ) : null}
@@ -408,16 +448,29 @@ export function Row({
   color?: string;
 }) {
   return (
+    /* The label is sized by its own text and the value takes what is left,
+       right-aligned. The other way round — label `flex: 1`, value unconstrained
+       — is what this used to be, and it let a home address or a comma-separated
+       site list run straight off the edge of the card, because a `Text` with no
+       flex basis reports its full intrinsic width and never shrinks. Two lines
+       rather than one, so a long value reads instead of ending in an ellipsis. */
     <View style={styles.detailRow}>
       <View style={styles.detailIcon}>
         <Ionicons name={icon} size={16} color={colors.primary} />
       </View>
-      <Text style={[type.small, { color: colors.textMuted, flex: 1 }]}>{label}</Text>
+      <Text style={[type.small, { color: colors.textMuted, flexShrink: 1 }]} numberOfLines={2}>
+        {label}
+      </Text>
       {value ? (
-        <Text style={[type.smallMed, { color: color ?? colors.text }]} numberOfLines={1}>
+        <Text
+          style={[type.smallMed, { color: color ?? colors.text, flex: 1, textAlign: 'right' }]}
+          numberOfLines={2}
+        >
           {value}
         </Text>
-      ) : null}
+      ) : (
+        <View style={{ flex: 1 }} />
+      )}
     </View>
   );
 }
@@ -450,13 +503,28 @@ export function ListTile({
         bg={tint ?? (danger ? colors.dangerBg : colors.primarySoft)}
         tint={danger ? colors.danger : colors.primary}
       />
-      <View style={{ flex: 1 }}>
-        <Text style={[type.bodyMed, { color: fg }]}>{title}</Text>
+      {/* `minWidth: 0` is what actually lets the text inside shrink. A flex
+          child's default minimum size is its content, so without it a long
+          subtitle — an email address, a comma-joined site list — widens the
+          row past the card instead of wrapping inside it. */}
+      <View style={{ flex: 1, minWidth: 0 }}>
+        <Text style={[type.bodyMed, { color: fg }]} numberOfLines={2}>
+          {title}
+        </Text>
         {subtitle ? (
-          <Text style={[type.small, { color: colors.textMuted, marginTop: 2 }]}>{subtitle}</Text>
+          <Text style={[type.small, { color: colors.textMuted, marginTop: 2 }]} numberOfLines={2}>
+            {subtitle}
+          </Text>
         ) : null}
       </View>
-      {right ?? <Ionicons name="chevron-forward" size={18} color={colors.textFaint} />}
+      {right ?? (
+        <Ionicons
+          name="chevron-forward"
+          size={18}
+          color={colors.textFaint}
+          style={{ flexShrink: 0 }}
+        />
+      )}
     </Pressable>
   );
 }
@@ -475,7 +543,7 @@ export function EmptyState({
       <View style={styles.emptyIcon}>
         <Ionicons name={icon} size={30} color={colors.primary} />
       </View>
-      <Text style={[type.h3, { color: colors.text }]}>{title}</Text>
+      <Text style={[type.h3, { color: colors.text, textAlign: 'center' }]}>{title}</Text>
       <Text style={[type.small, { color: colors.textMuted, textAlign: 'center' }]}>{message}</Text>
     </View>
   );
@@ -493,24 +561,41 @@ export function Loader({ label }: { label?: string }) {
   );
 }
 
-/** Shown when a request fails — always with a way back to trying again. */
+/**
+ * Shown when a request fails — always with a way back to trying again.
+ *
+ * Pass the thrown `error` rather than a pre-formatted string and the state
+ * words itself: an offline phone gets "You're offline" under a cloud icon, a
+ * 500 gets "The server had a problem", a 403 loses the retry button because
+ * pressing it again cannot help. `title` / `message` still override, for the
+ * few screens that know something the error object does not.
+ */
 export function ErrorState({
-  title = "Couldn't load this",
+  error,
+  title,
   message,
   onRetry,
 }: {
+  error?: unknown;
   title?: string;
-  message: string;
+  message?: string;
   onRetry?: () => void;
 }) {
+  const copy = errorCopy(error, message);
+  const retryable = onRetry && (error === undefined || copy.canRetry);
+
   return (
     <View style={styles.empty}>
       <View style={[styles.emptyIcon, { backgroundColor: colors.dangerBg }]}>
-        <Ionicons name="cloud-offline-outline" size={30} color={colors.danger} />
+        <Ionicons name={copy.icon as IconName} size={30} color={colors.danger} />
       </View>
-      <Text style={[type.h3, { color: colors.text }]}>{title}</Text>
-      <Text style={[type.small, { color: colors.textMuted, textAlign: 'center' }]}>{message}</Text>
-      {onRetry ? (
+      <Text style={[type.h3, { color: colors.text, textAlign: 'center' }]}>
+        {title ?? copy.title}
+      </Text>
+      <Text style={[type.small, { color: colors.textMuted, textAlign: 'center' }]}>
+        {message ?? copy.message}
+      </Text>
+      {retryable ? (
         <Button
           label="Try again"
           variant="secondary"
@@ -622,17 +707,30 @@ export function StatCard({
     <GlassPanel style={[styles.cardInner, { flex: 1 }]}>
       <View style={styles.stat}>
         <IconTile icon={icon} size={32} tint={fg} bg={bg} />
-        <Text style={[type.h1, { color: colors.text, marginTop: spacing.sm }]}>{value}</Text>
+        {/* A four-figure count still has to fit a third of the screen. */}
+        <Text
+          style={[type.h1, { color: colors.text, marginTop: spacing.sm }]}
+          numberOfLines={1}
+          adjustsFontSizeToFit
+          minimumFontScale={0.6}
+        >
+          {value}
+        </Text>
         <View style={styles.statLabelRow}>
+          {/* Two lines rather than shrink-to-fit: `adjustsFontSizeToFit` is
+              unreliable on Android — it frequently leaves the text at full size
+              and clips it — and three tiles side by side leave barely room for
+              "Approved today" on one line anyway. Wrapping is honest, and
+              `alignItems: stretch` on the row keeps the tiles level. */}
           <Text
             style={[type.small, { color: colors.textMuted, flexShrink: 1 }]}
-            numberOfLines={1}
-            adjustsFontSizeToFit
-            minimumFontScale={0.85}
+            numberOfLines={2}
           >
             {label}
           </Text>
-          {onPress ? <Ionicons name="chevron-forward" size={13} color={fg} /> : null}
+          {onPress ? (
+            <Ionicons name="chevron-forward" size={13} color={fg} style={{ flexShrink: 0 }} />
+          ) : null}
         </View>
       </View>
     </GlassPanel>
@@ -678,9 +776,23 @@ export function Chip({
       ]}
     >
       {icon ? (
-        <Ionicons name={icon} size={14} color={selected ? colors.primary : colors.textMuted} />
+        <Ionicons
+          name={icon}
+          size={14}
+          color={selected ? colors.primary : colors.textMuted}
+          style={{ flexShrink: 0 }}
+        />
       ) : null}
-      <Text style={[type.smallMed, { color: selected ? colors.primary : colors.textMuted }]}>
+      {/* Category and site names come from the tenant, so a chip can hold
+          anything. `maxWidth` keeps one long enough to fill the row from
+          spilling out of a wrapping chip group. */}
+      <Text
+        style={[
+          type.smallMed,
+          { color: selected ? colors.primary : colors.textMuted, flexShrink: 1 },
+        ]}
+        numberOfLines={1}
+      >
         {label}
       </Text>
     </Pressable>
@@ -706,13 +818,26 @@ export function Checkbox({ checked }: { checked?: boolean }) {
 
 const styles = StyleSheet.create({
   btn: {
-    height: 52,
+    /* `minHeight`, not `height`: a two-line label on a half-width button has
+       to be able to make the button taller instead of being cut off by it. */
+    minHeight: 52,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.md,
     borderRadius: radius.lg,
-    alignItems: 'center',
+    /* Deliberately no `alignItems: center`. That would size the inner row to
+       its own content on the cross axis, so the label would lay out against an
+       unbounded width, never wrap, and get clipped by `overflow: hidden`.
+       Letting the row stretch to the button's width and centring *inside* it
+       is what gives the label a width to wrap at. */
     justifyContent: 'center',
     overflow: 'hidden',
   },
-  btnRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
+  btnRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.sm,
+  },
   card: {
     borderRadius: radius.xl,
     borderWidth: 1,
@@ -726,7 +851,8 @@ const styles = StyleSheet.create({
   },
   cardInner: { borderRadius: radius.xl, overflow: 'hidden' },
   input: {
-    height: 52,
+    /* Grows with the font when the OS text size is turned up. */
+    minHeight: 52,
     borderRadius: radius.lg,
     borderWidth: 1,
     borderColor: colors.border,
@@ -744,6 +870,7 @@ const styles = StyleSheet.create({
     paddingVertical: 5,
     borderRadius: radius.pill,
     alignSelf: 'flex-start',
+    flexShrink: 1,
   },
   dot: { width: 6, height: 6, borderRadius: 3 },
   sectionHeader: {
@@ -757,6 +884,7 @@ const styles = StyleSheet.create({
     width: 28,
     height: 28,
     borderRadius: 10,
+    flexShrink: 0,
     backgroundColor: colors.primarySoft,
     alignItems: 'center',
     justifyContent: 'center',
@@ -768,7 +896,14 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.md,
     paddingHorizontal: spacing.lg,
   },
-  empty: { alignItems: 'center', gap: spacing.sm, paddingVertical: spacing.xxxl },
+  empty: {
+    alignItems: 'center',
+    gap: spacing.sm,
+    paddingVertical: spacing.xxxl,
+    /* Empty and error copy is centred prose; without side padding a long
+       sentence runs edge to edge and reads badly on a narrow screen. */
+    paddingHorizontal: spacing.lg,
+  },
   emptyIcon: {
     width: 64,
     height: 64,
@@ -804,6 +939,7 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.sm,
     borderRadius: radius.pill,
     borderWidth: 1,
+    maxWidth: '100%',
   },
   check: {
     width: 22,

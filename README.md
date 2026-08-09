@@ -86,7 +86,7 @@ npm install
 npx expo prebuild --platform android
 ```
 
-This creates `android/` with `gradlew`, applies `app.json` (package name `ai.iverto.app`,
+This creates `android/` with `gradlew`, applies `app.json` (package name `com.iverto.ai`,
 version, icons, splash), and links every autolinked native module. Run it again with
 `--clean` whenever you change `app.json`, add a native dependency, or want a fresh slate:
 
@@ -179,7 +179,7 @@ adb shell getprop ro.product.cpu.abi     # arm64-v8a on anything modern
 Or install `app-universal-release.apk`, which covers both ARM targets.
 
 `-r` reinstalls over an existing copy. If it fails with `INSTALL_FAILED_UPDATE_INCOMPATIBLE`,
-the installed build was signed with a different key — `adb uninstall ai.iverto.app` first.
+the installed build was signed with a different key — `adb uninstall com.iverto.ai` first.
 
 ## App size
 
@@ -422,7 +422,7 @@ Then re-run `npx expo prebuild --platform android` so `android/app/build.gradle`
 | Build hangs at `Configure project` | First run downloads Gradle and dependencies — expect 10–20 min. Later builds take 1–3 min. |
 | `OutOfMemoryError` during `assembleRelease` | Raise `org.gradle.jvmargs=-Xmx4096m` in `android/gradle.properties`. |
 | App installs but shows a red screen | Release build with no bundle — you ran `assembleDebug` without Metro. Use `assembleRelease`. |
-| `INSTALL_FAILED_UPDATE_INCOMPATIBLE` | Signature mismatch. `adb uninstall ai.iverto.app`, then reinstall. |
+| `INSTALL_FAILED_UPDATE_INCOMPATIBLE` | Signature mismatch. `adb uninstall com.iverto.ai`, then reinstall. |
 | Stale assets after an icon change | `./gradlew clean` then rebuild; icons are copied at prebuild time, so re-run prebuild too. |
 | `app-release.apk` not found | Expected — the build emits per-architecture APKs. Use `app-arm64-v8a-release.apk`. |
 | APK is ~158 MB | You built `assembleDebug`. Debug builds are never representative — use `assembleRelease`. |

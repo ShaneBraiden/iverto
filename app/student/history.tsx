@@ -17,14 +17,14 @@ import {
   Field,
   GlassPanel,
   LoadMore,
-  Loader,
   PoweredBy,
 } from '@/components/ui';
+import { SkeletonList } from '@/components/Skeleton';
 import { OutpassCard } from '@/components/OutpassCard';
 import { blur, colors, spacing, type } from '@/theme';
 import { PAGE_SIZE } from '@/constants/config';
 import { permissions as permissionApi } from '@/lib/api/endpoints';
-import { errorMessage, fromPage, usePagedQuery, useQuery } from '@/lib/api/useQuery';
+import { fromPage, usePagedQuery, useQuery } from '@/lib/api/useQuery';
 import { useRefetchOnFocus } from '@/lib/useFocusRefetch';
 import { CHIPS, statusParam } from '@/lib/status';
 import type { StatusChip } from '@/types';
@@ -108,9 +108,9 @@ export default function History() {
 
       <Screen>
         {list.loading ? (
-          <Loader />
+          <SkeletonList count={5} avatar={false} />
         ) : list.error ? (
-          <ErrorState message={errorMessage(list.error)} onRetry={list.refetch} />
+          <ErrorState error={list.error} onRetry={list.refetch} />
         ) : (
           <>
             <Text style={[type.small, { color: colors.textMuted }]}>

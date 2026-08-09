@@ -16,11 +16,12 @@
     "assetBundlePatterns": ["assets/*.png"],
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "ai.iverto.app",
+      "bundleIdentifier": "com.iverto.ai",
       "buildNumber": "1"
     },
     "android": {
-      "package": "ai.iverto.app",
+      "package": "com.iverto.ai",
+      "googleServicesFile": "./google-services.json",
       "versionCode": 1,
       "softwareKeyboardLayoutMode": "resize",
       "adaptiveIcon": {
@@ -49,6 +50,14 @@
           "locationAlwaysAndWhenInUsePermission": "Iverto.ai shares your position with the guardians on your record so they can see whether you are on campus. It is off until you turn it on, and only while the app is open.",
           "locationWhenInUsePermission": "Iverto.ai shares your position with the guardians on your record so they can see whether you are on campus. It is off until you turn it on.",
           "isAndroidBackgroundLocationEnabled": false
+        }
+      ],
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/notification-icon.png",
+          "color": "#B9000E",
+          "defaultChannel": "default"
         }
       ]
     ],

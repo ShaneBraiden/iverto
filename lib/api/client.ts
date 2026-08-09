@@ -36,7 +36,20 @@ export type ApiErrorCode =
   | 'PROFILE_REQUEST_PENDING'
   | 'PROFILE_REQUEST_ALREADY_REVIEWED'
   | 'NETWORK'
+  | 'TIMEOUT'
   | 'UNKNOWN';
+
+/**
+ * How long to wait before giving up on a request.
+ *
+ * `fetch` has no timeout of its own: a connection that opens and then stalls —
+ * a captive portal, a phone that has dropped to one bar mid-call — never
+ * settles, so the promise never resolves and the screen sits on its skeleton
+ * forever with no error and no way to retry. Thirty seconds is well past any
+ * normal call on this API and short enough that the user has not yet decided
+ * the app is broken.
+ */
+const TIMEOUT_MS = 30_000;
 
 /** The envelope every `/v1/mobile/**` route returns on failure. */
 type ErrorEnvelope = {
@@ -217,59 +230,92 @@ export async function request<T>(path: string, options: RequestOptions = {}): Pr
   const sentWithToken = anonymous ? null : authToken;
   if (sentWithToken) headers.Authorization = `Bearer ${sentWithToken}`;
 
-  let response: Response;
+  /* One controller for two reasons to give up: the caller unmounting (its own
+     `signal`) and the deadline below. `fetch` only takes one signal, so the
+     caller's is chained onto ours rather than passed through. */
+  const controller = new AbortController();
+  let timedOut = false;
+  const timer = setTimeout(() => {
+    timedOut = true;
+    controller.abort();
+  }, TIMEOUT_MS);
+
+  const relayAbort = () => controller.abort();
+  if (signal) {
+    if (signal.aborted) controller.abort();
+    else signal.addEventListener?.('abort', relayAbort);
+  }
+  const releaseAbort = () => {
+    clearTimeout(timer);
+    signal?.removeEventListener?.('abort', relayAbort);
+  };
+
+  let text: string;
   try {
-    response = await fetch(buildUrl(path, query), {
+    const response = await fetch(buildUrl(path, query), {
       method,
       headers,
-      signal,
+      signal: controller.signal,
       body: body === undefined ? undefined : isForm ? (body as FormData) : JSON.stringify(body),
     });
+
+    /* Reading the body can stall on its own, so the deadline covers it too —
+       it is only released once there is a complete response in hand. */
+    text = await response.text();
+    releaseAbort();
+
+    if (!response.ok) throw toApiError(response.status, text);
+    /* CSV exports and 204s are not JSON. */
+    if (!text) return undefined as T;
+    if (accept !== 'application/json') return text as unknown as T;
+    try {
+      return JSON.parse(text) as T;
+    } catch {
+      return text as unknown as T;
+    }
   } catch (err) {
+    releaseAbort();
+
+    if (err instanceof ApiError) {
+      /* A 401 on an authenticated call means the token stopped being good, not
+         that the caller got something wrong — try to renew it once and replay,
+         and only end the session if that fails. A 401 with no token attached is
+         a credential rejection and belongs to whoever made the call. */
+      if (err.status === 401 && sentWithToken) {
+        if (!retried) {
+          const fresh = await refreshOnce();
+          if (fresh) return request<T>(path, { ...options, retried: true });
+        }
+        onUnauthorized?.(retried ? 'revoked' : 'expired');
+      }
+      throw err;
+    }
+
+    if (timedOut) {
+      throw new ApiError(0, 'The server took too long to answer.', 'TIMEOUT');
+    }
+    /* The caller aborted — `useQuery` swallows this, and it must not be
+       rewritten into a failure the screen would then display. */
     if ((err as Error)?.name === 'AbortError') throw err;
     throw new ApiError(0, 'Cannot reach the server. Check your connection.', 'NETWORK');
   }
+}
 
-  const text = await response.text();
-
-  if (!response.ok) {
-    let payload: ErrorEnvelope | null = null;
-    try {
-      payload = text ? (JSON.parse(text) as ErrorEnvelope) : null;
-    } catch {
-      /* Not JSON — a proxy error page, say. The status still tells the story. */
-    }
-
-    /* A 401 on an authenticated call means the token stopped being good, not
-       that the caller got something wrong — try to renew it once and replay,
-       and only end the session if that fails. A 401 with no token attached is
-       a credential rejection and belongs to whoever made the call. */
-    if (response.status === 401 && sentWithToken) {
-      if (!retried) {
-        const fresh = await refreshOnce();
-        if (fresh) return request<T>(path, { ...options, retried: true });
-      }
-      onUnauthorized?.(retried ? 'revoked' : 'expired');
-    }
-
-    throw new ApiError(
-      response.status,
-      readMessage(payload, response.status),
-      (payload?.error as ApiErrorCode) ?? 'UNKNOWN',
-      payload?.details,
-      payload
-    );
-  }
-
-  /* CSV exports and 204s are not JSON. */
-  if (!text) return undefined as T;
-  if (accept !== 'application/json') return text as unknown as T;
-
+/** Builds the typed error for a non-2xx response body. */
+function toApiError(status: number, text: string) {
+  let payload: ErrorEnvelope | null = null;
   try {
-    return JSON.parse(text) as T;
+    payload = text ? (JSON.parse(text) as ErrorEnvelope) : null;
   } catch {
-    return text as unknown as T;
+    /* Not JSON — a proxy error page, say. The status still tells the story. */
   }
+  return new ApiError(
+    status,
+    readMessage(payload, status),
+    (payload?.error as ApiErrorCode) ?? 'UNKNOWN',
+    payload?.details,
+    payload
+  );
 }
 
 export const api = {

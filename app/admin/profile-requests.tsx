@@ -24,10 +24,10 @@ import {
   Field,
   GlassPanel,
   LoadMore,
-  Loader,
   Note,
   PoweredBy,
 } from '@/components/ui';
+import { SkeletonList } from '@/components/Skeleton';
 import { blur, colors, radius, spacing, type } from '@/theme';
 import { PAGE_SIZE } from '@/constants/config';
 import { useAdmin } from '@/components/AdminContext';
@@ -172,9 +172,9 @@ export default function AdminProfileRequests() {
         ) : null}
 
         {list.loading ? (
-          <Loader />
+          <SkeletonList count={4} />
         ) : list.error ? (
-          <ErrorState message={errorMessage(list.error)} onRetry={list.refetch} />
+          <ErrorState error={list.error} onRetry={list.refetch} />
         ) : (
           <>
             <Text style={[type.small, { color: colors.textMuted }]}>
@@ -256,7 +256,7 @@ function RequestCard({
     <Card>
       <View style={styles.head}>
         <Avatar size={42} icon={isStudent ? 'school-outline' : 'people-outline'} />
-        <View style={{ flex: 1 }}>
+        <View style={{ flex: 1, minWidth: 0 }}>
           <Text style={[type.bodyMed, { color: colors.text }]} numberOfLines={1}>
             {who?.name ?? request.subjectId}
           </Text>
@@ -267,7 +267,9 @@ function RequestCard({
           </Text>
         </View>
         <View style={[styles.pill, { backgroundColor: meta.bg }]}>
-          <Text style={[type.caption, { color: meta.fg }]}>{meta.label}</Text>
+          <Text style={[type.caption, { color: meta.fg }]} numberOfLines={1}>
+            {meta.label}
+          </Text>
         </View>
       </View>
 
@@ -278,18 +280,27 @@ function RequestCard({
             <Text style={[type.caption, { color: colors.textFaint }]}>
               {field.replace(/([A-Z])/g, ' $1').toUpperCase()}
             </Text>
+            {/* Both halves get `flex: 1` so they split the row evenly. With the
+                old value sized to its content and the new one on `flex: 1`, a
+                long previous address squeezed the replacement — the one thing
+                the admin is here to read — down to nothing. */}
             <View style={styles.diffRow}>
               <Text
                 style={[
                   type.small,
-                  { color: colors.textFaint, textDecorationLine: 'line-through', flexShrink: 1 },
+                  { color: colors.textFaint, textDecorationLine: 'line-through', flex: 1 },
                 ]}
-                numberOfLines={1}
+                numberOfLines={2}
               >
                 {change.old ?? '—'}
               </Text>
-              <Ionicons name="arrow-forward" size={13} color={colors.primary} />
-              <Text style={[type.bodyMed, { color: colors.text, flex: 1 }]} numberOfLines={1}>
+              <Ionicons
+                name="arrow-forward"
+                size={13}
+                color={colors.primary}
+                style={{ flexShrink: 0 }}
+              />
+              <Text style={[type.bodyMed, { color: colors.text, flex: 1 }]} numberOfLines={2}>
                 {change.new ?? '—'}
               </Text>
             </View>
@@ -305,11 +316,14 @@ function RequestCard({
       {request.attachmentKey ? (
         <View style={styles.attachRow}>
           <Ionicons name="document-attach-outline" size={14} color={colors.primary} />
-          <Text style={[type.small, { color: colors.primary, flex: 1 }]}>
+          <Text style={[type.small, { color: colors.primary, flex: 1 }]} numberOfLines={2}>
             Supporting document attached
           </Text>
           {onViewAttachment ? (
-            <Text style={[type.smallMed, { color: colors.primary }]} onPress={onViewAttachment}>
+            <Text
+              style={[type.smallMed, { color: colors.primary, flexShrink: 0 }]}
+              onPress={onViewAttachment}
+            >
               View
             </Text>
           ) : null}

@@ -29,12 +29,12 @@ import {
   Chip,
   ErrorState,
   Field,
-  Loader,
   Note,
   PoweredBy,
   Row,
   StatusPill,
 } from '@/components/ui';
+import { SkeletonDetail } from '@/components/Skeleton';
 import { colors, radius, spacing, type } from '@/theme';
 import {
   admin as adminApi,
@@ -147,9 +147,9 @@ export default function OutpassDetail() {
         <TopBar title="Request" />
         <Screen clearTabBar={false}>
           {error ? (
-            <ErrorState message={errorMessage(error)} onRetry={refetch} />
+            <ErrorState error={error} onRetry={refetch} />
           ) : (
-            <Loader label="Loading request…" />
+            <SkeletonDetail />
           )}
         </Screen>
       </View>
@@ -197,8 +197,16 @@ export default function OutpassDetail() {
       <Screen clearTabBar={false}>
         {/* Status banner — the label and the one-line explanation of it. */}
         <View style={[styles.banner, { backgroundColor: meta.bg }]}>
-          <Ionicons name={meta.icon as never} size={22} color={meta.fg} />
-          <View style={{ flex: 1 }}>
+          <Ionicons
+            name={meta.icon as never}
+            size={22}
+            color={meta.fg}
+            style={{ flexShrink: 0, marginTop: 1 }}
+          />
+          {/* The explainer is a full sentence and is allowed to run to as many
+              lines as it needs — it is the one thing on the screen that says
+              what happens next. */}
+          <View style={{ flex: 1, minWidth: 0 }}>
             <Text style={[type.bodyMed, { color: meta.fg }]}>{meta.label}</Text>
             <Text style={[type.small, { color: colors.textMuted }]}>{meta.explainer}</Text>
           </View>
@@ -209,9 +217,11 @@ export default function OutpassDetail() {
           <Card>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md }}>
               <Avatar size={46} icon="school-outline" />
-              <View style={{ flex: 1 }}>
-                <Text style={[type.bodyMed, { color: colors.text }]}>{item.student.name}</Text>
-                <Text style={[type.small, { color: colors.textMuted }]}>
+              <View style={{ flex: 1, minWidth: 0 }}>
+                <Text style={[type.bodyMed, { color: colors.text }]} numberOfLines={2}>
+                  {item.student.name}
+                </Text>
+                <Text style={[type.small, { color: colors.textMuted }]} numberOfLines={1}>
                   {[item.student.rollNumber, item.student.roomNumber].filter(Boolean).join(' · ')}
                 </Text>
               </View>
@@ -507,7 +517,7 @@ function Step({ step, last }: { step: TimelineStep; last: boolean }) {
         </View>
         {!last ? <View style={styles.stepLine} /> : null}
       </View>
-      <View style={{ flex: 1, paddingBottom: last ? 0 : spacing.lg }}>
+      <View style={{ flex: 1, minWidth: 0, paddingBottom: last ? 0 : spacing.lg }}>
         <Text style={[type.smallMed, { color: colors.text }]}>{step.label}</Text>
         <Text style={[type.small, { color: colors.textMuted }]}>{detail}</Text>
         {step.note ? (
@@ -523,7 +533,7 @@ function Step({ step, last }: { step: TimelineStep; last: boolean }) {
 const styles = StyleSheet.create({
   banner: {
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'flex-start',
     gap: spacing.md,
     padding: spacing.lg,
     borderRadius: radius.xl,
@@ -532,6 +542,7 @@ const styles = StyleSheet.create({
     width: 30,
     height: 30,
     borderRadius: 15,
+    flexShrink: 0,
     alignItems: 'center',
     justifyContent: 'center',
   },

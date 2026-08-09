@@ -20,9 +20,9 @@ import {
   Field,
   GlassPanel,
   LoadMore,
-  Loader,
   PoweredBy,
 } from '@/components/ui';
+import { SkeletonList } from '@/components/Skeleton';
 import { OutpassCard } from '@/components/OutpassCard';
 import { useLivePermissions } from '@/components/AppContext';
 import { blur, colors, spacing, type } from '@/theme';
@@ -129,9 +129,9 @@ export default function AdminRequests() {
 
       <Screen>
         {list.loading ? (
-          <Loader />
+          <SkeletonList count={5} />
         ) : list.error ? (
-          <ErrorState message={errorMessage(list.error)} onRetry={list.refetch} />
+          <ErrorState error={list.error} onRetry={list.refetch} />
         ) : (
           <>
             <Text style={[type.small, { color: colors.textMuted }]}>

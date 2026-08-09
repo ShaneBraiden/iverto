@@ -28,13 +28,13 @@ import {
   ErrorState,
   Field,
   ListTile,
-  Loader,
   Note,
   PoweredBy,
   Row,
   SectionHeader,
   StatCard,
 } from '@/components/ui';
+import { SkeletonRows, SkeletonWard } from '@/components/Skeleton';
 import { colors, radius, spacing, type } from '@/theme';
 import { EMERGENCY_CATEGORIES } from '@/constants/config';
 import { parent as parentApi } from '@/lib/api/endpoints';
@@ -89,9 +89,9 @@ export default function Ward() {
         <TopBar title="My ward" back={false} />
         <Screen>
           {detail.error ? (
-            <ErrorState message={errorMessage(detail.error)} onRetry={detail.refetch} />
+            <ErrorState error={detail.error} onRetry={detail.refetch} />
           ) : (
-            <Loader label="Loading ward details…" />
+            <SkeletonWard />
           )}
         </Screen>
       </View>
@@ -114,6 +114,9 @@ export default function Ward() {
         onRight={hasSiblings ? () => setSwitching(true) : undefined}
       />
       <Screen>
+        {/* A refetch that failed while the cached ward is still on screen — the
+            details below are last-known-good, so this is a warning strip
+            rather than a full-screen error. */}
         {detail.error ? (
           <Note icon="cloud-offline-outline" tone="warning" text={errorMessage(detail.error)} />
         ) : null}
@@ -121,7 +124,7 @@ export default function Ward() {
         <Card>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md }}>
             <Avatar size={54} icon="school-outline" />
-            <View style={{ flex: 1 }}>
+            <View style={{ flex: 1, minWidth: 0 }}>
               {/* Same caret as the dashboard: the name is the switch, and only
                   carries one when there is a sibling behind it. */}
               {hasSiblings ? (
@@ -130,14 +133,28 @@ export default function Ward() {
                   hitSlop={8}
                   style={({ pressed }) => [styles.rollSwitch, pressed && { opacity: 0.6 }]}
                 >
-                  <Text style={[type.h3, { color: colors.primary }]}>{current.name}</Text>
-                  <Ionicons name="chevron-down" size={14} color={colors.primary} />
+                  <Text
+                    style={[type.h3, { color: colors.primary, flexShrink: 1 }]}
+                    numberOfLines={2}
+                  >
+                    {current.name}
+                  </Text>
+                  <Ionicons
+                    name="chevron-down"
+                    size={14}
+                    color={colors.primary}
+                    style={{ flexShrink: 0 }}
+                  />
                 </Pressable>
               ) : (
-                <Text style={[type.h3, { color: colors.text }]}>{current.name}</Text>
+                <Text style={[type.h3, { color: colors.text }]} numberOfLines={2}>
+                  {current.name}
+                </Text>
               )}
-              <Text style={[type.small, { color: colors.textMuted }]}>{current.rollNumber}</Text>
-              <Text style={[type.small, { color: colors.textFaint }]}>
+              <Text style={[type.small, { color: colors.textMuted }]} numberOfLines={1}>
+                {current.rollNumber}
+              </Text>
+              <Text style={[type.small, { color: colors.textFaint }]} numberOfLines={1}>
                 {current.enrollmentStatus ?? '—'}
               </Text>
             </View>
@@ -152,10 +169,21 @@ export default function Ward() {
             <View
               style={[styles.dot, { backgroundColor: onCampus ? colors.success : colors.info }]}
             />
-            <Text style={[type.smallMed, { color: onCampus ? colors.success : colors.info }]}>
+            <Text
+              style={[
+                type.smallMed,
+                { color: onCampus ? colors.success : colors.info, flexShrink: 0 },
+              ]}
+            >
               {onCampus ? 'On campus' : 'Currently out'}
             </Text>
-            <Text style={[type.small, { color: colors.textMuted, marginLeft: 'auto' }]}>
+            <Text
+              style={[
+                type.small,
+                { color: colors.textMuted, marginLeft: 'auto', flexShrink: 1, textAlign: 'right' },
+              ]}
+              numberOfLines={2}
+            >
               {scan ? `${scan.direction === 'in' ? 'In' : 'Out'} ${isoToDateTime(scan.at)}` : 'No gate scan yet'}
             </Text>
           </View>
@@ -204,7 +232,7 @@ export default function Ward() {
           <SectionHeader title="Guardians on record" />
           <Card padded={false}>
             {guardians.loading ? (
-              <Loader />
+              <SkeletonRows count={2} inset={spacing.lg + 48} />
             ) : guardians.error ? (
               <View style={{ padding: spacing.lg }}>
                 <Note

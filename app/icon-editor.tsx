@@ -29,12 +29,18 @@ import {
   ErrorState,
   Field,
   LoadMore,
-  Loader,
   Note,
   PoweredBy,
   Row,
   SectionHeader,
 } from '@/components/ui';
+import {
+  Bone,
+  SkeletonCard,
+  SkeletonDetailRows,
+  SkeletonForm,
+  SkeletonRows,
+} from '@/components/Skeleton';
 import { colors, font, radius, spacing, type } from '@/theme';
 import { DEFAULT_APP_NAME, iconPresets, ROSTER_PAGE_SIZE, SHAPES } from '@/constants/config';
 import { admin as adminApi } from '@/lib/api/endpoints';
@@ -166,9 +172,15 @@ export default function BrandingEditor() {
         <TopBar title="Branding" />
         <Screen clearTabBar={false}>
           {groupQuery.error ? (
-            <ErrorState message={errorMessage(groupQuery.error)} onRetry={groupQuery.refetch} />
+            <ErrorState error={groupQuery.error} onRetry={groupQuery.refetch} />
           ) : (
-            <Loader label="Loading group…" />
+            <>
+              <Bone width="100%" height={190} round={radius.xxl} />
+              <SkeletonCard>
+                <SkeletonDetailRows count={3} />
+              </SkeletonCard>
+              <SkeletonForm fields={2} />
+            </>
           )}
         </Screen>
       </View>
@@ -325,13 +337,13 @@ export default function BrandingEditor() {
             size={20}
             color={colors.primary}
           />
-          <View style={{ flex: 1 }}>
+          <View style={{ flex: 1, minWidth: 0 }}>
             <Text style={[type.smallMed, { color: colors.text }]} numberOfLines={1}>
               {uploading
                 ? 'Uploading…'
                 : (icon?.name ?? (iconKey ? 'Custom icon on file' : 'Upload custom icon'))}
             </Text>
-            <Text style={[type.small, { color: colors.textFaint }]}>
+            <Text style={[type.small, { color: colors.textFaint }]} numberOfLines={2}>
               PNG, 1024×1024, no transparency · max 5 MB
             </Text>
           </View>
@@ -360,10 +372,10 @@ export default function BrandingEditor() {
           <View style={{ height: spacing.md }} />
           <Card padded={false}>
             {roster.loading ? (
-              <Loader />
+              <SkeletonRows count={4} inset={spacing.lg + 34} />
             ) : roster.error ? (
               <View style={{ padding: spacing.lg }}>
-                <ErrorState message={errorMessage(roster.error)} onRetry={roster.refetch} />
+                <ErrorState error={roster.error} onRetry={roster.refetch} />
               </View>
             ) : shown.length === 0 ? (
               <View style={{ padding: spacing.xl, alignItems: 'center' }}>
@@ -384,13 +396,15 @@ export default function BrandingEditor() {
                       style={({ pressed }) => [styles.pickRow, pressed && { opacity: 0.6 }]}
                     >
                       <Checkbox checked={on} />
-                      <View style={{ flex: 1 }}>
-                        <Text style={[type.bodyMed, { color: colors.text }]}>{s.name}</Text>
-                        <Text style={[type.small, { color: colors.textMuted }]}>
+                      <View style={{ flex: 1, minWidth: 0 }}>
+                        <Text style={[type.bodyMed, { color: colors.text }]} numberOfLines={1}>
+                          {s.name}
+                        </Text>
+                        <Text style={[type.small, { color: colors.textMuted }]} numberOfLines={1}>
                           {[s.rollNumber, s.roomNumber].filter(Boolean).join(' · ')}
                         </Text>
                         {elsewhere ? (
-                          <Text style={[type.small, { color: colors.warning }]}>
+                          <Text style={[type.small, { color: colors.warning }]} numberOfLines={1}>
                             Currently in {s.groupName}
                           </Text>
                         ) : null}
@@ -524,5 +538,6 @@ const styles = StyleSheet.create({
     paddingVertical: 3,
     borderRadius: radius.pill,
     backgroundColor: colors.primarySoft,
+    flexShrink: 0,
   },
 });

@@ -20,7 +20,8 @@
 import React from 'react';
 import { View, Text, StyleSheet, Pressable } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
-import { Card, Loader, Note } from '@/components/ui';
+import { Card, Note } from '@/components/ui';
+import { Bone } from '@/components/Skeleton';
 import { CampusRadar } from '@/components/CampusRadar';
 import { colors, radius, spacing, type } from '@/theme';
 import { location as locationApi } from '@/lib/api/endpoints';
@@ -55,7 +56,14 @@ export function WardLocationCard({ ward }: { ward: WardDetail }) {
     return (
       <Card>
         <Header name={ward.name} onRefresh={fix.refetch} busy />
-        <Loader label="Locating…" />
+        {/* Shaped like the answer that is coming — verdict strip, radar, facts
+            — so the card does not resize under the guardian's eyes. */}
+        <Bone width="100%" height={42} round={radius.md} style={{ marginTop: spacing.md }} />
+        <Bone width="100%" height={150} round={radius.lg} style={{ marginTop: spacing.lg }} />
+        <View style={{ gap: spacing.sm, marginTop: spacing.lg }}>
+          <Bone width="65%" height={11} />
+          <Bone width="50%" height={11} />
+        </View>
       </Card>
     );
   }
@@ -129,11 +137,14 @@ export function WardLocationCard({ ward }: { ward: WardDetail }) {
 
       <View style={[styles.verdict, { backgroundColor: inside ? colors.successBg : colors.infoBg }]}>
         <View style={[styles.dot, { backgroundColor: tint }]} />
-        <Text style={[type.bodyMed, { color: tint, flex: 1 }]}>
+        {/* Zone names are set per campus, so "Inside Main Campus (North Gate)"
+            is as likely as "Inside Campus" — the distance beside it keeps its
+            width and the verdict wraps. */}
+        <Text style={[type.bodyMed, { color: tint, flex: 1 }]} numberOfLines={2}>
           {inside ? `Inside ${zone.name}` : `Outside ${zone.name}`}
         </Text>
         {resolved.distance != null && !inside ? (
-          <Text style={[type.smallMed, { color: colors.textMuted }]}>
+          <Text style={[type.smallMed, { color: colors.textMuted, flexShrink: 0 }]}>
             {formatDistance(resolved.distance)} away
           </Text>
         ) : null}
@@ -196,8 +207,10 @@ function Header({
 }) {
   return (
     <View style={styles.head}>
-      <View style={{ flex: 1 }}>
-        <Text style={[type.h3, { color: colors.text }]}>Where {name} is</Text>
+      <View style={{ flex: 1, minWidth: 0 }}>
+        <Text style={[type.h3, { color: colors.text }]} numberOfLines={2}>
+          Where {name} is
+        </Text>
         <Text style={[type.small, { color: colors.textMuted }]}>
           Against the campus boundary
         </Text>
@@ -231,10 +244,18 @@ function GateFallback({ ward }: { ward: WardDetail }) {
       ]}
     >
       <View style={[styles.dot, { backgroundColor: onCampus ? colors.success : colors.info }]} />
-      <Text style={[type.smallMed, { color: onCampus ? colors.success : colors.info, flex: 1 }]}>
+      <Text
+        style={[type.smallMed, { color: onCampus ? colors.success : colors.info, flexShrink: 0 }]}
+      >
         {onCampus ? 'On campus' : 'Currently out'}
       </Text>
-      <Text style={[type.small, { color: colors.textMuted }]}>
+      <Text
+        style={[
+          type.small,
+          { color: colors.textMuted, flex: 1, textAlign: 'right' },
+        ]}
+        numberOfLines={2}
+      >
         {scan
           ? `${scan.direction === 'in' ? 'In' : 'Out'} ${isoToDateTime(scan.at)}`
           : 'No gate scan yet'}
@@ -256,9 +277,16 @@ function Fact({
 }) {
   return (
     <View style={styles.factRow}>
-      <Ionicons name={icon} size={14} color={colors.textFaint} />
-      <Text style={[type.small, { color: colors.textMuted, flex: 1 }]}>{label}</Text>
-      <Text style={[type.smallMed, { color: tone ?? colors.text }]}>{value}</Text>
+      <Ionicons name={icon} size={14} color={colors.textFaint} style={{ flexShrink: 0 }} />
+      <Text style={[type.small, { color: colors.textMuted, flexShrink: 1 }]} numberOfLines={1}>
+        {label}
+      </Text>
+      <Text
+        style={[type.smallMed, { color: tone ?? colors.text, flex: 1, textAlign: 'right' }]}
+        numberOfLines={2}
+      >
+        {value}
+      </Text>
     </View>
   );
 }
@@ -268,6 +296,7 @@ const styles = StyleSheet.create({
   refresh: {
     width: 32,
     height: 32,
+    flexShrink: 0,
     borderRadius: 16,
     backgroundColor: colors.primarySoft,
     alignItems: 'center',

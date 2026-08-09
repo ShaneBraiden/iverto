@@ -20,19 +20,19 @@ import {
   EmptyState,
   ErrorState,
   IconTile,
-  Loader,
   Note,
   PoweredBy,
   SectionHeader,
   StatCard,
   StatusPill,
 } from '@/components/ui';
+import { SkeletonStudentHome } from '@/components/Skeleton';
 import { OutpassCard } from '@/components/OutpassCard';
 import { useApp, useLivePermissions } from '@/components/AppContext';
 import { colors, radius, spacing, type } from '@/theme';
 import { timeGreeting } from '@/constants/greeting';
 import { permissions as permissionApi } from '@/lib/api/endpoints';
-import { errorMessage, useQuery } from '@/lib/api/useQuery';
+import { useQuery } from '@/lib/api/useQuery';
 import { useRefetchOnFocus } from '@/lib/useFocusRefetch';
 import { statusInfo } from '@/lib/status';
 import { isoRange } from '@/lib/datetime';
@@ -74,9 +74,9 @@ export default function StudentHome() {
       />
       <Screen>
         {summary.loading ? (
-          <Loader label="Loading your requests…" />
+          <SkeletonStudentHome />
         ) : summary.error ? (
-          <ErrorState message={errorMessage(summary.error)} onRetry={refresh} />
+          <ErrorState error={summary.error} onRetry={refresh} />
         ) : (
           <>
             {/* Where the gate last saw them, and the window they have to be
@@ -91,11 +91,22 @@ export default function StudentHome() {
                 <View
                   style={[styles.dot, { backgroundColor: outside ? colors.info : colors.success }]}
                 />
-                <Text style={[type.smallMed, { color: outside ? colors.info : colors.success }]}>
+                <Text
+                  style={[
+                    type.smallMed,
+                    { color: outside ? colors.info : colors.success, flexShrink: 0 },
+                  ]}
+                >
                   {outside ? 'Currently out' : 'On campus'}
                 </Text>
                 {window ? (
-                  <Text style={[type.small, { color: colors.textMuted, marginLeft: 'auto' }]}>
+                  <Text
+                    style={[
+                      type.small,
+                      { color: colors.textMuted, marginLeft: 'auto', flexShrink: 1 },
+                    ]}
+                    numberOfLines={1}
+                  >
                     Curfew {window.start}–{window.end}
                   </Text>
                 ) : null}

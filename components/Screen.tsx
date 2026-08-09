@@ -107,34 +107,58 @@ export function AppHeader({
         </View>
         <View style={styles.headerRow}>
           <Avatar size={46} icon={icon} />
-          <View style={{ flex: 1 }}>
-            <Text style={[type.small, { color: colors.textMuted }]}>{greeting}</Text>
+          {/* `minWidth: 0` so the name and meta line inside can actually
+              truncate — a flex child defaults to its content as a minimum, and
+              without it a long name pushes the bell off the right edge. */}
+          <View style={{ flex: 1, minWidth: 0 }}>
+            <Text style={[type.small, { color: colors.textMuted }]} numberOfLines={1}>
+              {greeting}
+            </Text>
             <Text style={[type.h2, { color: colors.text }]} numberOfLines={1}>
               {title}
             </Text>
             {meta || metaAction ? (
               <View style={styles.metaRow}>
                 {meta ? (
-                  <Text style={[type.small, { color: colors.textFaint }]} numberOfLines={1}>
+                  /* The site list an admin is scoped to can be long, and the
+                     ward switcher beside it must stay tappable — so the meta
+                     text is what gives way. */
+                  <Text
+                    style={[type.small, { color: colors.textFaint, flexShrink: 1 }]}
+                    numberOfLines={1}
+                  >
                     {meta}
                   </Text>
                 ) : null}
 
                 {metaAction ? (
                   onMetaPress ? (
-                    /* The number is the switch. Underlined and carried in the
-                       brand colour so it reads as a control, with a caret to
-                       say a list drops out of it. */
+                    /* The name is the switch. Carried in the brand colour so it
+                       reads as a control, with a caret to say a list drops out
+                       of it. */
                     <Pressable
                       onPress={onMetaPress}
                       hitSlop={10}
                       style={({ pressed }) => [styles.metaChip, pressed && { opacity: 0.6 }]}
                     >
-                      <Text style={[type.smallMed, { color: colors.primary }]}>{metaAction}</Text>
-                      <Ionicons name="chevron-down" size={12} color={colors.primary} />
+                      <Text
+                        style={[type.smallMed, { color: colors.primary, flexShrink: 1 }]}
+                        numberOfLines={1}
+                      >
+                        {metaAction}
+                      </Text>
+                      <Ionicons
+                        name="chevron-down"
+                        size={12}
+                        color={colors.primary}
+                        style={{ flexShrink: 0 }}
+                      />
                     </Pressable>
                   ) : (
-                    <Text style={[type.small, { color: colors.textFaint }]} numberOfLines={1}>
+                    <Text
+                      style={[type.small, { color: colors.textFaint, flexShrink: 1 }]}
+                      numberOfLines={1}
+                    >
                       {metaAction}
                     </Text>
                   )
@@ -180,12 +204,23 @@ export function TopBar({
             <Ionicons name="chevron-back" size={20} color={colors.text} />
           </Pressable>
         ) : (
-          <View style={{ width: 38 }} />
+          <View style={{ width: 38, flexShrink: 0 }} />
         )}
-        <View style={{ flex: 1 }}>
-          <Text style={[type.h3, { color: colors.text, textAlign: 'center' }]}>{title}</Text>
+        {/* Both lines are bounded: the subtitle is a category name, a ward's
+            "name · roll number" or a group name, any of which would otherwise
+            wrap and make the bar a different height on every screen. */}
+        <View style={{ flex: 1, minWidth: 0 }}>
+          <Text
+            style={[type.h3, { color: colors.text, textAlign: 'center' }]}
+            numberOfLines={1}
+          >
+            {title}
+          </Text>
           {subtitle ? (
-            <Text style={[type.small, { color: colors.textMuted, textAlign: 'center' }]}>
+            <Text
+              style={[type.small, { color: colors.textMuted, textAlign: 'center' }]}
+              numberOfLines={1}
+            >
               {subtitle}
             </Text>
           ) : null}
@@ -239,12 +274,14 @@ const styles = StyleSheet.create({
     paddingVertical: 1,
     borderRadius: radius.sm,
     backgroundColor: colors.primarySoft,
+    flexShrink: 1,
   },
-  barMark: { width: 38, alignItems: 'center', justifyContent: 'center' },
+  barMark: { width: 38, alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
   bell: {
     width: 40,
     height: 40,
     borderRadius: 20,
+    flexShrink: 0,
     backgroundColor: colors.glassStrong,
     borderWidth: 1,
     borderColor: colors.border,
@@ -278,6 +315,7 @@ const styles = StyleSheet.create({
   iconBtn: {
     width: 38,
     height: 38,
+    flexShrink: 0,
     borderRadius: radius.md,
     backgroundColor: colors.glassStrong,
     borderWidth: 1,

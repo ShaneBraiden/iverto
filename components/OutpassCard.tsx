@@ -31,22 +31,31 @@ export function OutpassCard({
   return (
     <Card onPress={() => router.push(`/outpass/${item.id}?role=${role}`)}>
       <View style={styles.head}>
-        <View style={{ flex: 1, gap: 3 }}>
+        <View style={{ flex: 1, minWidth: 0, gap: 3 }}>
           <View style={styles.idRow}>
-            <Text style={[type.caption, { color: colors.primary }]}>{shortId(item.id)}</Text>
+            <Text style={[type.caption, { color: colors.primary }]} numberOfLines={1}>
+              {shortId(item.id)}
+            </Text>
+            {/* Category labels are tenant-defined — "Medical emergency leave"
+                is as valid as "Day". The tag shrinks before the pass id does. */}
             <View style={styles.catTag}>
-              <Text style={[type.caption, { color: colors.textMuted }]}>
+              <Text style={[type.caption, { color: colors.textMuted }]} numberOfLines={1}>
                 {categoryLabel(item, categories).toUpperCase()}
               </Text>
             </View>
           </View>
-          <Text style={[type.bodyMed, { color: colors.text }]} numberOfLines={1}>
+          {/* When the reason is the headline it gets two lines, because it is
+              the whole content of the card; a name and roll number is one. */}
+          <Text
+            style={[type.bodyMed, { color: colors.text }]}
+            numberOfLines={showRequester ? 1 : 2}
+          >
             {showRequester && item.student
               ? `${item.student.name} · ${item.student.rollNumber}`
               : item.reason}
           </Text>
           {showRequester ? (
-            <Text style={[type.small, { color: colors.textMuted }]} numberOfLines={1}>
+            <Text style={[type.small, { color: colors.textMuted }]} numberOfLines={2}>
               {item.reason}
             </Text>
           ) : null}
@@ -82,6 +91,7 @@ const styles = StyleSheet.create({
     paddingVertical: 2,
     borderRadius: radius.pill,
     backgroundColor: colors.neutralBg,
+    flexShrink: 1,
   },
   divider: { height: 1, backgroundColor: colors.border, marginVertical: spacing.md },
   metaRow: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingVertical: 2 },

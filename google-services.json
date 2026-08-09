@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "789398028496",
+    "project_id": "iverto-fbb17",
+    "storage_bucket": "iverto-fbb17.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:789398028496:android:e56c99ec46c3af20b91ed5",
+        "android_client_info": {
+          "package_name": "com.iverto.ai"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAHEwYUNbPiMzqjQLb3Nb5-G6gRVBFwr5U"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
