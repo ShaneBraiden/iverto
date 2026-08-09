@@ -21,10 +21,11 @@ import {
   ActivityIndicator,
   Platform,
 } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import Ionicons from '@expo/vector-icons/Ionicons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { BlurView } from 'expo-blur';
 import { Logo } from '@/components/Logo';
+import { useEnsureVisible } from '@/components/KeyboardAware';
 import {
   blur,
   cardBackground,
@@ -34,10 +35,10 @@ import {
   radius,
   shadow,
   spacing,
-  statusMeta,
-  StatusKey,
   type,
 } from '@/theme';
+import { statusInfo } from '@/lib/status';
+import type { PermissionStatus } from '@/types';
 
 type IconName = React.ComponentProps<typeof Ionicons>['name'];
 
@@ -191,6 +192,11 @@ export function Card({
  * the right key layout, `returnKeyType` + `onSubmitEditing` chain one field to
  * the next, and `inputRef` is what lets the previous field hand focus over.
  * Multiline fields get a "return means newline" keyboard automatically.
+ *
+ * On focus the field asks its scroll container to lift it above the keyboard.
+ * The container also does this when the keyboard opens, but that event only
+ * fires once — without the focus call, tabbing from one field to the next
+ * while the keyboard is already up would leave the cursor behind the keys.
  */
 export function Field({
   label,
@@ -235,6 +241,8 @@ export function Field({
   onChangeText?: (t: string) => void;
   right?: React.ReactNode;
 }) {
+  const ensureVisible = useEnsureVisible();
+
   return (
     <View style={{ gap: spacing.sm }}>
       {label ? <Text style={[type.smallMed, { color: colors.textMuted }]}>{label}</Text> : null}
@@ -258,6 +266,12 @@ export function Field({
           autoCapitalize={autoCapitalize}
           autoComplete={autoComplete}
           autoFocus={autoFocus}
+          onFocus={() => {
+            /* A frame late on purpose: on the first focus the keyboard has not
+               finished coming up, and measuring against the old layout would
+               scroll to the wrong place. */
+            if (ensureVisible) requestAnimationFrame(ensureVisible);
+          }}
           keyboardType={keyboardType}
           secureTextEntry={secureTextEntry}
           returnKeyType={returnKeyType ?? (multiline ? 'default' : 'done')}
@@ -275,9 +289,20 @@ export function Field({
 
 /* ------------------------------------------------------------ StatusPill */
 
-export function StatusPill({ status, small }: { status: StatusKey; small?: boolean }) {
-  const m = statusMeta[status];
-  const live = status === 'active' || status === 'pending';
+/**
+ * Takes a concrete backend status — all fifteen of them — and reads its
+ * colour, icon and short label out of `lib/status`. Nothing in the app maps a
+ * status to a colour by hand.
+ */
+export function StatusPill({
+  status,
+  small,
+}: {
+  status: PermissionStatus | string;
+  small?: boolean;
+}) {
+  const m = statusInfo(status);
+  const live = m.tone === 'active' || m.tone === 'pending';
   return (
     <View style={[styles.pill, { backgroundColor: m.bg }, small && { paddingVertical: 3 }]}>
       {live ? <View style={[styles.dot, { backgroundColor: m.fg }]} /> : null}
@@ -456,8 +481,85 @@ export function EmptyState({
   );
 }
 
+/** Shown while a screen's first request is in flight. */
+export function Loader({ label }: { label?: string }) {
+  return (
+    <View style={styles.empty}>
+      <ActivityIndicator color={colors.primary} />
+      {label ? (
+        <Text style={[type.small, { color: colors.textMuted, textAlign: 'center' }]}>{label}</Text>
+      ) : null}
+    </View>
+  );
+}
+
+/** Shown when a request fails — always with a way back to trying again. */
+export function ErrorState({
+  title = "Couldn't load this",
+  message,
+  onRetry,
+}: {
+  title?: string;
+  message: string;
+  onRetry?: () => void;
+}) {
+  return (
+    <View style={styles.empty}>
+      <View style={[styles.emptyIcon, { backgroundColor: colors.dangerBg }]}>
+        <Ionicons name="cloud-offline-outline" size={30} color={colors.danger} />
+      </View>
+      <Text style={[type.h3, { color: colors.text }]}>{title}</Text>
+      <Text style={[type.small, { color: colors.textMuted, textAlign: 'center' }]}>{message}</Text>
+      {onRetry ? (
+        <Button
+          label="Try again"
+          variant="secondary"
+          icon="refresh-outline"
+          full={false}
+          onPress={onRetry}
+        />
+      ) : null}
+    </View>
+  );
+}
+
 export function Divider({ inset = 0 }: { inset?: number }) {
   return <View style={{ height: 1, backgroundColor: colors.border, marginLeft: inset }} />;
+}
+
+/**
+ * Footer for a cursor-paginated list. Renders nothing when there is no next
+ * page, so a screen can drop it in unconditionally.
+ */
+export function LoadMore({
+  hasMore,
+  loading,
+  onPress,
+  total,
+}: {
+  hasMore: boolean;
+  loading: boolean;
+  onPress: () => void;
+  /** How many rows are already on screen — shown once the list is exhausted. */
+  total?: number;
+}) {
+  if (!hasMore) {
+    return total && total > 8 ? (
+      <Text style={[type.small, { color: colors.textFaint, textAlign: 'center' }]}>
+        That's everything.
+      </Text>
+    ) : null;
+  }
+  return (
+    <Button
+      label={loading ? 'Loading…' : 'Load more'}
+      variant="secondary"
+      icon="chevron-down"
+      loading={loading}
+      disabled={loading}
+      onPress={onPress}
+    />
+  );
 }
 
 /** Pale tinted note strip — info / warning / danger, always translucent. */

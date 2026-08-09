@@ -1,45 +1,138 @@
 /**
- * Login screen — role selection + credentials.
- * UI only: "Continue" navigates straight to the chosen role's dashboard.
+ * Login screen — email + password, nothing else.
  *
- * No coloured header block: the brand sits on the glass canvas and the
- * sign-in sheet is a frosted panel.
+ * Everything that can go wrong here is *said*, on this screen, next to the
+ * field it concerns. That is a deliberate correction: bad credentials come back
+ * as a 401, the API client used to treat every 401 as an expired session, and
+ * the session teardown ended in `router.replace('/')` — this route. So a
+ * mistyped password remounted the login screen, taking the error state with it,
+ * and the user got a blank form back with no idea why. The client now leaves a
+ * 401 on a public route to the caller (see `lib/api/client.ts`), and a session
+ * that really does end arrives here carrying its reason.
+ *
+ * Password is the only credential the API offers: there is no OTP sign-in and
+ * no self-service sign-up, because accounts are provisioned by the hostel
+ * office. That is why a 404 here is a "contact the office" message rather than
+ * a second way in.
+ *
+ * Nobody picks a role here. The account's role comes back from the server on
+ * the session and decides which dashboard opens, so the form has no say in it
+ * and no way to get the wrong shell.
+ *
+ * A returning user never sees this screen: the root layout restores the
+ * session from the keystore and this screen redirects on arrival.
  *
  * The mark is the first thing on the screen and is deliberately large — this
  * is the only place the app introduces itself. It stands down to a compact
  * row the moment the keyboard opens, so the fields never get pushed out of
  * reach on a short screen.
  */
-import React, { useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { View, Text, StyleSheet, Pressable, TextInput } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import Ionicons from '@expo/vector-icons/Ionicons';
 import { router } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Button, Field, GlassPanel, PoweredBy } from '@/components/ui';
+import { Button, Field, GlassPanel, Loader, Note, PoweredBy } from '@/components/ui';
 import { BrandLockup } from '@/components/Logo';
 import { KeyboardAwareScroll, useKeyboardVisible } from '@/components/KeyboardAware';
 import { blur, colors, font, radius, shadow, spacing, type } from '@/theme';
+import { auth } from '@/lib/api/endpoints';
+import { errorCode, errorMessage, useMutation } from '@/lib/api/useQuery';
+import { lastIdentifier, rememberIdentifier } from '@/lib/session';
+import { routeFor, useAuth } from '@/lib/auth';
 
-type Role = 'student' | 'parent' | 'admin';
-
-const ROLES: {
-  key: Role;
-  label: string;
-  hint: string;
-  icon: React.ComponentProps<typeof Ionicons>['name'];
-}[] = [
-  { key: 'student', label: 'Student', hint: 'Request passes', icon: 'school-outline' },
-  { key: 'parent', label: 'Guardian', hint: 'Approve passes', icon: 'people-outline' },
-  { key: 'admin', label: 'Admin', hint: 'Manage campus', icon: 'shield-checkmark-outline' },
-];
+/** What to say when a session ended without the user asking it to. */
+const END_MESSAGE: Record<string, string> = {
+  expired: 'Your session timed out, so you have been signed out. Sign in again to carry on.',
+  revoked:
+    'This device was signed out by the server. That usually means the account signed in somewhere else, or an administrator ended the session.',
+};
 
 export default function LoginScreen() {
-  const [role, setRole] = useState<Role>('student');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [tenantId, setTenantId] = useState('');
   const [showPass, setShowPass] = useState(false);
   const keyboardUp = useKeyboardVisible();
   const passwordRef = useRef<TextInput>(null);
 
-  const active = ROLES.find((r) => r.key === role)!;
+  const { signIn, user, linkage, restoring, sessionEnd, clearSessionEnd } = useAuth();
+
+  /* A restored session skips the form entirely. */
+  useEffect(() => {
+    if (!restoring && user) router.replace(routeFor(user, linkage) as never);
+  }, [restoring, user, linkage]);
+
+  /* Landing here after a session ended means the email is already known — no
+     reason to make the user type it again to get back to where they were. */
+  const ended = sessionEnd && sessionEnd.reason !== 'signed-out' ? sessionEnd.reason : null;
+  useEffect(() => {
+    let alive = true;
+    void lastIdentifier().then((saved) => {
+      if (alive && saved) setEmail((current) => current || saved);
+    });
+    return () => {
+      alive = false;
+    };
+  }, []);
+
+  /* No `role` goes up — the server reads the email and answers with whichever
+     role the account actually has, and that is what routes. */
+  const login = useMutation(
+    async () => {
+      const identifier = email.trim();
+      const session = await auth.login({
+        identifier,
+        password,
+        tenantId: tenantId.trim() || undefined,
+      });
+      void rememberIdentifier(identifier);
+      return signIn(session);
+    },
+    {
+      onSuccess: (destination) => router.replace(destination as never),
+      /* Whatever went wrong, the user stays on this screen and reads it. */
+      onError: () => clearSessionEnd(),
+    }
+  );
+
+  /* 409 means the same email exists in more than one tenant, and the server
+     needs to be told which. That is the only time the field appears — asking
+     for it up front would be noise for everyone else. */
+  const ambiguous = errorCode(login.error) === 'CONFLICT';
+  useEffect(() => {
+    if (ambiguous) setTenantId((t) => t);
+  }, [ambiguous]);
+
+  /* The roll number / email is on the hostel's records but has no login behind
+     it. Accounts are created by the office, so this is a different message from
+     "wrong password" — see §2 of the API doc. */
+  const unprovisioned = errorCode(login.error) === 'NOT_FOUND';
+
+  /* 401 is the server saying the password does not match, and it is the one
+     failure worth wording ourselves — the raw message is usually just
+     "Unauthorized", which tells the user nothing they can act on. */
+  const wrongCredentials = errorCode(login.error) === 'UNAUTHORIZED';
+
+  const [forgotTo, setForgotTo] = useState<string | null>(null);
+  const forgot = useMutation(
+    () => auth.forgotPassword({ identifier: email.trim(), tenantId: tenantId.trim() || undefined }),
+    { onSuccess: (result) => setForgotTo(result?.email ?? '') }
+  );
+
+  const canSubmit = email.trim().length > 0 && password.length > 0 && !login.pending;
+  const submit = () => {
+    if (canSubmit) login.mutate();
+  };
+
+  if (restoring) {
+    return (
+      <View style={styles.gate}>
+        <BrandLockup size={96} layout="stacked" />
+        <Loader />
+      </View>
+    );
+  }
 
   return (
     <View style={{ flex: 1 }}>
@@ -60,65 +153,32 @@ export default function LoginScreen() {
             <View style={{ padding: spacing.xl }}>
               <Text style={[type.h2, { color: colors.text }]}>Welcome back</Text>
               <Text style={[type.small, { color: colors.textMuted, marginTop: 2 }]}>
-                Choose how you're signing in
+                Sign in to continue
               </Text>
 
-              {/* Role selector */}
-              <View style={styles.roleRow}>
-                {ROLES.map((r) => {
-                  const on = r.key === role;
-                  return (
-                    <Pressable
-                      key={r.key}
-                      onPress={() => setRole(r.key)}
-                      style={[styles.role, on && styles.roleActive]}
-                    >
-                      <View style={[styles.roleIcon, on && styles.roleIconActive]}>
-                        <Ionicons
-                          name={r.icon}
-                          size={18}
-                          color={on ? colors.primary : colors.textMuted}
-                        />
-                      </View>
-                      <Text
-                        style={[
-                          type.smallMed,
-                          { color: on ? colors.primary : colors.textMuted },
-                        ]}
-                      >
-                        {r.label}
-                      </Text>
-                    </Pressable>
-                  );
-                })}
-              </View>
-              <Text style={[type.small, { color: colors.textFaint, marginTop: spacing.sm }]}>
-                {active.hint}
-              </Text>
+              {/* Why the user is looking at this screen again, when they did
+                  not ask to be. Cleared as soon as they try to sign in. */}
+              {ended && !login.error ? (
+                <View style={{ marginTop: spacing.lg }}>
+                  <Note
+                    icon="time-outline"
+                    tone="warning"
+                    text={END_MESSAGE[ended] ?? 'You have been signed out. Sign in again to carry on.'}
+                  />
+                </View>
+              ) : null}
 
               <View style={{ gap: spacing.lg, marginTop: spacing.xl }}>
-                {/* The keyboard follows the role: a guardian signs in with a
-                    phone number, so they get the number pad, not QWERTY. */}
                 <Field
-                  label={role === 'parent' ? 'Mobile number' : 'Email or ID'}
-                  placeholder={
-                    role === 'student'
-                      ? '21CSE1042'
-                      : role === 'parent'
-                        ? '+91 00000 00000'
-                        : 'admin@college.edu'
-                  }
-                  icon={role === 'parent' ? 'call-outline' : 'person-outline'}
-                  keyboardType={
-                    role === 'parent'
-                      ? 'phone-pad'
-                      : role === 'admin'
-                        ? 'email-address'
-                        : 'default'
-                  }
+                  label="Email address"
+                  placeholder="you@college.edu"
+                  icon="mail-outline"
+                  keyboardType="email-address"
                   autoCapitalize="none"
-                  autoComplete={role === 'parent' ? 'tel' : 'username'}
+                  autoComplete="email"
                   returnKeyType="next"
+                  value={email}
+                  onChangeText={setEmail}
                   onSubmitEditing={() => passwordRef.current?.focus()}
                   blurOnSubmit={false}
                 />
@@ -131,7 +191,9 @@ export default function LoginScreen() {
                   autoCapitalize="none"
                   autoComplete="password"
                   returnKeyType="go"
-                  onSubmitEditing={() => router.push(`/${role}` as never)}
+                  value={password}
+                  onChangeText={setPassword}
+                  onSubmitEditing={submit}
                   right={
                     <Pressable onPress={() => setShowPass((v) => !v)} hitSlop={8}>
                       <Ionicons
@@ -143,27 +205,83 @@ export default function LoginScreen() {
                   }
                 />
 
-                <Pressable style={{ alignSelf: 'flex-end' }} hitSlop={8}>
-                  <Text style={[type.smallMed, { color: colors.primary }]}>Forgot password?</Text>
+                {/* Only shown once the server says the identifier is ambiguous
+                    across tenants — everyone else never sees the field. */}
+                {ambiguous || tenantId ? (
+                  <Field
+                    label="Institution ID"
+                    placeholder="Given to you by the campus office"
+                    icon="business-outline"
+                    autoCapitalize="none"
+                    value={tenantId}
+                    onChangeText={setTenantId}
+                    hint="Your email exists at more than one institution, so we need to know which."
+                  />
+                ) : null}
+
+                <Pressable
+                  style={{ alignSelf: 'flex-end' }}
+                  hitSlop={8}
+                  disabled={!email.trim() || forgot.pending}
+                  onPress={() => forgot.mutate()}
+                >
+                  <Text
+                    style={[
+                      type.smallMed,
+                      { color: email.trim() ? colors.primary : colors.textFaint },
+                    ]}
+                  >
+                    {forgot.pending ? 'Sending…' : 'Forgot password?'}
+                  </Text>
                 </Pressable>
+
+                {/* A 404 is not a typo to try again — it means the record
+                    exists but nobody has provisioned a login for it, and there
+                    is no self-service sign-up to offer. Say who to ask. */}
+                {unprovisioned ? (
+                  <Note
+                    icon="information-circle-outline"
+                    tone="warning"
+                    text="No app account has been set up for these details yet. Contact the hostel office to have one created."
+                  />
+                ) : wrongCredentials ? (
+                  <Note
+                    icon="alert-circle-outline"
+                    tone="danger"
+                    text="That email and password don't match an account. Check the password, or use “Forgot password?” below."
+                  />
+                ) : login.error ? (
+                  <Note
+                    icon="alert-circle-outline"
+                    tone="danger"
+                    text={errorMessage(login.error, "That didn't work. Check your details.")}
+                  />
+                ) : null}
+                {forgot.error ? (
+                  <Note
+                    icon="alert-circle-outline"
+                    tone="danger"
+                    text={errorMessage(forgot.error)}
+                  />
+                ) : null}
+                {forgotTo !== null && !forgot.error && !forgot.pending ? (
+                  <Note
+                    icon="mail-outline"
+                    tone="success"
+                    text={
+                      forgotTo
+                        ? `Reset instructions are on their way to ${forgotTo}.`
+                        : 'Reset instructions are on their way.'
+                    }
+                  />
+                ) : null}
 
                 <Button
                   label="Continue"
                   icon="arrow-forward"
-                  onPress={() => router.push(`/${role}` as never)}
-                />
-
-                <View style={styles.orRow}>
-                  <View style={styles.line} />
-                  <Text style={[type.small, { color: colors.textFaint }]}>or</Text>
-                  <View style={styles.line} />
-                </View>
-
-                <Button
-                  label="Sign in with OTP"
-                  variant="secondary"
-                  icon="keypad-outline"
-                  onPress={() => router.push('/otp')}
+                  loading={login.pending}
+                  disabled={!canSubmit}
+                  onPress={submit}
                 />
               </View>
             </View>
@@ -191,6 +309,7 @@ export default function LoginScreen() {
 }
 
 const styles = StyleSheet.create({
+  gate: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: spacing.xl },
   brandRow: {
     paddingTop: spacing.xxl,
     paddingBottom: spacing.xxl,
@@ -206,28 +325,5 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     ...shadow.card,
   },
-  roleRow: { flexDirection: 'row', gap: spacing.sm, marginTop: spacing.xl },
-  role: {
-    flex: 1,
-    alignItems: 'center',
-    gap: 6,
-    paddingVertical: spacing.md,
-    borderRadius: radius.lg,
-    borderWidth: 1.5,
-    borderColor: colors.border,
-    backgroundColor: colors.glass,
-  },
-  roleActive: { borderColor: colors.primary, backgroundColor: colors.primarySoft },
-  roleIcon: {
-    width: 34,
-    height: 34,
-    borderRadius: 17,
-    backgroundColor: colors.glassStrong,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  roleIconActive: { backgroundColor: '#fff' },
-  orRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.md },
-  line: { flex: 1, height: 1, backgroundColor: colors.border },
   footer: { alignItems: 'center', paddingTop: spacing.xl },
 });

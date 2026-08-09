@@ -1,10 +1,22 @@
 import React from 'react';
 import { Tabs } from 'expo-router';
 import { tabIcon, useTabScreenOptions } from '@/components/TabBar';
-import { pendingProfileRequests } from '@/constants/sample';
+import { AdminProvider, useAdmin } from '@/components/AdminContext';
 
 export default function AdminLayout() {
+  return (
+    /* The counters live above the tabs, so the badges and the overview tiles
+       are the same numbers from the same call. */
+    <AdminProvider>
+      <AdminTabs />
+    </AdminProvider>
+  );
+}
+
+function AdminTabs() {
   const screenOptions = useTabScreenOptions();
+  const { stats, pendingProfiles } = useAdmin();
+
   return (
     <Tabs screenOptions={screenOptions}>
       <Tabs.Screen
@@ -13,7 +25,11 @@ export default function AdminLayout() {
       />
       <Tabs.Screen
         name="requests"
-        options={{ title: 'Passes', tabBarIcon: tabIcon('documents-outline'), tabBarBadge: 18 }}
+        options={{
+          title: 'Passes',
+          tabBarIcon: tabIcon('documents-outline'),
+          tabBarBadge: stats?.pending || undefined,
+        }}
       />
       {/* Profile change requests land here — students and guardians cannot
           edit their own record, so the admin applies every correction. */}
@@ -22,7 +38,7 @@ export default function AdminLayout() {
         options={{
           title: 'Profiles',
           tabBarIcon: tabIcon('create-outline'),
-          tabBarBadge: pendingProfileRequests.length || undefined,
+          tabBarBadge: pendingProfiles || undefined,
         }}
       />
       <Tabs.Screen

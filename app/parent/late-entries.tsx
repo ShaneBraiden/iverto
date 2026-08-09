@@ -6,47 +6,96 @@
  * happened: the time the pass expected them back, the time the gate scanned
  * them in, how far apart those were, the reason given, and what the hostel
  * office did about it.
+ *
+ * Opening the screen is what clears the "new" flag — records are acknowledged
+ * server-side once they have actually been shown, which is what the
+ * `unacknowledged` counter on the response is for.
  */
-import React from 'react';
+import React, { useEffect, useMemo, useRef } from 'react';
 import { View, Text, StyleSheet } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import Ionicons from '@expo/vector-icons/Ionicons';
 import { Screen, TopBar } from '@/components/Screen';
 import { useWard } from '@/components/WardContext';
-import { Card, EmptyState, Note, PoweredBy, Row } from '@/components/ui';
+import {
+  Card,
+  EmptyState,
+  ErrorState,
+  LoadMore,
+  Loader,
+  Note,
+  PoweredBy,
+  Row,
+} from '@/components/ui';
 import { colors, radius, spacing, type } from '@/theme';
-import { lateEntriesFor, type LateEntry } from '@/constants/sample';
+import { PAGE_SIZE } from '@/constants/config';
+import { parent as parentApi } from '@/lib/api/endpoints';
+import { errorMessage, usePagedQuery } from '@/lib/api/useQuery';
+import { formatMinutes, isoToDate, isoToTime } from '@/lib/datetime';
+import type { LateEntry } from '@/types';
 
-/** "2h 15m late" reads better than "135 minutes late". */
-function formatDelay(mins: number) {
-  if (mins < 60) return `${mins} min late`;
-  const h = Math.floor(mins / 60);
-  const m = mins % 60;
-  return m ? `${h}h ${m}m late` : `${h}h late`;
+/** The server usually sends `delayLabel`; this covers the case where it doesn't. */
+function delayText(entry: LateEntry) {
+  return entry.delayLabel ?? `${formatMinutes(entry.delayMinutes)} late`;
 }
 
 export default function LateEntries() {
   const { ward } = useWard();
-  const entries = lateEntriesFor(ward.rollNo);
-  const worst = entries.reduce((a, b) => (b.delayMins > a ? b.delayMins : a), 0);
+  const studentId = ward?.id;
+
+  const list = usePagedQuery(
+    (cursor, signal) =>
+      parentApi
+        .lateEntries(studentId!, { cursor, limit: PAGE_SIZE }, signal)
+        .then((page) => ({
+          items: page.data ?? [],
+          nextCursor: page.nextCursor,
+          hasMore: page.hasMore,
+        })),
+    [studentId],
+    { enabled: !!studentId }
+  );
+
+  const entries = useMemo(() => list.data ?? [], [list.data]);
+  const worst = entries.reduce((a, b) => (b.delayMinutes > a ? b.delayMinutes : a), 0);
+
+  /* Acknowledging is fire-and-forget: the flag is a courtesy, and a failed
+     call should not put an error in front of the guardian. Each id is only
+     ever sent once per session. */
+  const acknowledged = useRef(new Set<string>());
+  useEffect(() => {
+    entries
+      .filter((e) => !e.acknowledged && !acknowledged.current.has(e.id))
+      .forEach((e) => {
+        acknowledged.current.add(e.id);
+        parentApi.acknowledgeLateEntry(e.id).catch(() => acknowledged.current.delete(e.id));
+      });
+  }, [entries]);
 
   return (
     <View style={{ flex: 1 }}>
-      <TopBar title="Late entry log" subtitle={`${ward.rollNo} · ${ward.label}`} />
+      <TopBar
+        title="Late entry log"
+        subtitle={ward ? `${ward.name} · ${ward.rollNumber}` : ''}
+      />
       {/* Still a tab screen (just hidden from the bar), so the floating tab
           bar is on screen and the content has to clear it. */}
       <Screen>
-        {entries.length === 0 ? (
+        {list.loading || !ward ? (
+          <Loader />
+        ) : list.error ? (
+          <ErrorState message={errorMessage(list.error)} onRetry={list.refetch} />
+        ) : entries.length === 0 ? (
           <EmptyState
             icon="checkmark-done-outline"
             title="Always back on time"
-            message={`${ward.rollNo} has returned within the pass window every time this term.`}
+            message={`${ward.name} has returned within the pass window every time this term.`}
           />
         ) : (
           <>
             <Note
               icon="information-circle-outline"
               tone={worst >= 60 ? 'warning' : 'info'}
-              text={`${entries.length} late return${entries.length === 1 ? '' : 's'} on record this term. The longest was ${formatDelay(worst)}. Records are logged by the gate scanner and reviewed by the warden.`}
+              text={`${entries.length} late return${entries.length === 1 ? '' : 's'} on record. The longest was ${formatMinutes(worst)}. Records are logged by the gate scanner and reviewed by the warden.`}
             />
 
             <View style={{ gap: spacing.md }}>
@@ -54,6 +103,13 @@ export default function LateEntries() {
                 <EntryCard key={e.id} entry={e} />
               ))}
             </View>
+
+            <LoadMore
+              hasMore={list.hasMore}
+              loading={list.loadingMore}
+              onPress={list.loadMore}
+              total={entries.length}
+            />
           </>
         )}
 
@@ -73,13 +129,16 @@ function EntryCard({ entry }: { entry: LateEntry }) {
       <View style={styles.head}>
         <View style={{ flex: 1 }}>
           <Text style={[type.caption, { color: colors.primary }]}>
-            {entry.id} · PASS {entry.passId}
+            {entry.severity.toUpperCase()}
+            {entry.resolution ? ` · ${entry.resolution.toUpperCase()}` : ''}
           </Text>
-          <Text style={[type.bodyMed, { color: colors.text, marginTop: 2 }]}>{entry.date}</Text>
+          <Text style={[type.bodyMed, { color: colors.text, marginTop: 2 }]}>
+            {isoToDate(entry.date)}
+          </Text>
         </View>
         <View style={[styles.sev, { backgroundColor: bg }]}>
           <Ionicons name={major ? 'alert-circle' : 'time'} size={12} color={fg} />
-          <Text style={[type.caption, { color: fg }]}>{formatDelay(entry.delayMins).toUpperCase()}</Text>
+          <Text style={[type.caption, { color: fg }]}>{delayText(entry).toUpperCase()}</Text>
         </View>
       </View>
 
@@ -87,26 +146,31 @@ function EntryCard({ entry }: { entry: LateEntry }) {
       <View style={styles.timeRow}>
         <View style={styles.timeBox}>
           <Text style={[type.caption, { color: colors.textFaint }]}>DUE BACK</Text>
-          <Text style={[type.h3, { color: colors.text }]}>{entry.expected}</Text>
+          <Text style={[type.h3, { color: colors.text }]}>{entry.dueBackAt ?? '—'}</Text>
         </View>
         <View style={styles.arrow}>
           <Ionicons name="arrow-forward" size={16} color={fg} />
         </View>
         <View style={[styles.timeBox, { backgroundColor: bg, borderColor: 'transparent' }]}>
           <Text style={[type.caption, { color: fg }]}>SCANNED IN</Text>
-          <Text style={[type.h3, { color: fg }]}>{entry.actual}</Text>
+          <Text style={[type.h3, { color: fg }]}>{isoToTime(entry.scannedInAt)}</Text>
         </View>
       </View>
 
-      <View style={styles.reasonBox}>
-        <Text style={[type.caption, { color: colors.textFaint }]}>REASON GIVEN AT THE GATE</Text>
-        <Text style={[type.small, { color: colors.text, marginTop: 4 }]}>{entry.reason}</Text>
-      </View>
+      {entry.reason ? (
+        <View style={styles.reasonBox}>
+          <Text style={[type.caption, { color: colors.textFaint }]}>REASON GIVEN AT THE GATE</Text>
+          <Text style={[type.small, { color: colors.text, marginTop: 4 }]}>{entry.reason}</Text>
+        </View>
+      ) : null}
 
       <View style={{ marginTop: spacing.sm }}>
-        <Row icon="shield-checkmark-outline" label="Action taken" value={entry.action} />
-        <Row icon="enter-outline" label="Gate" value={entry.gate} />
-        <Row icon="person-outline" label="Recorded by" value={entry.recordedBy} />
+        <Row
+          icon="shield-checkmark-outline"
+          label="Action taken"
+          value={entry.resolutionNote ?? entry.resolution ?? 'Pending review'}
+        />
+        <Row icon="enter-outline" label="Gate" value={entry.gate ?? '—'} />
       </View>
 
       {!entry.acknowledged ? (

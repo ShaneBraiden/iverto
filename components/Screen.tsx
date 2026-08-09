@@ -3,11 +3,12 @@
  * All chrome is glass — no coloured header blocks anywhere in the app.
  */
 import React from 'react';
-import { View, Text, StyleSheet, ScrollView, Pressable, StatusBar } from 'react-native';
+import { View, Text, StyleSheet, Pressable, StatusBar } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Ionicons } from '@expo/vector-icons';
+import Ionicons from '@expo/vector-icons/Ionicons';
 import { router } from 'expo-router';
 import { Avatar, GlassPanel } from '@/components/ui';
+import { KeyboardAwareScroll } from '@/components/KeyboardAware';
 import { Logo } from '@/components/Logo';
 import { TAB_BAR_HEIGHT } from '@/components/TabBar';
 import { blur, colors, font, radius, shadow, spacing, type } from '@/theme';
@@ -21,6 +22,13 @@ type IconName = React.ComponentProps<typeof Ionicons>['name'];
  * the content has to reserve room for it. `SafeAreaView` already contributes
  * the bottom inset, so only the bar's own height plus a little breathing room
  * is added here — otherwise the last card ends up half-hidden behind the bar.
+ *
+ * The scroll container is the keyboard-aware one rather than a plain
+ * `ScrollView`, because a screen cannot know in advance whether it holds a
+ * field: the profile, the change-password screen and every sheet trigger sit
+ * on one. Making it the default means "the screen moves so you can see what
+ * you are typing" is a property of the app, not something each screen opts in
+ * to and one of them forgets.
  */
 export function Screen({
   children,
@@ -43,12 +51,7 @@ export function Screen({
   return (
     <SafeAreaView style={styles.safe} edges={['bottom']}>
       {scroll ? (
-        <ScrollView
-          showsVerticalScrollIndicator={false}
-          contentContainerStyle={{ paddingBottom: bottomPad }}
-        >
-          {body}
-        </ScrollView>
+        <KeyboardAwareScroll extraBottomSpace={bottomPad}>{body}</KeyboardAwareScroll>
       ) : (
         <View style={{ flex: 1, paddingBottom: bottomPad }}>{body}</View>
       )}

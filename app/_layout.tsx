@@ -6,14 +6,17 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as SplashScreen from 'expo-splash-screen';
-import {
-  useFonts,
-  Poppins_400Regular,
-  Poppins_500Medium,
-  Poppins_600SemiBold,
-  Poppins_700Bold,
-} from '@expo-google-fonts/poppins';
+// Imported one weight at a time. The package's root barrel `require()`s all 18
+// Poppins faces, and Metro bundles every asset it sees a require for — so the
+// barrel would ship ~2.7 MB of weights and italics this app never renders.
+import { useFonts } from 'expo-font';
+import { Poppins_400Regular } from '@expo-google-fonts/poppins/400Regular';
+import { Poppins_500Medium } from '@expo-google-fonts/poppins/500Medium';
+import { Poppins_600SemiBold } from '@expo-google-fonts/poppins/600SemiBold';
+import { Poppins_700Bold } from '@expo-google-fonts/poppins/700Bold';
 import { colors } from '@/theme';
+import { AuthProvider } from '@/lib/auth';
+import { AppProvider } from '@/components/AppContext';
 
 SplashScreen.preventAutoHideAsync().catch(() => {});
 
@@ -52,20 +55,30 @@ export default function RootLayout() {
         {/* App-wide neutral canvas — every glass surface sits on top of this. */}
         <LinearGradient colors={colors.bgGradient} style={{ flex: 1 }}>
           <Canvas />
-          <Stack
-            screenOptions={{
-              headerShown: false,
-              contentStyle: { backgroundColor: 'transparent' },
-              animation: 'slide_from_right',
-            }}
-          >
-            <Stack.Screen name="index" />
-            <Stack.Screen name="otp" />
-            <Stack.Screen name="profile-request" />
-            <Stack.Screen name="student" />
-            <Stack.Screen name="parent" />
-            <Stack.Screen name="admin" />
-          </Stack>
+          {/* The session lives above the navigator so every screen — and the
+              401 handler in the API client — can reach it. The app config,
+              branding and notification badge sit just inside it, because all
+              three need a token before they can be fetched. */}
+          <AuthProvider>
+            <AppProvider>
+              <Stack
+                screenOptions={{
+                  headerShown: false,
+                  contentStyle: { backgroundColor: 'transparent' },
+                  animation: 'slide_from_right',
+                }}
+              >
+                <Stack.Screen name="index" />
+                <Stack.Screen name="change-password" />
+                <Stack.Screen name="onboarding" />
+                <Stack.Screen name="notifications" />
+                <Stack.Screen name="profile-request" />
+                <Stack.Screen name="student" />
+                <Stack.Screen name="parent" />
+                <Stack.Screen name="admin" />
+              </Stack>
+            </AppProvider>
+          </AuthProvider>
         </LinearGradient>
       </SafeAreaProvider>
     </GestureHandlerRootView>

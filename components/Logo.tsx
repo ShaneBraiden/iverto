@@ -70,8 +70,8 @@ export function LogoBadge({
 }
 
 /**
- * Full brand lockup — badge plus wordmark and tagline. Used on the login and
- * OTP screens, where the app has to introduce itself.
+ * Full brand lockup — badge plus wordmark and tagline. Used on the login
+ * screen, where the app has to introduce itself.
  */
 export function BrandLockup({
   size = 56,

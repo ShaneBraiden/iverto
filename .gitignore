@@ -6,3 +6,10 @@ web-build/
 .DS_Store
 ios/
 android/
+.idea/
+*.apk
+*.aab
+
+# Local API configuration — never commit real hosts or keys
+.env
+.env.local

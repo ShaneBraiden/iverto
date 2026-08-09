@@ -168,30 +168,9 @@ export const blur = {
   header: 40,
 };
 
-export type StatusKey = 'pending' | 'approved' | 'rejected' | 'expired' | 'active';
-
-export const statusMeta: Record<
-  StatusKey,
-  { label: string; fg: string; bg: string; icon: string }
-> = {
-  pending: { label: 'Pending', fg: colors.warning, bg: colors.warningBg, icon: 'time-outline' },
-  approved: {
-    label: 'Approved',
-    fg: colors.success,
-    bg: colors.successBg,
-    icon: 'checkmark-circle-outline',
-  },
-  rejected: {
-    label: 'Rejected',
-    fg: colors.danger,
-    bg: colors.dangerBg,
-    icon: 'close-circle-outline',
-  },
-  expired: {
-    label: 'Expired',
-    fg: colors.textFaint,
-    bg: colors.neutralBg,
-    icon: 'hourglass-outline',
-  },
-  active: { label: 'Active', fg: colors.info, bg: colors.infoBg, icon: 'walk-outline' },
-};
+/**
+ * Status colours are *not* here. The backend runs a fifteen-state machine and
+ * mapping one of those states onto a colour, an icon and a label is domain
+ * logic, not a design token — it lives in `lib/status.ts`, which reads the
+ * palette above.
+ */

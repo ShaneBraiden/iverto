@@ -1,0 +1,288 @@
+/**
+ * The one place the app talks to the network.
+ *
+ * Base URL comes from `EXPO_PUBLIC_API_URL` (a `.env` file, or the shell that
+ * runs `expo start`), falling back to `extra.apiUrl` in `app.json` so a release
+ * build has a host even with no env set. Every path in this app is written
+ * from the version segment onwards (`/v1/mobile/...`) exactly as the API doc
+ * writes it, and the base carries the `/hostel` service prefix:
+ *
+ *     https://api.iverto.ai/hostel  +  /v1/mobile/permissions
+ *
+ * so a path can be copied out of the doc and pasted into `endpoints.ts`
+ * unchanged.
+ */
+import Constants from 'expo-constants';
+
+const extra = Constants.expoConfig?.extra as { apiUrl?: string } | undefined;
+
+const fromEnv = process.env.EXPO_PUBLIC_API_URL;
+const fromConfig = extra?.apiUrl;
+
+/** No trailing slash — paths always supply their own leading one. */
+export const API_URL = (fromEnv ?? fromConfig ?? '').replace(/\/+$/, '');
+
+/** The error codes the server documents. Screens branch on these, not on prose. */
+export type ApiErrorCode =
+  | 'BAD_REQUEST'
+  | 'UNAUTHORIZED'
+  | 'FORBIDDEN'
+  | 'NOT_FOUND'
+  | 'CONFLICT'
+  | 'VALIDATION_FAILED'
+  | 'TOO_MANY_REQUESTS'
+  | 'INTERNAL_ERROR'
+  | 'PERMISSION_ALREADY_DECIDED'
+  | 'PROFILE_REQUEST_PENDING'
+  | 'PROFILE_REQUEST_ALREADY_REVIEWED'
+  | 'NETWORK'
+  | 'UNKNOWN';
+
+/** The envelope every `/v1/mobile/**` route returns on failure. */
+type ErrorEnvelope = {
+  statusCode?: number;
+  error?: string;
+  message?: string | string[];
+  details?: Record<string, string[]>;
+};
+
+/** Thrown for any non-2xx response, so screens can show the server's message. */
+export class ApiError extends Error {
+  status: number;
+  code: ApiErrorCode;
+  /** Present only on validation failures — field name → messages. */
+  details?: Record<string, string[]>;
+  body: unknown;
+
+  constructor(
+    status: number,
+    message: string,
+    code: ApiErrorCode = 'UNKNOWN',
+    details?: Record<string, string[]>,
+    body?: unknown
+  ) {
+    super(message);
+    this.name = 'ApiError';
+    this.status = status;
+    this.code = code;
+    this.details = details;
+    this.body = body;
+  }
+
+  /** The first validation message for a field, if the server flagged one. */
+  fieldError(field: string) {
+    return this.details?.[field]?.[0];
+  }
+}
+
+/* ------------------------------------------------------------------- Token */
+
+let authToken: string | null = null;
+let onUnauthorized: ((reason: SessionEndReason) => void) | null = null;
+let refreshTokens: (() => Promise<string | null>) | null = null;
+let refreshInFlight: Promise<string | null> | null = null;
+
+/** Why a signed-in session stopped being valid. Shown on the login screen. */
+export type SessionEndReason = 'expired' | 'revoked';
+
+export function setAuthToken(token: string | null) {
+  authToken = token;
+}
+
+export function getAuthToken() {
+  return authToken;
+}
+
+/**
+ * Called when a request made *with* a token comes back 401 — the auth provider
+ * uses it to drop the session.
+ *
+ * A 401 with no token attached is deliberately not routed here. `POST
+ * /auth/login` answers 401 for bad credentials, and treating that as an expired
+ * session meant a mistyped password tore down the session and replaced the
+ * route with `/` — which is the login screen itself. The screen remounted, the
+ * error state went with it, and the user was handed a blank form with no idea
+ * what had gone wrong. A credential rejection is the caller's to display.
+ */
+export function setUnauthorizedHandler(handler: ((reason: SessionEndReason) => void) | null) {
+  onUnauthorized = handler;
+}
+
+/**
+ * Supplies a way to trade the refresh token for a new access token.
+ *
+ * Set by the auth provider. Returning a token means "retry the request";
+ * returning null means the session is genuinely over.
+ */
+export function setTokenRefresher(refresher: (() => Promise<string | null>) | null) {
+  refreshTokens = refresher;
+  refreshInFlight = null;
+}
+
+/**
+ * One refresh at a time. A dashboard fires four calls on mount, so an expired
+ * token produces four simultaneous 401s — four independent refreshes would race
+ * and leave three of them holding a token the server has already rotated away.
+ */
+function refreshOnce() {
+  if (!refreshTokens) return Promise.resolve(null);
+  if (!refreshInFlight) {
+    refreshInFlight = refreshTokens().finally(() => {
+      refreshInFlight = null;
+    });
+  }
+  return refreshInFlight;
+}
+
+/* ------------------------------------------------------------------ Request */
+
+export type Query = Record<string, string | number | boolean | undefined | null>;
+
+type RequestOptions = {
+  method?: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
+  /** Serialised as JSON unless it is already a FormData. */
+  body?: unknown;
+  /** Appended as a query string; `undefined` / `null` / `''` entries are dropped. */
+  query?: Query;
+  signal?: AbortSignal;
+  /** `text/csv` exports come back as a string rather than JSON. */
+  accept?: string;
+  /**
+   * Set internally when a request is replayed after a token refresh, so a
+   * second 401 ends the session instead of refreshing round and round.
+   */
+  retried?: boolean;
+  /**
+   * Public route: send no bearer token, and let a 401 through untouched.
+   *
+   * Two reasons this exists. The §1 auth routes are public and their 401 means
+   * "those credentials are wrong", which the calling screen displays. And the
+   * refresh call itself must never re-enter the refresh machinery — it runs
+   * *inside* it, so a 401 there would leave it waiting on the very promise it
+   * is in the middle of resolving.
+   */
+  anonymous?: boolean;
+};
+
+/**
+ * Built by hand rather than with `URLSearchParams`: React Native ships a
+ * partial implementation whose `toString()` joins the pairs *without*
+ * percent-encoding them. Search terms here are free text — a `q` containing a
+ * space or an `&` would silently corrupt the query.
+ */
+function buildUrl(path: string, query?: Query) {
+  const url = `${API_URL}${path.startsWith('/') ? path : `/${path}`}`;
+  if (!query) return url;
+
+  const pairs: string[] = [];
+  for (const [key, value] of Object.entries(query)) {
+    if (value === undefined || value === null || value === '') continue;
+    pairs.push(`${encodeURIComponent(key)}=${encodeURIComponent(String(value))}`);
+  }
+  return pairs.length ? `${url}?${pairs.join('&')}` : url;
+}
+
+/** NestJS validation pipes send `message` as an array; flatten it to one line. */
+function readMessage(payload: ErrorEnvelope | null, status: number) {
+  const raw = payload?.message;
+  if (Array.isArray(raw) && raw.length) return raw.join('\n');
+  if (typeof raw === 'string' && raw) return raw;
+  if (payload?.error) return payload.error;
+  return `Request failed (${status})`;
+}
+
+export async function request<T>(path: string, options: RequestOptions = {}): Promise<T> {
+  if (!API_URL) {
+    throw new ApiError(0, 'API URL is not configured. Set EXPO_PUBLIC_API_URL.', 'UNKNOWN');
+  }
+
+  const {
+    method = 'GET',
+    body,
+    query,
+    signal,
+    accept = 'application/json',
+    retried,
+    anonymous,
+  } = options;
+  const isForm = typeof FormData !== 'undefined' && body instanceof FormData;
+
+  const headers: Record<string, string> = { Accept: accept };
+  /* Leave Content-Type off a FormData body — the runtime has to set the
+     multipart boundary itself, and overwriting it breaks the upload. */
+  if (body !== undefined && !isForm) headers['Content-Type'] = 'application/json';
+  /* Captured rather than read again below: by the time the response lands, a
+     concurrent refresh may already have replaced the module-level token, and
+     what matters is whether *this* request was authenticated. */
+  const sentWithToken = anonymous ? null : authToken;
+  if (sentWithToken) headers.Authorization = `Bearer ${sentWithToken}`;
+
+  let response: Response;
+  try {
+    response = await fetch(buildUrl(path, query), {
+      method,
+      headers,
+      signal,
+      body: body === undefined ? undefined : isForm ? (body as FormData) : JSON.stringify(body),
+    });
+  } catch (err) {
+    if ((err as Error)?.name === 'AbortError') throw err;
+    throw new ApiError(0, 'Cannot reach the server. Check your connection.', 'NETWORK');
+  }
+
+  const text = await response.text();
+
+  if (!response.ok) {
+    let payload: ErrorEnvelope | null = null;
+    try {
+      payload = text ? (JSON.parse(text) as ErrorEnvelope) : null;
+    } catch {
+      /* Not JSON — a proxy error page, say. The status still tells the story. */
+    }
+
+    /* A 401 on an authenticated call means the token stopped being good, not
+       that the caller got something wrong — try to renew it once and replay,
+       and only end the session if that fails. A 401 with no token attached is
+       a credential rejection and belongs to whoever made the call. */
+    if (response.status === 401 && sentWithToken) {
+      if (!retried) {
+        const fresh = await refreshOnce();
+        if (fresh) return request<T>(path, { ...options, retried: true });
+      }
+      onUnauthorized?.(retried ? 'revoked' : 'expired');
+    }
+
+    throw new ApiError(
+      response.status,
+      readMessage(payload, response.status),
+      (payload?.error as ApiErrorCode) ?? 'UNKNOWN',
+      payload?.details,
+      payload
+    );
+  }
+
+  /* CSV exports and 204s are not JSON. */
+  if (!text) return undefined as T;
+  if (accept !== 'application/json') return text as unknown as T;
+
+  try {
+    return JSON.parse(text) as T;
+  } catch {
+    return text as unknown as T;
+  }
+}
+
+export const api = {
+  get: <T>(path: string, query?: Query, signal?: AbortSignal) =>
+    request<T>(path, { method: 'GET', query, signal }),
+  post: <T>(path: string, body?: unknown, query?: Query) =>
+    request<T>(path, { method: 'POST', body, query }),
+  put: <T>(path: string, body?: unknown) => request<T>(path, { method: 'PUT', body }),
+  patch: <T>(path: string, body?: unknown) => request<T>(path, { method: 'PATCH', body }),
+  del: <T>(path: string, body?: unknown) => request<T>(path, { method: 'DELETE', body }),
+  csv: (path: string, query?: Query) =>
+    request<string>(path, { method: 'GET', query, accept: 'text/csv' }),
+  /** For the public §1 auth routes — see `anonymous` in `RequestOptions`. */
+  postAnon: <T>(path: string, body?: unknown) =>
+    request<T>(path, { method: 'POST', body, anonymous: true }),
+};

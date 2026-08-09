@@ -3,46 +3,52 @@
  *
  * The guardian dashboard header shows the ward currently in view; tapping it
  * opens this sheet, which lists every child on the account with enough context
- * — roll number, course, hostel, how many requests are waiting — to pick the
- * right one without opening each in turn.
+ * — name, roll number, whether they're on campus, how many requests are
+ * waiting — to pick the right one without opening each in turn.
  */
 import React from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import Ionicons from '@expo/vector-icons/Ionicons';
 import { Sheet } from '@/components/Sheet';
 import { Avatar } from '@/components/ui';
 import { colors, radius, spacing, type } from '@/theme';
-import { pendingFor, type Ward } from '@/constants/sample';
+import type { Ward } from '@/types';
 
 export function WardSwitcher({
   visible,
   onClose,
   wards,
-  activeRollNo,
+  activeId,
   onSelect,
+  pendingFor,
 }: {
   visible: boolean;
   onClose: () => void;
   wards: Ward[];
-  activeRollNo: string;
-  onSelect: (rollNo: string) => void;
+  activeId: string;
+  onSelect: (studentId: string) => void;
+  /** Reads the shared queue, so the counts here match the tab badge. */
+  pendingFor: (studentId: string) => unknown[];
 }) {
   return (
     <Sheet
       visible={visible}
       onClose={onClose}
       title="Switch ward"
-      subtitle={`${wards.length} students on your account`}
+      subtitle={`${wards.length} student${wards.length === 1 ? '' : 's'} on your account`}
     >
       <View style={{ paddingHorizontal: spacing.lg, gap: spacing.sm }}>
         {wards.map((w) => {
-          const on = w.rollNo === activeRollNo;
-          const waiting = pendingFor(w.rollNo).length;
+          const on = w.id === activeId;
+          const inside = w.currentStatus === 'IN';
+          /* Prefer the live queue, and fall back to the count the wards call
+             already carries — so the sheet is right even before it lands. */
+          const waiting = pendingFor(w.id).length || w.pendingApprovals;
           return (
             <Pressable
-              key={w.rollNo}
+              key={w.id}
               onPress={() => {
-                onSelect(w.rollNo);
+                onSelect(w.id);
                 onClose();
               }}
               style={({ pressed }) => [
@@ -55,26 +61,23 @@ export function WardSwitcher({
 
               <View style={{ flex: 1 }}>
                 <Text style={[type.bodyMed, { color: colors.text }]} numberOfLines={1}>
-                  {w.rollNo}
+                  {w.name}
                 </Text>
                 <Text style={[type.small, { color: colors.textMuted }]} numberOfLines={1}>
-                  {w.label} · {w.hostel}
+                  {[w.rollNumber, w.roomNumber].filter(Boolean).join(' · ')}
                 </Text>
 
                 <View style={styles.tagRow}>
                   <View
                     style={[
                       styles.tag,
-                      { backgroundColor: w.onCampus ? colors.successBg : colors.infoBg },
+                      { backgroundColor: inside ? colors.successBg : colors.infoBg },
                     ]}
                   >
                     <Text
-                      style={[
-                        type.caption,
-                        { color: w.onCampus ? colors.success : colors.info },
-                      ]}
+                      style={[type.caption, { color: inside ? colors.success : colors.info }]}
                     >
-                      {w.onCampus ? 'ON CAMPUS' : 'OUT'}
+                      {inside ? 'ON CAMPUS' : 'OUT'}
                     </Text>
                   </View>
                   {waiting > 0 ? (

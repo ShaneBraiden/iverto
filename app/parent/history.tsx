@@ -1,60 +1,123 @@
-/** Guardian — record of past decisions, for the ward currently in view. */
+/**
+ * Guardian — record of past decisions, for the ward currently in view.
+ *
+ * `decided=true` is what makes this a *record* rather than a second copy of
+ * the approvals tab: it asks the server for requests that already carry a
+ * decision, so nothing still waiting can appear here.
+ */
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, ScrollView } from 'react-native';
 import { Screen, TopBar } from '@/components/Screen';
 import { useWard } from '@/components/WardContext';
 import { WardSwitcher } from '@/components/WardSwitcher';
-import { Chip, EmptyState, GlassPanel, PoweredBy } from '@/components/ui';
+import {
+  Chip,
+  EmptyState,
+  ErrorState,
+  GlassPanel,
+  LoadMore,
+  Loader,
+  PoweredBy,
+} from '@/components/ui';
 import { OutpassCard } from '@/components/OutpassCard';
 import { blur, colors, spacing, type } from '@/theme';
-import { outpassesFor } from '@/constants/sample';
+import { PAGE_SIZE } from '@/constants/config';
+import { parent as parentApi } from '@/lib/api/endpoints';
+import { errorMessage, fromParentPage, usePagedQuery } from '@/lib/api/useQuery';
+import { useRefetchOnFocus } from '@/lib/useFocusRefetch';
+import { statusParam } from '@/lib/status';
+import type { StatusChip } from '@/types';
 
-const FILTERS = ['All', 'Approved', 'Rejected', 'Expired'] as const;
+/** A guardian's record only ever holds outcomes, so `active` is not offered. */
+const FILTERS: { key: StatusChip; label: string }[] = [
+  { key: 'all', label: 'All' },
+  { key: 'approved', label: 'Approved' },
+  { key: 'rejected', label: 'Rejected' },
+  { key: 'expired', label: 'Expired' },
+  { key: 'cancelled', label: 'Cancelled' },
+];
 
 export default function ParentHistory() {
-  const { ward, wards, selectWard, hasSiblings } = useWard();
-  const [filter, setFilter] = useState<string>('All');
+  const { ward, wards, selectWard, hasSiblings, pendingFor } = useWard();
+  const [chip, setChip] = useState<StatusChip>('all');
   const [switching, setSwitching] = useState(false);
 
-  const decided = outpassesFor(ward.rollNo).filter((o) => o.status !== 'pending');
-  const list = filter === 'All' ? decided : decided.filter((o) => o.status === filter.toLowerCase());
+  const childId = ward?.id;
+  const status = statusParam(chip);
+
+  const list = usePagedQuery(
+    (cursor, signal) =>
+      parentApi
+        .permissions({ cursor, limit: PAGE_SIZE, childId, decided: true, status }, signal)
+        .then(fromParentPage),
+    [childId, status],
+    { enabled: !!childId }
+  );
+  useRefetchOnFocus(list.refetch);
+
+  const rows = list.data ?? [];
 
   return (
     <View style={{ flex: 1 }}>
       <TopBar
         title="Decision history"
-        subtitle={`${ward.rollNo} · ${ward.label}`}
+        subtitle={ward ? `${ward.name} · ${ward.rollNumber}` : ''}
         back={false}
-        rightIcon={hasSiblings ? 'swap-horizontal-outline' : 'filter-outline'}
+        rightIcon={hasSiblings ? 'swap-horizontal-outline' : undefined}
         onRight={hasSiblings ? () => setSwitching(true) : undefined}
       />
       <GlassPanel intensity={blur.bar} style={styles.filterBar}>
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
           contentContainerStyle={{ gap: spacing.sm, paddingHorizontal: spacing.lg }}
         >
           {FILTERS.map((f) => (
-            <Chip key={f} label={f} selected={f === filter} onPress={() => setFilter(f)} />
+            <Chip
+              key={f.key}
+              label={f.label}
+              selected={f.key === chip}
+              onPress={() => setChip(f.key)}
+            />
           ))}
         </ScrollView>
       </GlassPanel>
       <Screen>
-        <Text style={[type.small, { color: colors.textMuted }]}>
-          {list.length} record{list.length === 1 ? '' : 's'} for {ward.rollNo}
-        </Text>
-        {list.length === 0 ? (
-          <EmptyState
-            icon="albums-outline"
-            title="No records"
-            message={`No ${filter.toLowerCase()} requests to show for ${ward.rollNo}.`}
-          />
+        {list.loading || !ward ? (
+          <Loader />
+        ) : list.error ? (
+          <ErrorState message={errorMessage(list.error)} onRetry={list.refetch} />
         ) : (
-          <View style={{ gap: spacing.md }}>
-            {list.map((o) => (
-              <OutpassCard key={o.id} item={o} role="parent" showRequester />
-            ))}
-          </View>
+          <>
+            <Text style={[type.small, { color: colors.textMuted }]}>
+              {rows.length}
+              {list.hasMore ? '+' : ''} record{rows.length === 1 ? '' : 's'} for {ward.name}
+            </Text>
+            {rows.length === 0 ? (
+              <EmptyState
+                icon="albums-outline"
+                title="No records"
+                message={
+                  chip === 'all'
+                    ? `Nothing has been decided for ${ward.name} yet.`
+                    : `No ${chip} requests to show for ${ward.name}.`
+                }
+              />
+            ) : (
+              <View style={{ gap: spacing.md }}>
+                {rows.map((p) => (
+                  <OutpassCard key={p.id} item={p} role="parent" showRequester />
+                ))}
+              </View>
+            )}
+            <LoadMore
+              hasMore={list.hasMore}
+              loading={list.loadingMore}
+              onPress={list.loadMore}
+              total={rows.length}
+            />
+          </>
         )}
         <PoweredBy />
       </Screen>
@@ -63,8 +126,9 @@ export default function ParentHistory() {
         visible={switching}
         onClose={() => setSwitching(false)}
         wards={wards}
-        activeRollNo={ward.rollNo}
+        activeId={ward?.id ?? ''}
         onSelect={selectWard}
+        pendingFor={pendingFor}
       />
     </View>
   );
