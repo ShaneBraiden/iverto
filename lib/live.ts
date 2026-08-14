@@ -8,10 +8,10 @@
  * The namespace and the handshake path are two different things and both are
  * required, per the API doc:
  *
- *     io('https://api.iverto.ai/mobile', { path: '/hostel/socket.io' })
+ *     io('https://api.iverto.ai/mobile', { path: '/devhostel/socket.io' })
  *          ^ namespace on the origin        ^ the deployment's prefix
  *
- * Both are derived from `API_URL`, which is the one place `/hostel` is allowed
+ * Both are derived from `API_URL`, which is the one place the prefix is allowed
  * to appear. That makes local dev fall out for free: a base of
  * `http://192.168.1.10:3000` has no prefix to carry, so the path comes out as
  * plain `/socket.io` — exactly what a backend run without `WS_PATH` serves.
@@ -31,7 +31,7 @@ type Events = {
 let socket: Socket | null = null;
 
 /**
- * `https://api.iverto.ai/hostel` → namespace URL + handshake path.
+ * `https://api.iverto.ai/devhostel` → namespace URL + handshake path.
  *
  * Split with a regex rather than `new URL()`: React Native's URL class has no
  * `origin` or `pathname` getters, so both would come back undefined.

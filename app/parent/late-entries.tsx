@@ -26,6 +26,7 @@ import {
   Row,
 } from '@/components/ui';
 import { SkeletonList } from '@/components/Skeleton';
+import { Stagger } from '@/components/motion';
 import { colors, radius, spacing, type } from '@/theme';
 import { PAGE_SIZE } from '@/constants/config';
 import { parent as parentApi } from '@/lib/api/endpoints';
@@ -99,9 +100,11 @@ export default function LateEntries() {
             />
 
             <View style={{ gap: spacing.md }}>
-              {entries.map((e) => (
-                <EntryCard key={e.id} entry={e} />
-              ))}
+              <Stagger>
+                {entries.map((e) => (
+                  <EntryCard key={e.id} entry={e} />
+                ))}
+              </Stagger>
             </View>
 
             <LoadMore

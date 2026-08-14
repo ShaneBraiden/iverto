@@ -16,6 +16,13 @@
  * In every one of them the card still answers the underlying question from the
  * gate scan the app already had, because "on campus, seen at the gate at 19:40"
  * is worth more than an empty box.
+ *
+ * That gate answer is stated here in all four states, including `live` — this
+ * card is the only place on the ward screen that says where the ward is, so
+ * dropping the gate record whenever GPS happened to be working would leave the
+ * screen silent on the thing the hostel actually acts on. The two can disagree
+ * (a phone left in the room, a fix taken ten minutes ago), and where they do
+ * the card says so rather than picking a winner quietly.
  */
 import React from 'react';
 import { View, Text, StyleSheet, Pressable } from 'react-native';
@@ -70,14 +77,13 @@ export function WardLocationCard({ ward }: { ward: WardDetail }) {
 
   if (notEnabled || (!fix.data && fix.error)) {
     return (
-      <Card>
-        <Header name={ward.name} onRefresh={fix.refetch} busy={fix.refetching} />
-        <GateFallback ward={ward} />
-        <Note
-          icon="information-circle-outline"
-          text="Live location is not switched on for this campus. Your ward's whereabouts come from the gate scanner."
-        />
-      </Card>
+      <Fallback
+        ward={ward}
+        onRefresh={fix.refetch}
+        busy={fix.refetching}
+        icon="information-circle-outline"
+        text="Live location is not switched on for this campus. Your ward's whereabouts come from the gate scanner."
+      />
     );
   }
 
@@ -99,37 +105,39 @@ export function WardLocationCard({ ward }: { ward: WardDetail }) {
      app is broken and calls the warden. */
   if (data && !data.sharing) {
     return (
-      <Card>
-        <Header name={ward.name} onRefresh={fix.refetch} busy={fix.refetching} />
-        <GateFallback ward={ward} />
-        <Note
-          icon="eye-off-outline"
-          tone="warning"
-          text={`${ward.name} has not turned on location sharing. They can switch it on from Profile → Location sharing in their app.`}
-        />
-      </Card>
+      <Fallback
+        ward={ward}
+        onRefresh={fix.refetch}
+        busy={fix.refetching}
+        icon="eye-off-outline"
+        tone="warning"
+        text={`${ward.name} has not turned on location sharing. They can switch it on from Profile → Location sharing in their app.`}
+      />
     );
   }
 
   if (!resolved.point || !zone) {
     return (
-      <Card>
-        <Header name={ward.name} onRefresh={fix.refetch} busy={fix.refetching} />
-        <GateFallback ward={ward} />
-        <Note
-          icon="hourglass-outline"
-          text={
-            zone
-              ? 'Sharing is on, but no location has come through yet. It arrives the next time they open the app.'
-              : 'No campus boundary has been set up yet, so there is nothing to measure against. Your warden can add one.'
-          }
-        />
-      </Card>
+      <Fallback
+        ward={ward}
+        onRefresh={fix.refetch}
+        busy={fix.refetching}
+        icon="hourglass-outline"
+        text={
+          zone
+            ? 'Sharing is on, but no location has come through yet. It arrives the next time they open the app.'
+            : 'No campus boundary has been set up yet, so there is nothing to measure against. Your warden can add one.'
+        }
+      />
     );
   }
 
   const inside = resolved.inside;
   const tint = inside ? colors.success : colors.info;
+  /* What the gate scanner has on record, which is a separate question from
+     what the phone says and is the one the hostel enforces against. */
+  const gateIn = ward.currentStatus === 'IN';
+  const scan = ward.lastGateScan;
 
   return (
     <Card>
@@ -175,22 +183,48 @@ export function WardLocationCard({ ward }: { ward: WardDetail }) {
             value={`± ${formatDistance(data.accuracyMeters)}`}
           />
         ) : null}
-        {ward.lastGateScan ? (
-          <Fact
-            icon={ward.lastGateScan.direction === 'in' ? 'log-in-outline' : 'log-out-outline'}
-            label="Last gate scan"
-            value={`${ward.lastGateScan.direction === 'in' ? 'In' : 'Out'} ${isoToDateTime(ward.lastGateScan.at)}`}
-          />
-        ) : null}
+        {/* Always drawn, scan or no scan: this card is the ward screen's only
+            statement of whereabouts, and "on campus per the gate" is the half
+            of the answer the hostel enforces against. */}
+        <Fact
+          icon={gateIn ? 'log-in-outline' : 'log-out-outline'}
+          label="At the gate"
+          value={
+            gateIn
+              ? `On campus${scan ? ` · in ${isoToDateTime(scan.at)}` : ' · no scan yet'}`
+              : `Currently out${scan ? ` · out ${isoToDateTime(scan.at)}` : ' · no scan yet'}`
+          }
+          tone={gateIn ? colors.success : colors.info}
+        />
       </View>
 
-      {/* An old fix is worse than no fix if it is presented as current. */}
+      {/* At most one caveat, and a stale fix outranks a disagreement — an hour
+          old position that happens to fall the other side of the line is not
+          evidence of anything, so saying both would be noise. */}
       {age.stale ? (
-        <Note
-          icon="alert-circle-outline"
-          tone="warning"
-          text={`This position is ${age.label} — locations are only sent while ${ward.name} has the app open, so it may not be where they are now.`}
-        />
+        /* An old fix is worse than no fix if it is presented as current. */
+        <View style={{ marginTop: spacing.md }}>
+          <Note
+            icon="alert-circle-outline"
+            tone="warning"
+            text={`This position is ${age.label} — locations are only sent while ${ward.name} has the app open, so it may not be where they are now.`}
+          />
+        </View>
+      ) : inside !== gateIn ? (
+        /* The two halves disagree. Said out loud, because a guardian who spots
+           it themselves assumes one of them is broken. A phone left in the room
+           is the ordinary explanation and neither reading is wrong. */
+        <View style={{ marginTop: spacing.md }}>
+          <Note
+            icon="git-compare-outline"
+            tone="warning"
+            text={
+              gateIn
+                ? `The gate has ${ward.name} on campus, but their phone is outside the boundary. The gate record is what the hostel goes by.`
+                : `The gate has ${ward.name} signed out, but their phone is inside the boundary — it may have been left behind.`
+            }
+          />
+        </View>
       ) : null}
     </Card>
   );
@@ -228,6 +262,40 @@ function Header({
         />
       </Pressable>
     </View>
+  );
+}
+
+/**
+ * The card in any of its three non-live states: the gate answer, then one line
+ * saying why there is no live one.
+ *
+ * All three were written out longhand and drifted apart — the note sat flush
+ * against the strip in each of them, which is the only reason the shape is
+ * shared rather than repeated a fourth time.
+ */
+function Fallback({
+  ward,
+  onRefresh,
+  busy,
+  icon,
+  text,
+  tone,
+}: {
+  ward: WardDetail;
+  onRefresh: () => void;
+  busy?: boolean;
+  icon: React.ComponentProps<typeof Note>['icon'];
+  text: string;
+  tone?: React.ComponentProps<typeof Note>['tone'];
+}) {
+  return (
+    <Card>
+      <Header name={ward.name} onRefresh={onRefresh} busy={busy} />
+      <GateFallback ward={ward} />
+      <View style={{ marginTop: spacing.md }}>
+        <Note icon={icon} tone={tone} text={text} />
+      </View>
+    </Card>
   );
 }
 

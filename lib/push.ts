@@ -13,6 +13,7 @@ import { Platform } from 'react-native';
 import * as Device from 'expo-device';
 import * as Notifications from 'expo-notifications';
 import { push as pushApi } from '@/lib/api/endpoints';
+import { eventKey, needsRewrite, notificationCopy } from '@/lib/notificationText';
 import type { Shell } from '@/types';
 
 /** Kept so sign-out can unregister the exact token it registered. */
@@ -177,6 +178,77 @@ export function watchTokenRefresh() {
       .then(() => note('registered', token))
       .catch((err) => note('register-failed', err));
   });
+}
+
+/* ------------------------------------------------- Foreground presentation */
+
+/**
+ * Set on a notification this app posted itself, so the handler below can tell
+ * one of its own rewrites from an incoming push and not loop on it.
+ */
+const REWRITTEN = 'ivertoRewritten';
+
+/**
+ * What to do with a notification that arrives while the app is running.
+ *
+ * The socket (lib/live.ts) already updates the screen the user is looking at,
+ * so a banner on top of it is redundant for the current screen — but a push
+ * about a *different* pass still deserves one. Showing it is the lesser evil;
+ * suppressing per-screen is not worth the bookkeeping.
+ *
+ * The badge stays off on purpose: AppContext already increments `unread` from
+ * the socket's `notification:new`, and counting it twice is worse than not
+ * counting it here.
+ *
+ * The one case that is not shown as it arrived is a push whose title is the
+ * raw event code — `parent_decided` and friends. That one is swallowed and
+ * immediately re-posted with copy a person can read. Only the tray text is
+ * rebuilt; `data` is carried over verbatim, so the deep link on tap is the one
+ * the server sent.
+ *
+ * This cannot reach a push that lands while the app is backgrounded or killed
+ * — Android draws those itself, from the `notification` block, before any JS
+ * runs. Fixing those means fixing the sender: see
+ * `server-changes-notifications.md`.
+ */
+export async function foregroundBehaviour(
+  notification: Notifications.Notification
+): Promise<Notifications.NotificationBehavior> {
+  const show: Notifications.NotificationBehavior = {
+    shouldShowAlert: true,
+    shouldPlaySound: true,
+    shouldSetBadge: false,
+  };
+
+  const content = notification.request.content;
+  const data = (content.data ?? {}) as Record<string, unknown>;
+  const payload = { title: content.title, body: content.body, data };
+
+  /* Our own repost coming back around, or a push the server wrote properly. */
+  if (data[REWRITTEN] === '1') return show;
+  if (!needsRewrite(payload)) return show;
+
+  /* No event code anywhere in it, so there is nothing to name it with — a
+     rewrite could only produce a banner reading "Notification". Leave it
+     exactly as it arrived; this is the path a bare data message takes. */
+  if (!eventKey(payload)) return show;
+
+  const copy = notificationCopy(payload);
+
+  /* Fire-and-forget, because the handler has to answer this frame — the banner
+     for the original is being decided on the strength of what we return. */
+  void Notifications.scheduleNotificationAsync({
+    content: {
+      title: copy.title,
+      body: copy.body || undefined,
+      data: { ...data, [REWRITTEN]: '1' },
+    },
+    /* Immediate delivery, on the channel `ensureChannel` created — an unknown
+       channel id on Android 8+ means the notification is dropped entirely. */
+    trigger: Platform.OS === 'android' ? { channelId: 'default' } : null,
+  }).catch((err) => console.warn(`[push] rewrite-failed: ${String(err)}`));
+
+  return { shouldShowAlert: false, shouldPlaySound: false, shouldSetBadge: false };
 }
 
 /* ------------------------------------------------------------- Deep linking */

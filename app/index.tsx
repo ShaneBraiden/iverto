@@ -35,6 +35,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Button, Field, GlassPanel, Note, PoweredBy } from '@/components/ui';
 import { BrandLockup } from '@/components/Logo';
 import { KeyboardAwareScroll, useKeyboardVisible } from '@/components/KeyboardAware';
+import { Appear } from '@/components/motion';
 import { blur, colors, font, radius, shadow, spacing, type } from '@/theme';
 import { auth } from '@/lib/api/endpoints';
 import { errorCode, errorCopy, errorMessage, useMutation } from '@/lib/api/useQuery';
@@ -143,11 +144,15 @@ export default function LoginScreen() {
   if (restoring) {
     return (
       <View style={styles.gate}>
-        <BrandLockup size={96} layout="stacked" />
-        <View style={{ alignItems: 'center', gap: spacing.md }}>
+        {/* The mark grows very slightly into place, picking up where the splash
+            image left off rather than cutting to a still frame of it. */}
+        <Appear scale={0.94} distance={0}>
+          <BrandLockup size={96} layout="stacked" />
+        </Appear>
+        <Appear index={1} style={{ alignItems: 'center', gap: spacing.md }}>
           <ActivityIndicator color={colors.primary} />
           <Text style={[type.small, { color: colors.textMuted }]}>Restoring your session…</Text>
-        </View>
+        </Appear>
         <View style={styles.gateFooter}>
           <PoweredBy />
         </View>
@@ -163,161 +168,179 @@ export default function LoginScreen() {
         >
           {/* Brand — the real mark, drawn as vector so it stays sharp at any
               size. Big and stacked at rest; small and inline while typing. */}
-          <BrandLockup
-            size={keyboardUp ? 48 : 112}
-            layout={keyboardUp ? 'row' : 'stacked'}
-            style={keyboardUp ? styles.brandRowCompact : styles.brandRow}
-          />
+          <Appear scale={0.94} distance={0}>
+            <BrandLockup
+              size={keyboardUp ? 48 : 112}
+              layout={keyboardUp ? 'row' : 'stacked'}
+              style={keyboardUp ? styles.brandRowCompact : styles.brandRow}
+            />
+          </Appear>
 
-          {/* Sign-in sheet */}
-          <GlassPanel intensity={blur.header} strong style={styles.sheet}>
-            <View style={{ padding: spacing.xl }}>
-              <Text style={[type.h2, { color: colors.text }]}>Welcome back</Text>
-              <Text style={[type.small, { color: colors.textMuted, marginTop: 2 }]}>
-                Sign in to continue
-              </Text>
+          {/* Sign-in sheet — arrives just behind the mark, so the screen reads
+              top to bottom the way it is meant to be filled in. */}
+          <Appear index={1}>
+            <GlassPanel intensity={blur.header} strong style={styles.sheet}>
+              <View style={{ padding: spacing.xl }}>
+                <Text style={[type.h2, { color: colors.text }]}>Welcome back</Text>
+                <Text style={[type.small, { color: colors.textMuted, marginTop: 2 }]}>
+                  Sign in to continue
+                </Text>
 
-              {/* Why the user is looking at this screen again, when they did
-                  not ask to be. Cleared as soon as they try to sign in. */}
-              {ended && !login.error ? (
-                <View style={{ marginTop: spacing.lg }}>
-                  <Note
-                    icon="time-outline"
-                    tone="warning"
-                    text={END_MESSAGE[ended] ?? 'You have been signed out. Sign in again to carry on.'}
-                  />
-                </View>
-              ) : null}
+                {/* Why the user is looking at this screen again, when they did
+                    not ask to be. Cleared as soon as they try to sign in. */}
+                {ended && !login.error ? (
+                  <View style={{ marginTop: spacing.lg }}>
+                    <Note
+                      icon="time-outline"
+                      tone="warning"
+                      text={END_MESSAGE[ended] ?? 'You have been signed out. Sign in again to carry on.'}
+                    />
+                  </View>
+                ) : null}
 
-              <View style={{ gap: spacing.lg, marginTop: spacing.xl }}>
-                <Field
-                  label="Email address"
-                  placeholder="you@college.edu"
-                  icon="mail-outline"
-                  keyboardType="email-address"
-                  autoCapitalize="none"
-                  autoComplete="email"
-                  returnKeyType="next"
-                  value={email}
-                  onChangeText={setEmail}
-                  onSubmitEditing={() => passwordRef.current?.focus()}
-                  blurOnSubmit={false}
-                />
-                <Field
-                  label="Password"
-                  placeholder="••••••••"
-                  icon="lock-closed-outline"
-                  inputRef={passwordRef}
-                  secureTextEntry={!showPass}
-                  autoCapitalize="none"
-                  autoComplete="password"
-                  returnKeyType="go"
-                  value={password}
-                  onChangeText={setPassword}
-                  onSubmitEditing={submit}
-                  right={
-                    <Pressable onPress={() => setShowPass((v) => !v)} hitSlop={8}>
-                      <Ionicons
-                        name={showPass ? 'eye-off-outline' : 'eye-outline'}
-                        size={18}
-                        color={colors.textFaint}
-                      />
-                    </Pressable>
-                  }
-                />
-
-                {/* Only shown once the server says the identifier is ambiguous
-                    across tenants — everyone else never sees the field. */}
-                {ambiguous || tenantId ? (
+                <View style={{ gap: spacing.lg, marginTop: spacing.xl }}>
                   <Field
-                    label="Institution ID"
-                    placeholder="Given to you by the campus office"
-                    icon="business-outline"
-                    autoCapitalize="none"
-                    value={tenantId}
-                    onChangeText={setTenantId}
-                    hint="Your email exists at more than one institution, so we need to know which."
-                  />
-                ) : null}
-
-                <Pressable
-                  style={{ alignSelf: 'flex-end' }}
-                  hitSlop={8}
-                  disabled={!email.trim() || forgot.pending}
-                  onPress={() => forgot.mutate()}
-                >
-                  <Text
-                    style={[
-                      type.smallMed,
-                      { color: email.trim() ? colors.primary : colors.textFaint },
-                    ]}
-                  >
-                    {forgot.pending ? 'Sending…' : 'Forgot password?'}
-                  </Text>
-                </Pressable>
-
-                {/* A 404 is not a typo to try again — it means the record
-                    exists but nobody has provisioned a login for it, and there
-                    is no self-service sign-up to offer. Say who to ask. */}
-                {/* Ordered most specific first. The three credential cases are
-                    worded here because only this screen knows what they mean;
-                    everything else — offline, rate-limited, a 500 — is worded
-                    once in `errorCopy` and shown with its own icon, so the same
-                    failure reads the same way wherever it happens. */}
-                {unprovisioned ? (
-                  <Note
-                    icon="information-circle-outline"
-                    tone="warning"
-                    text="No app account has been set up for these details yet. Contact the hostel office to have one created."
-                  />
-                ) : wrongCredentials ? (
-                  <Note
-                    icon="alert-circle-outline"
-                    tone="danger"
-                    text="That email and password don't match an account. Check the password, or use “Forgot password?” below."
-                  />
-                ) : tooManyAttempts ? (
-                  <Note
-                    icon="hourglass-outline"
-                    tone="warning"
-                    text="Too many sign-in attempts from this device. Wait a minute, then try again."
-                  />
-                ) : login.error ? (
-                  <Note
-                    icon={loginCopy.icon as never}
-                    tone="danger"
-                    text={loginCopy.message}
-                  />
-                ) : null}
-                {forgot.error ? (
-                  <Note
-                    icon={errorCopy(forgot.error).icon as never}
-                    tone="danger"
-                    text={errorMessage(forgot.error)}
-                  />
-                ) : null}
-                {forgotTo !== null && !forgot.error && !forgot.pending ? (
-                  <Note
+                    label="Email address"
+                    placeholder="you@college.edu"
                     icon="mail-outline"
-                    tone="success"
-                    text={
-                      forgotTo
-                        ? `Reset instructions are on their way to ${forgotTo}.`
-                        : 'Reset instructions are on their way.'
+                    keyboardType="email-address"
+                    autoCapitalize="none"
+                    autoComplete="email"
+                    returnKeyType="next"
+                    value={email}
+                    onChangeText={setEmail}
+                    onSubmitEditing={() => passwordRef.current?.focus()}
+                    blurOnSubmit={false}
+                  />
+                  <Field
+                    label="Password"
+                    placeholder="••••••••"
+                    icon="lock-closed-outline"
+                    inputRef={passwordRef}
+                    secureTextEntry={!showPass}
+                    autoCapitalize="none"
+                    autoComplete="password"
+                    returnKeyType="go"
+                    value={password}
+                    onChangeText={setPassword}
+                    onSubmitEditing={submit}
+                    right={
+                      <Pressable onPress={() => setShowPass((v) => !v)} hitSlop={8}>
+                        <Ionicons
+                          name={showPass ? 'eye-off-outline' : 'eye-outline'}
+                          size={18}
+                          color={colors.textFaint}
+                        />
+                      </Pressable>
                     }
                   />
-                ) : null}
 
-                <Button
-                  label="Continue"
-                  icon="arrow-forward"
-                  loading={login.pending}
-                  disabled={!canSubmit}
-                  onPress={submit}
-                />
+                  {/* Only shown once the server says the identifier is ambiguous
+                      across tenants — everyone else never sees the field. */}
+                  {ambiguous || tenantId ? (
+                    <Field
+                      label="Institution ID"
+                      placeholder="Given to you by the campus office"
+                      icon="business-outline"
+                      autoCapitalize="none"
+                      value={tenantId}
+                      onChangeText={setTenantId}
+                      hint="Your email exists at more than one institution, so we need to know which."
+                    />
+                  ) : null}
+
+                  <Pressable
+                    style={{ alignSelf: 'flex-end' }}
+                    hitSlop={8}
+                    disabled={!email.trim() || forgot.pending}
+                    onPress={() => forgot.mutate()}
+                  >
+                    <Text
+                      style={[
+                        type.smallMed,
+                        { color: email.trim() ? colors.primary : colors.textFaint },
+                      ]}
+                    >
+                      {forgot.pending ? 'Sending…' : 'Forgot password?'}
+                    </Text>
+                  </Pressable>
+
+                  {/* A 404 is not a typo to try again — it means the record
+                      exists but nobody has provisioned a login for it, and there
+                      is no self-service sign-up to offer. Say who to ask. */}
+                  {/* Ordered most specific first. The three credential cases are
+                      worded here because only this screen knows what they mean;
+                      everything else — offline, rate-limited, a 500 — is worded
+                      once in `errorCopy` and shown with its own icon, so the same
+                      failure reads the same way wherever it happens. */}
+                  {/* Each of these mounts into a form that is already sitting
+                      still, so it gets its own entrance — a strip that fades in
+                      under the fields is read; one that is simply there on the
+                      next frame is easy to miss, and this screen's whole job is
+                      saying what went wrong. */}
+                  {unprovisioned ? (
+                    <Appear>
+                      <Note
+                        icon="information-circle-outline"
+                        tone="warning"
+                        text="No app account has been set up for these details yet. Contact the hostel office to have one created."
+                      />
+                    </Appear>
+                  ) : wrongCredentials ? (
+                    <Appear>
+                      <Note
+                        icon="alert-circle-outline"
+                        tone="danger"
+                        text="That email and password don't match an account. Check the password, or use “Forgot password?” below."
+                      />
+                    </Appear>
+                  ) : tooManyAttempts ? (
+                    <Appear>
+                      <Note
+                        icon="hourglass-outline"
+                        tone="warning"
+                        text="Too many sign-in attempts from this device. Wait a minute, then try again."
+                      />
+                    </Appear>
+                  ) : login.error ? (
+                    <Appear>
+                      <Note icon={loginCopy.icon as never} tone="danger" text={loginCopy.message} />
+                    </Appear>
+                  ) : null}
+                  {forgot.error ? (
+                    <Appear>
+                      <Note
+                        icon={errorCopy(forgot.error).icon as never}
+                        tone="danger"
+                        text={errorMessage(forgot.error)}
+                      />
+                    </Appear>
+                  ) : null}
+                  {forgotTo !== null && !forgot.error && !forgot.pending ? (
+                    <Appear>
+                      <Note
+                        icon="mail-outline"
+                        tone="success"
+                        text={
+                          forgotTo
+                            ? `Reset instructions are on their way to ${forgotTo}.`
+                            : 'Reset instructions are on their way.'
+                        }
+                      />
+                    </Appear>
+                  ) : null}
+
+                  <Button
+                    label="Continue"
+                    icon="arrow-forward"
+                    loading={login.pending}
+                    disabled={!canSubmit}
+                    onPress={submit}
+                  />
+                </View>
               </View>
-            </View>
-          </GlassPanel>
+            </GlassPanel>
+          </Appear>
 
           {/* Footer stands down with the logo — while the keyboard is up the
               only thing that matters is the field under the cursor. */}

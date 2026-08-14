@@ -65,7 +65,7 @@
       "typedRoutes": false
     },
     "extra": {
-      "apiUrl": "https://api.iverto.ai/hostel"
+      "apiUrl": "https://api.iverto.ai/devhostel"
     }
   }
 }

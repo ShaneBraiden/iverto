@@ -12,8 +12,7 @@ npm run typecheck
 ```
 
 Verified: `tsc --noEmit` clean, and `expo export` renders all 17 routes without errors.
-The release APK is **20.1 MB** and has been installed and smoke-tested on a physical
-arm64 device — see [App size](#app-size).
+The release APK is **20.96 MB** — see [App size](#app-size).
 
 ## Brand
 
@@ -33,6 +32,43 @@ The mark appears on the login lockup, every dashboard header, top bars with no r
 action, the change-password screen, the "powered by" footer, and as a watermark behind
 profile headers. It renders from vector path data rather than a bitmap, so it stays sharp at
 every size — from the 13px footer mark to the 62px login badge.
+
+## Motion
+
+All animation lives in [`components/motion.tsx`](./components/motion.tsx) and is built on
+React Native's own `Animated` — **no `react-native-reanimated`**. Reanimated would be the
+right call for gesture-driven work; this app has none, and its worklet runtime plus native
+library is ~2 MB of APK for effects that do not need it. The whole motion system costs about
+10 KB. See [App size](#app-size).
+
+| Export | What it does | Where it shows up |
+|---|---|---|
+| `Appear` | Fades and lifts a child in, once, on mount | Headers, empty/error states, login |
+| `Stagger` | Gives each child its own `Appear`, one after the next | Every `Screen`, every list |
+| `usePressMotion` | Dips a surface under the finger and springs it back | Buttons, cards, tiles, chips, icon buttons |
+| `usePop` | Springs between two scales when a flag flips | Checkbox tick, notification badge, tab icons |
+| `CountUp` | Rolls a number up to its value | `StatCard` counters |
+| `LiveDot` | Status dot with a pulsing halo | `StatusPill`, unsettled statuses only |
+| `animateLayout` | Animates the next layout pass | Keyboard show/hide |
+
+Three rules the code holds to:
+
+1. **Native driver only.** Everything animates `opacity` and `transform` and nothing else, so
+   it runs on the UI thread and keeps 60 fps while JS is parsing the response that is about to
+   replace it. Nothing animates colour, height or `elevation` — those cannot cross to the
+   native driver. Layout changes go through `animateLayout()` instead.
+2. **Entrances play once, on mount.** Remounting is what replays them, which is exactly right:
+   swapping a skeleton for real content mounts new elements and they arrive; a refetch that
+   lands the same rows leaves them mounted and still.
+3. **Reduced motion is honoured.** `AccessibilityInfo` is read once at import and cached, so
+   an entrance has the answer synchronously at mount. A user who asked the OS for less movement
+   gets the final frame immediately, never a frozen blank one.
+
+`Screen` staggers its own children, so a screen gets its entrance without asking — the same
+reasoning as the keyboard handling: a screen cannot be relied on to remember. Pass
+`animate={false}` to opt out. `Stagger` keys its wrappers off `React.Children.toArray`, not
+off the rendered position, so a strip appearing at the top of a dashboard does not shift every
+key below it and remount the screen underneath.
 
 ---
 
@@ -127,9 +163,9 @@ to testers. The build emits **three** APKs, not one:
 
 | File in `android/app/build/outputs/apk/release/` | Size | Install on |
 |---|---|---|
-| `app-arm64-v8a-release.apk` | **20.1 MB** | Every phone sold since ~2017. **Use this one.** |
-| `app-armeabi-v7a-release.apk` | **15.4 MB** | Older/budget 32-bit devices. |
-| `app-universal-release.apk` | **29.9 MB** | Both of the above in one file — when you don't know the target. |
+| `app-arm64-v8a-release.apk` | **20.96 MB** | Every phone sold since ~2017. **Use this one.** |
+| `app-armeabi-v7a-release.apk` | **16.30 MB** | Older/budget 32-bit devices. |
+| `app-universal-release.apk` | **30.80 MB** | Both of the above in one file — when you don't know the target. |
 
 All three are well under the 40 MB budget. See [App size](#app-size) for how that is held.
 
@@ -187,14 +223,17 @@ the installed build was signed with a different key — `adb uninstall com.ivert
 
 | APK | Size |
 |---|---|
-| `app-arm64-v8a-release.apk` | 20.3 MB |
-| `app-armeabi-v7a-release.apk` | 15.6 MB |
-| `app-universal-release.apk` | 30.1 MB |
+| `app-arm64-v8a-release.apk` | 20.96 MB |
+| `app-armeabi-v7a-release.apk` | 16.30 MB |
+| `app-universal-release.apk` | 30.80 MB |
 
 Install the split that matches the device — `arm64-v8a` for anything current — and the universal
 APK only when one file has to install anywhere. Wiring up the API moved these by roughly
 0.2 MB: four dependencies in (`expo-secure-store`, `expo-file-system`, `expo-sharing`,
 `socket.io-client`), and `react-native-qrcode-svg` out with the QR gate pass.
+
+Animation cost **~10 KB**, all of it JavaScript. `components/motion.tsx` is built on React
+Native's own `Animated`, which is already in the runtime — see [Motion](#motion).
 
 ### Debug builds are not a size signal
 
@@ -212,7 +251,7 @@ minification, and the dev-support machinery. **Only ever judge size from `assemb
 | R8 minification + resource shrinking | `android.enableProguardInReleaseBuilds`, `android.enableShrinkResourcesInReleaseBuilds` | −3 MB dex/resources |
 | Icons imported one set at a time | `import Ionicons from '@expo/vector-icons/Ionicons'` | −2.9 MB of fonts |
 | Fonts imported one weight at a time | `@expo-google-fonts/poppins/400Regular` etc. in `app/_layout.tsx` | −2.3 MB of fonts |
-| `react-native-reanimated` dropped — unused, and optional for expo-router | `package.json`, `babel.config.js` | −2 MB |
+| `react-native-reanimated` stays out — the app animates on RN's own `Animated` | `components/motion.tsx` | −2 MB |
 
 ### The two font traps
 
@@ -506,6 +545,7 @@ picker only tells the server how to read the identifier. Wardens use the admin s
 ```
 app/            expo-router routes (file = route)
 components/     ui.tsx (Button, Card, Field, StatusPill, Avatar, ...), Screen.tsx,
+                motion.tsx (Appear, Stagger, usePressMotion, CountUp, LiveDot),
                 Logo.tsx, OutpassCard, ProfileBody, TabBar,
                 AppContext (config/branding/badge), AdminContext, WardContext
 lib/            api/client.ts    one fetch wrapper, error envelope, bearer token

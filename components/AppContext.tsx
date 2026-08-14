@@ -17,6 +17,7 @@ import { connectLive, disconnectLive, onLive } from '@/lib/live';
 import { loadSession } from '@/lib/session';
 import { watchTokenRefresh } from '@/lib/push';
 import { useAuth } from '@/lib/auth';
+import { useSignedUrl } from '@/lib/useSignedUrl';
 import { DEFAULT_APP_NAME } from '@/constants/config';
 import type { AppConfig, Branding } from '@/types';
 
@@ -25,6 +26,10 @@ type AppContextValue = {
   branding: Branding | undefined;
   /** What this device calls itself — group branding, or the stock name. */
   appName: string;
+  /** True once the server says this device carries a group's own branding. */
+  branded: boolean;
+  /** Read URL for the admin's uploaded icon, when there is one and it resolved. */
+  brandIconUri: string | null;
   unread: number;
   refreshUnread: () => void;
   /** Drop the badge to zero without waiting for the server to answer. */
@@ -51,6 +56,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (unreadQuery.data) setUnread(unreadQuery.data.unreadCount);
   }, [unreadQuery.data]);
+
+  /* Resolved once for the whole session rather than by each screen that draws
+     the mark. A failure needs no handling here — `<AppIcon>` falls back to the
+     gradient, which is the same colours the admin picked. */
+  const brandIconUri = useSignedUrl(branding.data?.iconKey, branding.data?.iconUrl);
 
   /* One socket per session. The token is read back from the keystore rather
      than threaded through context, so this stays independent of sign-in order.
@@ -81,17 +91,19 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     };
   }, [signedIn]);
 
-  const value = useMemo<AppContextValue>(
-    () => ({
+  const value = useMemo<AppContextValue>(() => {
+    const branded = branding.data?.isDefault === false;
+    return {
       config: config.data,
       branding: branding.data,
-      appName: branding.data?.isDefault === false ? branding.data.appName : DEFAULT_APP_NAME,
+      appName: branded ? branding.data!.appName : DEFAULT_APP_NAME,
+      branded,
+      brandIconUri,
       unread,
       refreshUnread: unreadQuery.refetch,
       clearUnread: () => setUnread(0),
-    }),
-    [config.data, branding.data, unread, unreadQuery.refetch]
-  );
+    };
+  }, [config.data, branding.data, brandIconUri, unread, unreadQuery.refetch]);
 
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;
 }

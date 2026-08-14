@@ -3,13 +3,16 @@
  * All chrome is glass — no coloured header blocks anywhere in the app.
  */
 import React from 'react';
-import { View, Text, StyleSheet, Pressable, StatusBar } from 'react-native';
+import { View, Text, StyleSheet, Animated, Pressable, StatusBar } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { router } from 'expo-router';
 import { Avatar, GlassPanel } from '@/components/ui';
 import { KeyboardAwareScroll } from '@/components/KeyboardAware';
 import { Logo } from '@/components/Logo';
+import { AppIcon } from '@/components/AppIcon';
+import { Appear, Stagger, usePop, usePressMotion } from '@/components/motion';
+import { useApp } from '@/components/AppContext';
 import { TAB_BAR_HEIGHT } from '@/components/TabBar';
 import { blur, colors, font, radius, shadow, spacing, type } from '@/theme';
 
@@ -35,17 +38,32 @@ export function Screen({
   scroll = true,
   padded = true,
   clearTabBar = true,
+  animate = true,
 }: {
   children: React.ReactNode;
   scroll?: boolean;
   padded?: boolean;
   /** Set false on screens without a bottom tab bar (modals, detail pages). */
   clearTabBar?: boolean;
+  /**
+   * Set false for a screen that would rather run its own entrance, or none.
+   * Everything else gets the app's, without asking — same reasoning as the
+   * keyboard handling above: a screen cannot be relied on to remember.
+   */
+  animate?: boolean;
 }) {
+  /* Each top-level block fades and rises in, one shortly after the next. The
+     order is the render order, which is already the order of importance on
+     every screen in the app — the strip that says whether you are on campus
+     lands before the counters, the counters before the history.
+     `Stagger` dissolves fragments, so a screen written as
+     `{loading ? <Skeleton/> : <>{…}</>}` still staggers block by block rather
+     than arriving as one slab. */
+  const content = animate ? <Stagger>{children}</Stagger> : children;
   const body = padded ? (
-    <View style={{ padding: spacing.lg, gap: spacing.lg }}>{children}</View>
+    <View style={{ padding: spacing.lg, gap: spacing.lg }}>{content}</View>
   ) : (
-    <>{children}</>
+    <>{content}</>
   );
   const bottomPad = (clearTabBar ? TAB_BAR_HEIGHT : 0) + spacing.xl;
   return (
@@ -92,20 +110,51 @@ export function AppHeader({
   badgeCount?: number;
 }) {
   const insets = useSafeAreaInsets();
+  const { branding, appName, branded, brandIconUri } = useApp();
+  const bell = usePressMotion(0.88);
+  /* Springs when the number arrives, and again whenever it changes. The badge
+     is the only thing on a dashboard that can appear without the user having
+     done anything, so it is the one thing worth drawing the eye to. */
+  const badge = usePop(!!badgeCount, { from: 0.3 });
 
   return (
     <GlassPanel intensity={blur.header} strong style={styles.header}>
       <StatusBar barStyle="dark-content" />
       <View style={[styles.headerPad, { paddingTop: insets.top + spacing.md }]}>
         {/* Brand strip — the mark sits above the role row so every dashboard
-            is unmistakably Iverto without crowding the greeting. */}
-        <View style={styles.brandStrip}>
-          <Logo size={18} />
-          <Text style={styles.brandText}>
-            Iverto<Text style={{ color: colors.primary }}>.ai</Text>
-          </Text>
-        </View>
-        <View style={styles.headerRow}>
+            says whose app this is without crowding the greeting.
+
+            For most devices that is Iverto. Where the university's admin has
+            branded the student's group, this is the one place in the shell
+            that carries it: their mark and their name, on every dashboard.
+            The stock lockup is the fallback, so an admin, an unbranded
+            student, or a launch before `/me/branding` answers all still get a
+            header that looks finished. */}
+        {/* The header comes *down* onto the screen while the body below rises
+            to meet it — negative `distance`, which is the whole difference. */}
+        <Appear distance={-8} style={styles.brandStrip}>
+          {branded ? (
+            <AppIcon
+              size={20}
+              shape={branding?.shape}
+              palette={branding?.iconColors}
+              label={branding?.iconLabel}
+              uri={brandIconUri}
+            />
+          ) : (
+            <Logo size={18} />
+          )}
+          {branded ? (
+            <Text style={[styles.brandText, { flexShrink: 1 }]} numberOfLines={1}>
+              {appName}
+            </Text>
+          ) : (
+            <Text style={styles.brandText}>
+              Iverto<Text style={{ color: colors.primary }}>.ai</Text>
+            </Text>
+          )}
+        </Appear>
+        <Appear distance={-8} index={1} style={styles.headerRow}>
           <Avatar size={46} icon={icon} />
           {/* `minWidth: 0` so the name and meta line inside can actually
               truncate — a flex child defaults to its content as a minimum, and
@@ -166,15 +215,17 @@ export function AppHeader({
               </View>
             ) : null}
           </View>
-          <Pressable onPress={onBell} style={styles.bell} hitSlop={8}>
-            <Ionicons name="notifications-outline" size={20} color={colors.text} />
-            {badgeCount ? (
-              <View style={styles.badge}>
-                <Text style={styles.badgeText}>{badgeCount}</Text>
-              </View>
-            ) : null}
-          </Pressable>
-        </View>
+          <Animated.View style={bell.style}>
+            <Pressable onPress={onBell} style={styles.bell} hitSlop={8} {...bell.pressProps}>
+              <Ionicons name="notifications-outline" size={20} color={colors.text} />
+              {badgeCount ? (
+                <Animated.View style={[styles.badge, badge.style]}>
+                  <Text style={styles.badgeText}>{badgeCount}</Text>
+                </Animated.View>
+              ) : null}
+            </Pressable>
+          </Animated.View>
+        </Appear>
       </View>
     </GlassPanel>
   );
@@ -195,14 +246,24 @@ export function TopBar({
   onRight?: () => void;
 }) {
   const insets = useSafeAreaInsets();
+  const backPress = usePressMotion(0.88);
+  const rightPress = usePressMotion(0.88);
+
   return (
     <GlassPanel intensity={blur.bar} strong style={styles.topBarWrap}>
       <StatusBar barStyle="dark-content" />
       <View style={[styles.topBar, { paddingTop: insets.top + spacing.sm }]}>
         {back ? (
-          <Pressable onPress={() => router.back()} style={styles.iconBtn} hitSlop={8}>
-            <Ionicons name="chevron-back" size={20} color={colors.text} />
-          </Pressable>
+          <Animated.View style={backPress.style}>
+            <Pressable
+              onPress={() => router.back()}
+              style={styles.iconBtn}
+              hitSlop={8}
+              {...backPress.pressProps}
+            >
+              <Ionicons name="chevron-back" size={20} color={colors.text} />
+            </Pressable>
+          </Animated.View>
         ) : (
           <View style={{ width: 38, flexShrink: 0 }} />
         )}
@@ -226,9 +287,16 @@ export function TopBar({
           ) : null}
         </View>
         {rightIcon ? (
-          <Pressable onPress={onRight} style={styles.iconBtn} hitSlop={8}>
-            <Ionicons name={rightIcon} size={20} color={colors.text} />
-          </Pressable>
+          <Animated.View style={rightPress.style}>
+            <Pressable
+              onPress={onRight}
+              style={styles.iconBtn}
+              hitSlop={8}
+              {...rightPress.pressProps}
+            >
+              <Ionicons name={rightIcon} size={20} color={colors.text} />
+            </Pressable>
+          </Animated.View>
         ) : (
           /* No action on this bar — the slot that balances the back button
              carries the brand mark instead of sitting empty. */

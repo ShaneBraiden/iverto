@@ -36,6 +36,7 @@ import {
 } from '@/components/ui';
 import { SkeletonDetail } from '@/components/Skeleton';
 import { colors, radius, spacing, type } from '@/theme';
+import { CONTACT_WARDEN_NOTE } from '@/constants/config';
 import {
   admin as adminApi,
   parent as parentApi,
@@ -99,10 +100,15 @@ export default function OutpassDetail() {
     onSuccess: () => done('The student has been told, along with your reason.'),
     onError,
   });
-  const contactWarden = useMutation(() => parentApi.decide(id!, 'contact_warden'), {
-    onSuccess: () => done('The warden has been alerted and will call you.'),
-    onError,
-  });
+  /* The note is what the warden's alert is written from, so it is always sent —
+     see CONTACT_WARDEN_NOTE. */
+  const contactWarden = useMutation(
+    () => parentApi.decide(id!, 'contact_warden', CONTACT_WARDEN_NOTE),
+    {
+      onSuccess: () => done('The warden has been alerted and will call you.'),
+      onError,
+    }
+  );
 
   /* Student */
   const cancel = useMutation(() => permissionApi.cancel(id!), {

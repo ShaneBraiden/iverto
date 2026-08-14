@@ -19,6 +19,7 @@ import {
   PoweredBy,
 } from '@/components/ui';
 import { SkeletonList } from '@/components/Skeleton';
+import { Stagger } from '@/components/motion';
 import { OutpassCard } from '@/components/OutpassCard';
 import { blur, colors, spacing, type } from '@/theme';
 import { PAGE_SIZE } from '@/constants/config';
@@ -106,9 +107,11 @@ export default function ParentHistory() {
               />
             ) : (
               <View style={{ gap: spacing.md }}>
-                {rows.map((p) => (
-                  <OutpassCard key={p.id} item={p} role="parent" showRequester />
-                ))}
+                <Stagger>
+                  {rows.map((p) => (
+                    <OutpassCard key={p.id} item={p} role="parent" showRequester />
+                  ))}
+                </Stagger>
               </View>
             )}
             <LoadMore

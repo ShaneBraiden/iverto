@@ -27,6 +27,7 @@ import {
   StatusPill,
 } from '@/components/ui';
 import { SkeletonStudentHome } from '@/components/Skeleton';
+import { Stagger } from '@/components/motion';
 import { OutpassCard } from '@/components/OutpassCard';
 import { useApp, useLivePermissions } from '@/components/AppContext';
 import { colors, radius, spacing, type } from '@/theme';
@@ -155,28 +156,32 @@ export default function StudentHome() {
 
             {/* Counters, straight from the summary call. */}
             {counts ? (
+              /* `flex: 1` has to go on the animated wrapper, not on the tile
+                 inside it — the wrapper is what the row divides between. */
               <View style={styles.statRow}>
-                <StatCard
-                  label="Approved"
-                  value={String(counts.approved)}
-                  icon="checkmark-circle-outline"
-                  fg={colors.success}
-                  bg={colors.successBg}
-                />
-                <StatCard
-                  label="Pending"
-                  value={String(counts.pending)}
-                  icon="time-outline"
-                  fg={colors.warning}
-                  bg={colors.warningBg}
-                />
-                <StatCard
-                  label="Rejected"
-                  value={String(counts.rejected)}
-                  icon="close-circle-outline"
-                  fg={colors.danger}
-                  bg={colors.dangerBg}
-                />
+                <Stagger style={{ flex: 1 }}>
+                  <StatCard
+                    label="Approved"
+                    value={String(counts.approved)}
+                    icon="checkmark-circle-outline"
+                    fg={colors.success}
+                    bg={colors.successBg}
+                  />
+                  <StatCard
+                    label="Pending"
+                    value={String(counts.pending)}
+                    icon="time-outline"
+                    fg={colors.warning}
+                    bg={colors.warningBg}
+                  />
+                  <StatCard
+                    label="Rejected"
+                    value={String(counts.rejected)}
+                    icon="close-circle-outline"
+                    fg={colors.danger}
+                    bg={colors.dangerBg}
+                  />
+                </Stagger>
               </View>
             ) : null}
 
@@ -200,10 +205,15 @@ export default function StudentHome() {
                 onAction={() => router.push('/student/history')}
               />
               {recent.length ? (
+                /* The section already arrives as one block from `Screen`; this
+                   is the second beat inside it, so the cards deal themselves
+                   out under their own heading rather than with it. */
                 <View style={{ gap: spacing.md }}>
-                  {recent.map((o) => (
-                    <OutpassCard key={o.id} item={o} role="student" />
-                  ))}
+                  <Stagger>
+                    {recent.map((o) => (
+                      <OutpassCard key={o.id} item={o} role="student" />
+                    ))}
+                  </Stagger>
                 </View>
               ) : (
                 <EmptyState

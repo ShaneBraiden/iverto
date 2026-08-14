@@ -23,6 +23,7 @@ import {
   PoweredBy,
 } from '@/components/ui';
 import { SkeletonList } from '@/components/Skeleton';
+import { Stagger } from '@/components/motion';
 import { OutpassCard } from '@/components/OutpassCard';
 import { useLivePermissions } from '@/components/AppContext';
 import { blur, colors, spacing, type } from '@/theme';
@@ -151,15 +152,17 @@ export default function AdminRequests() {
               />
             ) : (
               <View style={{ gap: spacing.md }}>
-                {rows.map((p) => (
-                  <OutpassCard
-                    key={p.id}
-                    item={p}
-                    role="admin"
-                    showRequester
-                    categories={categories.data}
-                  />
-                ))}
+                <Stagger>
+                  {rows.map((p) => (
+                    <OutpassCard
+                      key={p.id}
+                      item={p}
+                      role="admin"
+                      showRequester
+                      categories={categories.data}
+                    />
+                  ))}
+                </Stagger>
               </View>
             )}
             <LoadMore

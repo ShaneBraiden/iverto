@@ -495,6 +495,12 @@ export type Group = {
   shape: IconShape | string;
   iconLabel: string;
   iconKey: string | null;
+  /**
+   * Optional read URL for `iconKey`, when the server sends one. Without it the
+   * app resolves the key through `/uploads/signed-url`, which is one extra
+   * call per icon — a list of groups pays it per row.
+   */
+  iconUrl?: string | null;
   memberCount: number;
   hasCustomBranding: boolean;
   updatedAt: string;
@@ -536,6 +542,8 @@ export type Branding = {
   shape: string;
   iconLabel: string;
   iconKey: string | null;
+  /** As on `Group` — saves the device a `/uploads/signed-url` call on launch. */
+  iconUrl?: string | null;
   isDefault: boolean;
   version: string;
 };

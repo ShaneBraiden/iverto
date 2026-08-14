@@ -2,7 +2,7 @@
  * Every endpoint the app calls, one function each, grouped and ordered the way
  * `mobile-api-documentation.md` groups them. Paths are written from the version
  * segment on (`/v1/mobile/...`) exactly as the doc writes them; the client
- * prepends the `https://api.iverto.ai/hostel` base.
+ * prepends the `https://api.iverto.ai/devhostel` base.
  */
 import { api, type Query } from './client';
 import type {

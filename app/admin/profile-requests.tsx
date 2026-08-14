@@ -28,6 +28,7 @@ import {
   PoweredBy,
 } from '@/components/ui';
 import { SkeletonList } from '@/components/Skeleton';
+import { Stagger } from '@/components/motion';
 import { blur, colors, radius, spacing, type } from '@/theme';
 import { PAGE_SIZE } from '@/constants/config';
 import { useAdmin } from '@/components/AdminContext';
@@ -190,18 +191,20 @@ export default function AdminProfileRequests() {
               />
             ) : (
               <View style={{ gap: spacing.md }}>
-                {rows.map((r) => (
-                  <RequestCard
-                    key={r.id}
-                    request={r}
-                    busy={busy}
-                    onApprove={() => approve.mutate(r.id)}
-                    onDecline={() => setDeclining(r)}
-                    onViewAttachment={
-                      r.attachmentKey ? () => openAttachment(r.attachmentKey!) : undefined
-                    }
-                  />
-                ))}
+                <Stagger>
+                  {rows.map((r) => (
+                    <RequestCard
+                      key={r.id}
+                      request={r}
+                      busy={busy}
+                      onApprove={() => approve.mutate(r.id)}
+                      onDecline={() => setDeclining(r)}
+                      onViewAttachment={
+                        r.attachmentKey ? () => openAttachment(r.attachmentKey!) : undefined
+                      }
+                    />
+                  ))}
+                </Stagger>
               </View>
             )}
 

@@ -16,9 +16,11 @@ import {
   Pressable,
   TextInput,
   TextInputProps,
+  ViewProps,
   ViewStyle,
   StyleProp,
   ActivityIndicator,
+  Animated,
   Platform,
 } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
@@ -26,6 +28,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { BlurView } from 'expo-blur';
 import { Logo } from '@/components/Logo';
 import { useEnsureVisible } from '@/components/KeyboardAware';
+import { Appear, CountUp, LiveDot, usePop, usePressMotion } from '@/components/motion';
 import {
   blur,
   cardBackground,
@@ -57,19 +60,26 @@ export function GlassPanel({
   intensity = blur.card,
   style,
   strong,
+  onLayout,
 }: {
   children: React.ReactNode;
   intensity?: number;
   style?: StyleProp<ViewStyle>;
   strong?: boolean;
+  /** Forwarded so a caller can measure the panel — the bottom sheet does. */
+  onLayout?: ViewProps['onLayout'];
 }) {
   if (Platform.OS === 'android') {
     const fill = strong ? glassFill.strong : glassFill.base;
-    return <View style={[{ backgroundColor: fill }, style]}>{children}</View>;
+    return (
+      <View onLayout={onLayout} style={[{ backgroundColor: fill }, style]}>
+        {children}
+      </View>
+    );
   }
   const fill = strong ? colors.glassStrong : colors.glass;
   return (
-    <BlurView intensity={intensity} tint="light" style={style}>
+    <BlurView intensity={intensity} tint="light" onLayout={onLayout} style={style}>
       <View style={[StyleSheet.absoluteFill, { backgroundColor: fill }]} />
       {children}
     </BlurView>
@@ -106,6 +116,7 @@ export function Button({
     success: { bg: colors.successBg, fg: colors.success, border: 'rgba(5,150,105,0.22)' },
   };
   const p = palette[variant];
+  const press = usePressMotion(0.96);
 
   const inner = loading ? (
     <ActivityIndicator color={p.fg} size="small" />
@@ -126,34 +137,39 @@ export function Button({
     </>
   );
 
+  /* The scale lives on a wrapper rather than on the `Pressable` itself, because
+     the Pressable's style is a function of `pressed` and a function style cannot
+     carry an `Animated.Value`. The wrapper is now the flex child, so the
+     caller's `style` — `{ flex: 1 }` on the paired buttons in a row — goes here
+     with it, and the button inside stretches to fill. */
   return (
-    <Pressable
-      onPress={onPress}
-      disabled={disabled || loading}
-      style={({ pressed }) => [
-        styles.btn,
-        full && { alignSelf: 'stretch' },
-        {
-          backgroundColor: p.bg,
-          borderColor: p.border ?? 'transparent',
-          borderWidth: p.border ? 1 : 0,
-          opacity: disabled ? 0.45 : pressed ? 0.9 : 1,
-          transform: [{ translateY: pressed && !disabled ? 1 : 0 }],
-        },
-        isPrimary && shadow.lifted,
-        style,
-      ]}
-    >
-      {isPrimary ? (
-        <LinearGradient
-          colors={colors.gradient}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={StyleSheet.absoluteFill}
-        />
-      ) : null}
-      <View style={styles.btnRow}>{inner}</View>
-    </Pressable>
+    <Animated.View style={[full && { alignSelf: 'stretch' }, style, press.style]}>
+      <Pressable
+        onPress={onPress}
+        disabled={disabled || loading}
+        {...press.pressProps}
+        style={({ pressed }) => [
+          styles.btn,
+          {
+            backgroundColor: p.bg,
+            borderColor: p.border ?? 'transparent',
+            borderWidth: p.border ? 1 : 0,
+            opacity: disabled ? 0.45 : pressed ? 0.92 : 1,
+          },
+          isPrimary && shadow.lifted,
+        ]}
+      >
+        {isPrimary ? (
+          <LinearGradient
+            colors={colors.gradient}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={StyleSheet.absoluteFill}
+          />
+        ) : null}
+        <View style={styles.btnRow}>{inner}</View>
+      </Pressable>
+    </Animated.View>
   );
 }
 
@@ -172,6 +188,8 @@ export function Card({
   padded?: boolean;
   strong?: boolean;
 }) {
+  const press = usePressMotion();
+
   const content = (
     <GlassPanel strong={strong} style={styles.cardInner}>
       <View style={padded ? { padding: spacing.lg } : undefined}>{children}</View>
@@ -180,17 +198,24 @@ export function Card({
 
   if (!onPress) return <View style={[styles.card, style]}>{content}</View>;
 
+  /* Two things happen on press and they are driven differently on purpose. The
+     lift and its deeper shadow are a *style* swap — `elevation` cannot cross to
+     the native driver, so animating it would drag the whole card back onto the
+     JS thread. The dip under the finger is the animated half, and it is the one
+     that has to stay smooth while a socket event is being handled. */
   return (
-    <Pressable
-      onPress={onPress}
-      style={({ pressed }) => [
-        styles.card,
-        pressed && [shadow.hover, { transform: [{ translateY: LIFT }] }],
-        style,
-      ]}
-    >
-      {content}
-    </Pressable>
+    <Animated.View style={[style, press.style]}>
+      <Pressable
+        onPress={onPress}
+        {...press.pressProps}
+        style={({ pressed }) => [
+          styles.card,
+          pressed && [shadow.hover, { transform: [{ translateY: LIFT }] }],
+        ]}
+      >
+        {content}
+      </Pressable>
+    </Animated.View>
   );
 }
 
@@ -332,7 +357,9 @@ export function StatusPill({
     <View
       style={[styles.pill, { backgroundColor: m.bg }, small && { paddingVertical: 3 }]}
     >
-      {live ? <View style={[styles.dot, { backgroundColor: m.fg }]} /> : null}
+      {/* Only the unsettled states pulse — see `LiveDot`. A screen full of
+          decided passes animates nothing. */}
+      {live ? <LiveDot color={m.fg} size={6} /> : null}
       <Ionicons name={m.icon as IconName} size={small ? 12 : 14} color={m.fg} />
       <Text
         style={[small ? type.caption : type.smallMed, { color: m.fg, flexShrink: 1 }]}
@@ -493,39 +520,49 @@ export function ListTile({
   danger?: boolean;
 }) {
   const fg = danger ? colors.danger : colors.text;
+  /* Shallower than a card's: a row inside a list is already small, and dipping
+     it as far as a standalone surface makes the whole list look loose. */
+  const press = usePressMotion(0.985);
+
   return (
-    <Pressable
-      onPress={onPress}
-      style={({ pressed }) => [styles.tile, { opacity: pressed ? 0.7 : 1 }]}
-    >
-      <IconTile
-        icon={icon}
-        bg={tint ?? (danger ? colors.dangerBg : colors.primarySoft)}
-        tint={danger ? colors.danger : colors.primary}
-      />
-      {/* `minWidth: 0` is what actually lets the text inside shrink. A flex
-          child's default minimum size is its content, so without it a long
-          subtitle — an email address, a comma-joined site list — widens the
-          row past the card instead of wrapping inside it. */}
-      <View style={{ flex: 1, minWidth: 0 }}>
-        <Text style={[type.bodyMed, { color: fg }]} numberOfLines={2}>
-          {title}
-        </Text>
-        {subtitle ? (
-          <Text style={[type.small, { color: colors.textMuted, marginTop: 2 }]} numberOfLines={2}>
-            {subtitle}
-          </Text>
-        ) : null}
-      </View>
-      {right ?? (
-        <Ionicons
-          name="chevron-forward"
-          size={18}
-          color={colors.textFaint}
-          style={{ flexShrink: 0 }}
+    <Animated.View style={press.style}>
+      <Pressable
+        onPress={onPress}
+        {...press.pressProps}
+        style={({ pressed }) => [styles.tile, { opacity: pressed ? 0.7 : 1 }]}
+      >
+        <IconTile
+          icon={icon}
+          bg={tint ?? (danger ? colors.dangerBg : colors.primarySoft)}
+          tint={danger ? colors.danger : colors.primary}
         />
-      )}
-    </Pressable>
+        {/* `minWidth: 0` is what actually lets the text inside shrink. A flex
+            child's default minimum size is its content, so without it a long
+            subtitle — an email address, a comma-joined site list — widens the
+            row past the card instead of wrapping inside it. */}
+        <View style={{ flex: 1, minWidth: 0 }}>
+          <Text style={[type.bodyMed, { color: fg }]} numberOfLines={2}>
+            {title}
+          </Text>
+          {subtitle ? (
+            <Text
+              style={[type.small, { color: colors.textMuted, marginTop: 2 }]}
+              numberOfLines={2}
+            >
+              {subtitle}
+            </Text>
+          ) : null}
+        </View>
+        {right ?? (
+          <Ionicons
+            name="chevron-forward"
+            size={18}
+            color={colors.textFaint}
+            style={{ flexShrink: 0 }}
+          />
+        )}
+      </Pressable>
+    </Animated.View>
   );
 }
 
@@ -540,11 +577,20 @@ export function EmptyState({
 }) {
   return (
     <View style={styles.empty}>
-      <View style={styles.emptyIcon}>
+      {/* The disc scales in ahead of the words. An empty state is the one place
+          the app has nothing to show, so the little bit of life it does have
+          belongs on the only mark on the screen. */}
+      <Appear scale={0.8} distance={0} style={styles.emptyIcon}>
         <Ionicons name={icon} size={30} color={colors.primary} />
-      </View>
-      <Text style={[type.h3, { color: colors.text, textAlign: 'center' }]}>{title}</Text>
-      <Text style={[type.small, { color: colors.textMuted, textAlign: 'center' }]}>{message}</Text>
+      </Appear>
+      <Appear index={1}>
+        <Text style={[type.h3, { color: colors.text, textAlign: 'center' }]}>{title}</Text>
+      </Appear>
+      <Appear index={2}>
+        <Text style={[type.small, { color: colors.textMuted, textAlign: 'center' }]}>
+          {message}
+        </Text>
+      </Appear>
     </View>
   );
 }
@@ -586,23 +632,29 @@ export function ErrorState({
 
   return (
     <View style={styles.empty}>
-      <View style={[styles.emptyIcon, { backgroundColor: colors.dangerBg }]}>
+      <Appear scale={0.8} distance={0} style={[styles.emptyIcon, { backgroundColor: colors.dangerBg }]}>
         <Ionicons name={copy.icon as IconName} size={30} color={colors.danger} />
-      </View>
-      <Text style={[type.h3, { color: colors.text, textAlign: 'center' }]}>
-        {title ?? copy.title}
-      </Text>
-      <Text style={[type.small, { color: colors.textMuted, textAlign: 'center' }]}>
-        {message ?? copy.message}
-      </Text>
+      </Appear>
+      <Appear index={1}>
+        <Text style={[type.h3, { color: colors.text, textAlign: 'center' }]}>
+          {title ?? copy.title}
+        </Text>
+      </Appear>
+      <Appear index={2}>
+        <Text style={[type.small, { color: colors.textMuted, textAlign: 'center' }]}>
+          {message ?? copy.message}
+        </Text>
+      </Appear>
       {retryable ? (
-        <Button
-          label="Try again"
-          variant="secondary"
-          icon="refresh-outline"
-          full={false}
-          onPress={onRetry}
-        />
+        <Appear index={3}>
+          <Button
+            label="Try again"
+            variant="secondary"
+            icon="refresh-outline"
+            full={false}
+            onPress={onRetry}
+          />
+        </Appear>
       ) : null}
     </View>
   );
@@ -703,19 +755,22 @@ export function StatCard({
   /** When set the tile becomes a link and grows a chevron next to its label. */
   onPress?: () => void;
 }) {
+  const press = usePressMotion();
+
   const body = (
     <GlassPanel style={[styles.cardInner, { flex: 1 }]}>
       <View style={styles.stat}>
         <IconTile icon={icon} size={32} tint={fg} bg={bg} />
-        {/* A four-figure count still has to fit a third of the screen. */}
-        <Text
+        {/* A four-figure count still has to fit a third of the screen.
+            `CountUp` rolls the number up when the tile first lands and falls
+            back to printing the string whenever it is not a plain count. */}
+        <CountUp
+          value={value}
           style={[type.h1, { color: colors.text, marginTop: spacing.sm }]}
           numberOfLines={1}
           adjustsFontSizeToFit
           minimumFontScale={0.6}
-        >
-          {value}
-        </Text>
+        />
         <View style={styles.statLabelRow}>
           {/* Two lines rather than shrink-to-fit: `adjustsFontSizeToFit` is
               unreliable on Android — it frequently leaves the text at full size
@@ -739,16 +794,19 @@ export function StatCard({
   if (!onPress) return <View style={[styles.card, { flex: 1 }]}>{body}</View>;
 
   return (
-    <Pressable
-      onPress={onPress}
-      style={({ pressed }) => [
-        styles.card,
-        { flex: 1 },
-        pressed && [shadow.hover, { transform: [{ translateY: LIFT }] }],
-      ]}
-    >
-      {body}
-    </Pressable>
+    <Animated.View style={[{ flex: 1 }, press.style]}>
+      <Pressable
+        onPress={onPress}
+        {...press.pressProps}
+        style={({ pressed }) => [
+          styles.card,
+          { flex: 1 },
+          pressed && [shadow.hover, { transform: [{ translateY: LIFT }] }],
+        ]}
+      >
+        {body}
+      </Pressable>
+    </Animated.View>
   );
 }
 
@@ -765,43 +823,55 @@ export function Chip({
   onPress?: () => void;
   icon?: IconName;
 }) {
+  const press = usePressMotion(0.94);
+
   return (
-    <Pressable
-      onPress={onPress}
-      style={[
-        styles.chip,
-        selected
-          ? { backgroundColor: colors.primarySoft, borderColor: colors.primary }
-          : { backgroundColor: colors.glass, borderColor: colors.border },
-      ]}
-    >
-      {icon ? (
-        <Ionicons
-          name={icon}
-          size={14}
-          color={selected ? colors.primary : colors.textMuted}
-          style={{ flexShrink: 0 }}
-        />
-      ) : null}
-      {/* Category and site names come from the tenant, so a chip can hold
-          anything. `maxWidth` keeps one long enough to fill the row from
-          spilling out of a wrapping chip group. */}
-      <Text
+    <Animated.View style={press.style}>
+      <Pressable
+        onPress={onPress}
+        {...press.pressProps}
         style={[
-          type.smallMed,
-          { color: selected ? colors.primary : colors.textMuted, flexShrink: 1 },
+          styles.chip,
+          selected
+            ? { backgroundColor: colors.primarySoft, borderColor: colors.primary }
+            : { backgroundColor: colors.glass, borderColor: colors.border },
         ]}
-        numberOfLines={1}
       >
-        {label}
-      </Text>
-    </Pressable>
+        {icon ? (
+          <Ionicons
+            name={icon}
+            size={14}
+            color={selected ? colors.primary : colors.textMuted}
+            style={{ flexShrink: 0 }}
+          />
+        ) : null}
+        {/* Category and site names come from the tenant, so a chip can hold
+            anything. `maxWidth` keeps one long enough to fill the row from
+            spilling out of a wrapping chip group. */}
+        <Text
+          style={[
+            type.smallMed,
+            { color: selected ? colors.primary : colors.textMuted, flexShrink: 1 },
+          ]}
+          numberOfLines={1}
+        >
+          {label}
+        </Text>
+      </Pressable>
+    </Animated.View>
   );
 }
 
 /* ------------------------------------------------------------- Checkbox */
 
 export function Checkbox({ checked }: { checked?: boolean }) {
+  /* The tick springs in rather than blinking on. It is the only confirmation a
+     multi-select row gives, and a state change that is *seen* to happen is
+     harder to miss than one that has simply already happened. The box itself
+     changes colour instantly — colour is a JS-driven animation and not worth
+     the thread for 22 px. */
+  const tick = usePop(!!checked, { from: 0.4 });
+
   return (
     <View
       style={[
@@ -811,7 +881,9 @@ export function Checkbox({ checked }: { checked?: boolean }) {
           : { backgroundColor: colors.glassStrong, borderColor: colors.borderStrong },
       ]}
     >
-      {checked ? <Ionicons name="checkmark" size={14} color="#fff" /> : null}
+      <Animated.View style={tick.style}>
+        <Ionicons name="checkmark" size={14} color="#fff" />
+      </Animated.View>
     </View>
   );
 }
@@ -872,7 +944,6 @@ const styles = StyleSheet.create({
     alignSelf: 'flex-start',
     flexShrink: 1,
   },
-  dot: { width: 6, height: 6, borderRadius: 3 },
   sectionHeader: {
     flexDirection: 'row',
     alignItems: 'center',

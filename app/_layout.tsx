@@ -18,26 +18,13 @@ import { Poppins_700Bold } from '@expo-google-fonts/poppins/700Bold';
 import { colors } from '@/theme';
 import { AuthProvider, useAuth } from '@/lib/auth';
 import { AppProvider } from '@/components/AppContext';
-import { routeForUri, uriFromNotification } from '@/lib/push';
+import { foregroundBehaviour, routeForUri, uriFromNotification } from '@/lib/push';
 
 SplashScreen.preventAutoHideAsync().catch(() => {});
 
-/* Module scope, so it is installed before any listener can fire.
-
-   The socket (lib/live.ts) already updates the screen the user is looking at, so a banner
-   on top of it is redundant for the current screen — but a push about a *different* pass
-   still deserves one. Showing it is the lesser evil; suppressing per-screen is not worth
-   the bookkeeping.
-
-   The badge stays off here on purpose: AppContext already increments `unread` from the
-   socket's `notification:new`, and counting it twice is worse than not counting it here. */
-Notifications.setNotificationHandler({
-  handleNotification: async () => ({
-    shouldShowAlert: true,
-    shouldPlaySound: true,
-    shouldSetBadge: false,
-  }),
-});
+/* Module scope, so it is installed before any listener can fire. The decision itself lives
+   in lib/push.ts, next to the channel it posts on — see `foregroundBehaviour`. */
+Notifications.setNotificationHandler({ handleNotification: foregroundBehaviour });
 
 /**
  * Soft colour blooms behind the glass. They give the translucent surfaces

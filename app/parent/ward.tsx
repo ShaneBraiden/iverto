@@ -7,8 +7,17 @@
  *
  * Whereabouts are refetched per ward rather than read from the account-level
  * list, because "on campus right now" is the one thing on this screen that
- * goes stale while the app is open. The last gate scan behind it is what
- * `currentStatus` is actually derived from, so both are shown together.
+ * goes stale while the app is open.
+ *
+ * ONE CARD ANSWERS "WHERE IS MY WARD". This screen used to state it twice:
+ * a status strip inside the identity card and, immediately under it,
+ * `WardLocationCard` — which draws the same "On campus · In 19:40" strip
+ * itself whenever live location is off, unavailable or not yet fixed. Two
+ * identical strips stacked read as a rendering fault rather than as two
+ * sources, and when the gate said one thing and GPS another they contradicted
+ * each other with nothing to say which was newer. The identity card is now
+ * identity only; `WardLocationCard` owns the gate scan and the live fix
+ * together, and reconciles them in one place.
  */
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, Pressable, Alert, Linking } from 'react-native';
@@ -40,7 +49,6 @@ import { EMERGENCY_CATEGORIES } from '@/constants/config';
 import { parent as parentApi } from '@/lib/api/endpoints';
 import { errorCode, errorMessage, useMutation, useQuery } from '@/lib/api/useQuery';
 import { useRefetchOnFocus } from '@/lib/useFocusRefetch';
-import { isoToDateTime } from '@/lib/datetime';
 import type { EmergencyCategory } from '@/types';
 
 export default function Ward() {
@@ -98,9 +106,7 @@ export default function Ward() {
     );
   }
 
-  const onCampus = current.currentStatus === 'IN';
   const warden = current.hostel?.wardens?.[0];
-  const scan = current.lastGateScan;
 
   return (
     <View style={{ flex: 1 }}>
@@ -160,34 +166,6 @@ export default function Ward() {
             </View>
           </View>
 
-          <View
-            style={[
-              styles.statusStrip,
-              { backgroundColor: onCampus ? colors.successBg : colors.infoBg },
-            ]}
-          >
-            <View
-              style={[styles.dot, { backgroundColor: onCampus ? colors.success : colors.info }]}
-            />
-            <Text
-              style={[
-                type.smallMed,
-                { color: onCampus ? colors.success : colors.info, flexShrink: 0 },
-              ]}
-            >
-              {onCampus ? 'On campus' : 'Currently out'}
-            </Text>
-            <Text
-              style={[
-                type.small,
-                { color: colors.textMuted, marginLeft: 'auto', flexShrink: 1, textAlign: 'right' },
-              ]}
-              numberOfLines={2}
-            >
-              {scan ? `${scan.direction === 'in' ? 'In' : 'Out'} ${isoToDateTime(scan.at)}` : 'No gate scan yet'}
-            </Text>
-          </View>
-
           {/* The pass they are actually out on, when there is one. */}
           {current.activePermission ? (
             <Pressable
@@ -203,9 +181,10 @@ export default function Ward() {
           ) : null}
         </Card>
 
-        {/* Whereabouts, from the ward's own device where they have allowed it
-            and from the gate scanner where they have not. Directly under the
-            identity card because it is what a guardian opens this screen for. */}
+        {/* Whereabouts — the whole answer, in one card. The ward's own device
+            where they have allowed it, the gate scanner either way. Directly
+            under the identity card because it is what a guardian opens this
+            screen for. */}
         <WardLocationCard ward={current} />
 
         <View style={{ flexDirection: 'row', gap: spacing.md }}>
@@ -446,20 +425,13 @@ function EmergencySheet({
 }
 
 const styles = StyleSheet.create({
-  statusStrip: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
-    marginTop: spacing.lg,
-    padding: spacing.md,
-    borderRadius: radius.md,
-  },
-  dot: { width: 8, height: 8, borderRadius: 4 },
   activePass: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.sm,
-    marginTop: spacing.sm,
+    /* Sits straight under the identity row now that the status strip that used
+       to separate them has gone, so it carries the full gap itself. */
+    marginTop: spacing.lg,
     padding: spacing.md,
     borderRadius: radius.md,
     backgroundColor: colors.primarySoft,

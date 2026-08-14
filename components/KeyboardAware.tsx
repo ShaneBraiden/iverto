@@ -29,23 +29,17 @@ import React from 'react';
 import {
   Keyboard,
   KeyboardEvent,
-  LayoutAnimation,
   NativeScrollEvent,
   NativeSyntheticEvent,
   Platform,
   ScrollView,
   StyleProp,
   TextInput,
-  UIManager,
   View,
   ViewStyle,
 } from 'react-native';
+import { animateLayout } from '@/components/motion';
 import { spacing } from '@/theme';
-
-/* Android needs this opt-in before LayoutAnimation does anything. */
-if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
-  UIManager.setLayoutAnimationEnabledExperimental(true);
-}
 
 const isIOS = Platform.OS === 'ios';
 
@@ -115,21 +109,12 @@ export function useKeyboardVisible() {
     const showEvent = isIOS ? 'keyboardWillShow' : 'keyboardDidShow';
     const hideEvent = isIOS ? 'keyboardWillHide' : 'keyboardDidHide';
 
-    const animate = () =>
-      LayoutAnimation.configureNext(
-        LayoutAnimation.create(
-          220,
-          LayoutAnimation.Types.easeInEaseOut,
-          LayoutAnimation.Properties.scaleXY
-        )
-      );
-
     const show = Keyboard.addListener(showEvent, () => {
-      animate();
+      animateLayout();
       setVisible(true);
     });
     const hide = Keyboard.addListener(hideEvent, () => {
-      animate();
+      animateLayout();
       setVisible(false);
     });
 

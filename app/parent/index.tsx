@@ -35,7 +35,9 @@ import {
   StatusPill,
 } from '@/components/ui';
 import { SkeletonApprovals } from '@/components/Skeleton';
+import { Stagger } from '@/components/motion';
 import { colors, radius, spacing, type } from '@/theme';
+import { CONTACT_WARDEN_NOTE } from '@/constants/config';
 import { parent as parentApi } from '@/lib/api/endpoints';
 import { errorCode, errorMessage, useMutation } from '@/lib/api/useQuery';
 import { useRefetchOnFocus } from '@/lib/useFocusRefetch';
@@ -98,11 +100,15 @@ export default function ParentHome() {
   });
 
   /* Not a decision — it pulls the warden in when a guardian would rather talk
-     to somebody than approve or refuse on the spot. */
-  const contactWarden = useMutation((id: string) => parentApi.decide(id, 'contact_warden'), {
-    onSuccess: () => decided('The warden has been alerted and will call you.'),
-    onError: onDecisionError,
-  });
+     to somebody than approve or refuse on the spot. The note is what the
+     warden's alert is written from, so it is always sent. */
+  const contactWarden = useMutation(
+    (id: string) => parentApi.decide(id, 'contact_warden', CONTACT_WARDEN_NOTE),
+    {
+      onSuccess: () => decided('The warden has been alerted and will call you.'),
+      onError: onDecisionError,
+    }
+  );
 
   const busy = approve.pending || reject.pending || contactWarden.pending;
 
@@ -160,25 +166,27 @@ export default function ParentHome() {
                 />
               ) : (
                 <View style={{ gap: spacing.md }}>
-                  {mine.map((p) => (
-                    <ApprovalCard
-                      key={p.id}
-                      item={p}
-                      busy={busy}
-                      onApprove={() => approve.mutate(p.id)}
-                      onReject={() => setRejecting(p)}
-                      onContactWarden={() =>
-                        Alert.alert(
-                          'Talk to the warden?',
-                          'The warden is alerted that you want to discuss this request before deciding.',
-                          [
-                            { text: 'Cancel', style: 'cancel' },
-                            { text: 'Alert warden', onPress: () => contactWarden.mutate(p.id) },
-                          ]
-                        )
-                      }
-                    />
-                  ))}
+                  <Stagger>
+                    {mine.map((p) => (
+                      <ApprovalCard
+                        key={p.id}
+                        item={p}
+                        busy={busy}
+                        onApprove={() => approve.mutate(p.id)}
+                        onReject={() => setRejecting(p)}
+                        onContactWarden={() =>
+                          Alert.alert(
+                            'Talk to the warden?',
+                            'The warden is alerted that you want to discuss this request before deciding.',
+                            [
+                              { text: 'Cancel', style: 'cancel' },
+                              { text: 'Alert warden', onPress: () => contactWarden.mutate(p.id) },
+                            ]
+                          )
+                        }
+                      />
+                    ))}
+                  </Stagger>
                 </View>
               )}
             </View>

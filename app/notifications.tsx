@@ -9,6 +9,12 @@
  * and friends — which is the same deep link a push payload uses. Tapping a row
  * resolves that to an in-app route, so the tap does the same thing whether it
  * arrives here or on the lock screen.
+ *
+ * Title and body go through `notificationCopy` rather than being drawn as they
+ * arrive: some events reach the inbox with the event code in the title
+ * (`parent_decided`) and no body, and a row that reads like a database column
+ * has told the reader nothing. Real copy is passed through untouched — see
+ * `lib/notificationText.ts`.
  */
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
@@ -17,25 +23,16 @@ import { router } from 'expo-router';
 import { Screen, TopBar } from '@/components/Screen';
 import { Card, EmptyState, ErrorState, LoadMore, PoweredBy } from '@/components/ui';
 import { SkeletonList } from '@/components/Skeleton';
+import { Stagger } from '@/components/motion';
 import { useApp } from '@/components/AppContext';
 import { colors, radius, spacing, type } from '@/theme';
 import { PAGE_SIZE } from '@/constants/config';
 import { notifications as notificationApi } from '@/lib/api/endpoints';
 import { fromPage, usePagedQuery, useMutation } from '@/lib/api/useQuery';
 import { timeAgo } from '@/lib/datetime';
+import { notificationCopy, notificationIcon } from '@/lib/notificationText';
 import { shellFor, useAuth } from '@/lib/auth';
 import type { AppNotification } from '@/types';
-
-/** Icon per notification type, falling back on what the type mentions. */
-function iconFor(type: string) {
-  if (type.includes('PARENT_APPROVAL')) return 'people-outline';
-  if (type.includes('ANNOUNCEMENT')) return 'megaphone-outline';
-  if (type.includes('PROFILE')) return 'create-outline';
-  if (type.includes('EMERGENCY')) return 'warning-outline';
-  if (type.includes('REJECT')) return 'close-circle-outline';
-  if (type.includes('APPROVE')) return 'checkmark-circle-outline';
-  return 'notifications-outline';
-}
 
 /**
  * `iverto://permissions/<id>` → the in-app route for it.
@@ -108,40 +105,45 @@ export default function Notifications() {
         ) : (
           <>
             <View style={{ gap: spacing.md }}>
-              {rows.map((n) => {
-                const unread = !n.readAt;
-                return (
-                  <Card key={n.id} padded={false} onPress={() => open(n)}>
-                    <View style={styles.row}>
-                      <View style={[styles.icon, unread && styles.iconUnread]}>
-                        <Ionicons
-                          name={iconFor(n.type) as never}
-                          size={18}
-                          color={unread ? colors.primary : colors.textMuted}
-                        />
+              <Stagger>
+                {rows.map((n) => {
+                  const unread = !n.readAt;
+                  const copy = notificationCopy(n);
+                  return (
+                    <Card key={n.id} padded={false} onPress={() => open(n)}>
+                      <View style={styles.row}>
+                        <View style={[styles.icon, unread && styles.iconUnread]}>
+                          <Ionicons
+                            name={notificationIcon(n) as never}
+                            size={18}
+                            color={unread ? colors.primary : colors.textMuted}
+                          />
+                        </View>
+                        <View style={{ flex: 1, minWidth: 0, gap: 2 }}>
+                          <Text
+                            style={[unread ? type.bodyMed : type.body, { color: colors.text }]}
+                            numberOfLines={2}
+                          >
+                            {copy.title}
+                          </Text>
+                          {copy.body ? (
+                            <Text
+                              style={[type.small, { color: colors.textMuted }]}
+                              numberOfLines={4}
+                            >
+                              {copy.body}
+                            </Text>
+                          ) : null}
+                          <Text style={[type.small, { color: colors.textFaint }]}>
+                            {timeAgo(n.createdAt)}
+                          </Text>
+                        </View>
+                        {unread ? <View style={styles.dot} /> : null}
                       </View>
-                      <View style={{ flex: 1, minWidth: 0, gap: 2 }}>
-                        <Text
-                          style={[
-                            unread ? type.bodyMed : type.body,
-                            { color: colors.text },
-                          ]}
-                          numberOfLines={2}
-                        >
-                          {n.title}
-                        </Text>
-                        <Text style={[type.small, { color: colors.textMuted }]} numberOfLines={4}>
-                          {n.body}
-                        </Text>
-                        <Text style={[type.small, { color: colors.textFaint }]}>
-                          {timeAgo(n.createdAt)}
-                        </Text>
-                      </View>
-                      {unread ? <View style={styles.dot} /> : null}
-                    </View>
-                  </Card>
-                );
-              })}
+                    </Card>
+                  );
+                })}
+              </Stagger>
             </View>
 
             <LoadMore

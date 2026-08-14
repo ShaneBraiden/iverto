@@ -10,7 +10,7 @@
  * gets its own strip above everything else.
  */
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, Pressable, Alert } from 'react-native';
+import { View, Text, StyleSheet, Animated, Pressable, Alert } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { router } from 'expo-router';
 import { AppHeader, Screen } from '@/components/Screen';
@@ -28,6 +28,7 @@ import {
   StatCard,
 } from '@/components/ui';
 import { SkeletonRows, SkeletonStats } from '@/components/Skeleton';
+import { Stagger, usePressMotion } from '@/components/motion';
 import { useApp, useLivePermissions } from '@/components/AppContext';
 import { colors, glassFill, radius, shadow, spacing, type } from '@/theme';
 import { activityIcon, ANNOUNCEMENT_AUDIENCES } from '@/constants/config';
@@ -116,16 +117,22 @@ export default function AdminHome() {
       label: 'Profile edits',
       onPress: () => router.push('/admin/profile-requests'),
     },
-    {
-      icon: 'people-circle-outline',
-      label: 'Groups',
-      onPress: () => router.push('/admin/groups'),
-    },
-    {
-      icon: 'color-palette-outline',
-      label: 'Branding',
-      onPress: () => router.push('/admin/groups'),
-    },
+    /* Organisation-level, so admin only — same rule as the Groups tab. Both
+       tiles land on the same screen; a warden gets neither. */
+    ...(user?.role === 'admin'
+      ? ([
+          {
+            icon: 'people-circle-outline',
+            label: 'Groups',
+            onPress: () => router.push('/admin/groups'),
+          },
+          {
+            icon: 'color-palette-outline',
+            label: 'Branding',
+            onPress: () => router.push('/admin/groups'),
+          },
+        ] as const)
+      : []),
     { icon: 'megaphone-outline', label: 'Announce', onPress: () => setAnnouncing(true) },
     {
       icon: 'notifications-outline',
@@ -153,42 +160,44 @@ export default function AdminHome() {
         {/* An open emergency outranks every counter on this screen. */}
         {alerts.length ? (
           <View style={{ gap: spacing.sm }}>
-            {alerts.map((a) => (
-              <View key={a.id} style={styles.alert}>
-                <Ionicons
-                  name="warning"
-                  size={18}
-                  color={colors.danger}
-                  style={{ flexShrink: 0, marginTop: 2 }}
-                />
-                <View style={{ flex: 1, minWidth: 0, gap: 2 }}>
-                  <Text style={[type.smallMed, { color: colors.danger }]} numberOfLines={2}>
-                    {a.category.toUpperCase()} · {a.student?.name ?? a.studentId}
-                  </Text>
-                  {/* The guardian's own words — never clipped, this is what the
-                      warden acts on. */}
-                  <Text style={[type.small, { color: colors.textMuted }]}>{a.message}</Text>
-                  {a.contactPhone ? (
-                    <Text style={[type.small, { color: colors.textFaint }]} numberOfLines={2}>
-                      Call back on {a.contactPhone} · raised {timeAgo(a.createdAt)}
+            <Stagger>
+              {alerts.map((a) => (
+                <View key={a.id} style={styles.alert}>
+                  <Ionicons
+                    name="warning"
+                    size={18}
+                    color={colors.danger}
+                    style={{ flexShrink: 0, marginTop: 2 }}
+                  />
+                  <View style={{ flex: 1, minWidth: 0, gap: 2 }}>
+                    <Text style={[type.smallMed, { color: colors.danger }]} numberOfLines={2}>
+                      {a.category.toUpperCase()} · {a.student?.name ?? a.studentId}
                     </Text>
-                  ) : null}
+                    {/* The guardian's own words — never clipped, this is what the
+                        warden acts on. */}
+                    <Text style={[type.small, { color: colors.textMuted }]}>{a.message}</Text>
+                    {a.contactPhone ? (
+                      <Text style={[type.small, { color: colors.textFaint }]} numberOfLines={2}>
+                        Call back on {a.contactPhone} · raised {timeAgo(a.createdAt)}
+                      </Text>
+                    ) : null}
+                  </View>
+                  <Pressable
+                    hitSlop={8}
+                    style={{ flexShrink: 0 }}
+                    disabled={resolve.pending}
+                    onPress={() =>
+                      Alert.alert('Resolve this alert?', a.message, [
+                        { text: 'Cancel', style: 'cancel' },
+                        { text: 'Resolve', onPress: () => resolve.mutate(a.id) },
+                      ])
+                    }
+                  >
+                    <Text style={[type.smallMed, { color: colors.primary }]}>Resolve</Text>
+                  </Pressable>
                 </View>
-                <Pressable
-                  hitSlop={8}
-                  style={{ flexShrink: 0 }}
-                  disabled={resolve.pending}
-                  onPress={() =>
-                    Alert.alert('Resolve this alert?', a.message, [
-                      { text: 'Cancel', style: 'cancel' },
-                      { text: 'Resolve', onPress: () => resolve.mutate(a.id) },
-                    ])
-                  }
-                >
-                  <Text style={[type.smallMed, { color: colors.primary }]}>Resolve</Text>
-                </Pressable>
-              </View>
-            ))}
+              ))}
+            </Stagger>
           </View>
         ) : null}
 
@@ -198,15 +207,21 @@ export default function AdminHome() {
           <ErrorState error={error} onRetry={refresh} />
         ) : (
           <View style={{ gap: spacing.md }}>
+            {/* `from` continues the count across the two rows, so the four
+                tiles land in reading order rather than as two pairs. */}
             <View style={{ flexDirection: 'row', gap: spacing.md }}>
-              {tiles.slice(0, 2).map((s) => (
-                <StatCard key={s.label} {...s} />
-              ))}
+              <Stagger style={{ flex: 1 }}>
+                {tiles.slice(0, 2).map((s) => (
+                  <StatCard key={s.label} {...s} />
+                ))}
+              </Stagger>
             </View>
             <View style={{ flexDirection: 'row', gap: spacing.md }}>
-              {tiles.slice(2).map((s) => (
-                <StatCard key={s.label} {...s} />
-              ))}
+              <Stagger from={2} style={{ flex: 1 }}>
+                {tiles.slice(2).map((s) => (
+                  <StatCard key={s.label} {...s} />
+                ))}
+              </Stagger>
             </View>
             {stats ? (
               <Text style={[type.small, { color: colors.textFaint, textAlign: 'right' }]}>
@@ -226,21 +241,13 @@ export default function AdminHome() {
           <View style={{ gap: spacing.md }}>
             {chunk(TOOLS, 3).map((row, i) => (
               <View key={i} style={styles.toolRow}>
-                {row.map((t) => (
-                  <Pressable
-                    key={t.label}
-                    onPress={t.onPress}
-                    style={({ pressed }) => [styles.tool, pressed && { opacity: 0.7 }]}
-                  >
-                    <IconTile icon={t.icon} size={40} />
-                    <Text
-                      style={[type.small, { color: colors.text, textAlign: 'center' }]}
-                      numberOfLines={1}
-                    >
-                      {t.label}
-                    </Text>
-                  </Pressable>
-                ))}
+                {/* `from` carries the count across rows so the grid fills left
+                    to right, top to bottom, rather than three tiles at a time. */}
+                <Stagger from={i * 3} style={{ flex: 1 }}>
+                  {row.map((t) => (
+                    <ToolTile key={t.label} icon={t.icon} label={t.label} onPress={t.onPress} />
+                  ))}
+                </Stagger>
                 {/* Keeps a short final row the same tile width as a full one. */}
                 {row.length < 3
                   ? Array.from({ length: 3 - row.length }, (_, k) => (
@@ -268,24 +275,26 @@ export default function AdminHome() {
                 message="Scans, decisions and profile changes show up here as they happen."
               />
             ) : (
-              rows.map((a, i) => (
-                <View key={a.id}>
-                  <View style={styles.activityRow}>
-                    <IconTile icon={activityIcon(a.action) as IconName} size={32} />
-                    <Text style={[type.small, { color: colors.text, flex: 1 }]} numberOfLines={3}>
-                      {a.summary}
-                    </Text>
-                    {/* The relative time is short and fixed — it holds its
-                        width and the summary wraps around it. */}
-                    <Text style={[type.small, { color: colors.textFaint, flexShrink: 0 }]}>
-                      {timeAgo(a.at)}
-                    </Text>
+              <Stagger>
+                {rows.map((a, i) => (
+                  <View key={a.id}>
+                    <View style={styles.activityRow}>
+                      <IconTile icon={activityIcon(a.action) as IconName} size={32} />
+                      <Text style={[type.small, { color: colors.text, flex: 1 }]} numberOfLines={3}>
+                        {a.summary}
+                      </Text>
+                      {/* The relative time is short and fixed — it holds its
+                          width and the summary wraps around it. */}
+                      <Text style={[type.small, { color: colors.textFaint, flexShrink: 0 }]}>
+                        {timeAgo(a.at)}
+                      </Text>
+                    </View>
+                    {i < rows.length - 1 ? (
+                      <View style={{ height: 1, backgroundColor: colors.border, marginLeft: 60 }} />
+                    ) : null}
                   </View>
-                  {i < rows.length - 1 ? (
-                    <View style={{ height: 1, backgroundColor: colors.border, marginLeft: 60 }} />
-                  ) : null}
-                </View>
-              ))
+                ))}
+              </Stagger>
             )}
           </Card>
         </View>
@@ -406,6 +415,44 @@ function AnnounceSheet({ visible, onClose }: { visible: boolean; onClose: () => 
         ) : null}
       </View>
     </Sheet>
+  );
+}
+
+/**
+ * One square in the quick-tools grid.
+ *
+ * Its own component so it can hold the press spring — a hook cannot live inside
+ * the `.map()` that lays the row out.
+ */
+function ToolTile({
+  icon,
+  label,
+  onPress,
+}: {
+  icon: IconName;
+  label: string;
+  onPress: () => void;
+}) {
+  const press = usePressMotion(0.94);
+  /* `flex: 1` all the way down: the row divides itself between the animated
+     wrappers, and each tile has to fill the one it is in or a two-line label in
+     the next column would leave it short. */
+  return (
+    <Animated.View style={[{ flex: 1 }, press.style]}>
+      <Pressable
+        onPress={onPress}
+        {...press.pressProps}
+        style={({ pressed }) => [styles.tool, pressed && { opacity: 0.7 }]}
+      >
+        <IconTile icon={icon} size={40} />
+        <Text
+          style={[type.small, { color: colors.text, textAlign: 'center' }]}
+          numberOfLines={1}
+        >
+          {label}
+        </Text>
+      </Pressable>
+    </Animated.View>
   );
 }
 

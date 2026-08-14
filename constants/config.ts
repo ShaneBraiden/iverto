@@ -16,6 +16,25 @@ export const SHAPE_RADIUS: Record<string, number> = {
   square: 4,
 };
 
+/**
+ * The same four shapes as a fraction of the icon's size.
+ *
+ * `SHAPE_RADIUS` above is these ratios resolved at the 54px group-list tile.
+ * The branded mark also has to be drawn at 20px in the dashboard header and at
+ * 72px in the editor preview, and a fixed 27px radius stops reading as a circle
+ * the moment the tile is not 54px wide — so anything that scales uses these.
+ */
+const SHAPE_RATIO: Record<string, number> = {
+  squircle: 0.3,
+  rounded: 0.22,
+  circle: 0.5,
+  square: 0.074,
+};
+
+export function shapeRadius(shape: string | undefined, size: number) {
+  return size * (SHAPE_RATIO[shape ?? ''] ?? SHAPE_RATIO.squircle);
+}
+
 /** The four shapes the branding endpoint accepts. */
 export const SHAPES: { id: string; label: string; radius: number }[] = [
   { id: 'squircle', label: 'Squircle', radius: 22 },
@@ -115,6 +134,20 @@ export function activityIcon(action: string) {
   if (key.includes('PERMISSION') || key.includes('CREATE')) return 'document-text-outline';
   return DEFAULT_ACTIVITY_ICON;
 }
+
+/**
+ * The note recorded when a guardian picks "talk to the warden first".
+ *
+ * `POST /parent/permissions/:id/decision` stores `note` as the decision
+ * evidence, shows it to the student, and — per the API doc — is what alerts the
+ * warden for a `contact_warden` response. Sent without one the alert reaches
+ * the warden with nothing in it but a pass id, which is not enough to act on or
+ * to write a notification body from. A fixed line is not as good as the
+ * guardian's own words, but it is a sentence, and every guardian taking this
+ * action means the same thing by it.
+ */
+export const CONTACT_WARDEN_NOTE =
+  'The guardian has asked to speak to the warden before deciding on this request.';
 
 /** The four categories `POST /parent/emergencies` accepts. */
 export const EMERGENCY_CATEGORIES: {

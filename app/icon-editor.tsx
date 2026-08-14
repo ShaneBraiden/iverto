@@ -5,21 +5,27 @@
  * app icon AND the app name that those students alone will see. Everyone
  * outside the selection keeps the default Iverto.ai branding.
  *
+ * Organisation admins only, like the groups list that reaches it — a warden
+ * has no say in who is in a group or what it looks like.
+ *
  * Saving posts the whole thing to `POST /admin/groups/:id/branding`. Note that
  * `memberStudentIds` **replaces** the roster rather than adding to it, which
  * is why the picker seeds from the group's current members and why the button
  * says how many will be left in it.
  *
- * On the device side, `GET /me/branding` carries a `version`; when that changes
- * the member's app calls the native alternate-icon setter. Icon variants have
- * to be declared at build time, so a member device needs a build that contains
- * them — the payload here is the assignment, not the artwork.
+ * What this actually changes today is the *in-app* mark: `GET /me/branding`
+ * feeds `<AppIcon>` and the app name in every dashboard header, on the
+ * member's device and their guardians'. It does **not** change the launcher
+ * icon on the home screen — iOS alternate icons and Android activity-aliases
+ * must be declared in the binary at build time, so no upload made here can
+ * become one. Wiring that up needs a build-time roster of icons, not another
+ * endpoint.
  */
 import React, { useEffect, useMemo, useState } from 'react';
 import { View, Text, StyleSheet, Pressable, ScrollView, Alert } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { LinearGradient } from 'expo-linear-gradient';
-import { router, useLocalSearchParams } from 'expo-router';
+import { Redirect, router, useLocalSearchParams } from 'expo-router';
 import { Screen, TopBar } from '@/components/Screen';
 import {
   Button,
@@ -47,6 +53,9 @@ import { admin as adminApi } from '@/lib/api/endpoints';
 import { errorMessage, fromPage, usePagedQuery, useMutation, useQuery } from '@/lib/api/useQuery';
 import { AttachmentError, pickAndUpload, type PickedFile } from '@/lib/attachments';
 import { timeAgo } from '@/lib/datetime';
+import { useAuth } from '@/lib/auth';
+import { useSignedUrl } from '@/lib/useSignedUrl';
+import { AppIcon } from '@/components/AppIcon';
 
 /** The server caps these; enforcing them here keeps the preview honest. */
 const MAX_APP_NAME = 14;
@@ -54,11 +63,17 @@ const MAX_LABEL = 2;
 
 export default function BrandingEditor() {
   const { group: groupId } = useLocalSearchParams<{ group?: string }>();
+  const { user } = useAuth();
+  const isAdmin = user?.role === 'admin';
 
   const groupQuery = useQuery((signal) => adminApi.group(groupId!, signal), [groupId], {
-    enabled: !!groupId,
+    enabled: !!groupId && isAdmin,
   });
   const group = groupQuery.data;
+
+  /* The artwork already on the group, for the preview. A freshly picked file
+     wins over it — that one is local and needs no resolving. */
+  const savedIconUri = useSignedUrl(group?.iconKey, group?.iconUrl);
 
   const [query, setQuery] = useState('');
   const [needle, setNeedle] = useState('');
@@ -74,7 +89,8 @@ export default function BrandingEditor() {
       adminApi
         .roster({ q: needle || undefined, cursor, limit: ROSTER_PAGE_SIZE }, signal)
         .then(fromPage),
-    [needle]
+    [needle],
+    { enabled: isAdmin }
   );
 
   const [preset, setPreset] = useState(iconPresets[0]);
@@ -166,6 +182,11 @@ export default function BrandingEditor() {
     }
   };
 
+  /* After the hooks, before the group gate — a warden reaching this route by
+     deep link or stale nav state goes back to the dashboard, not to an empty
+     editor. */
+  if (!isAdmin) return <Redirect href="/admin" />;
+
   if (!group) {
     return (
       <View style={{ flex: 1 }}>
@@ -193,41 +214,35 @@ export default function BrandingEditor() {
     <View style={{ flex: 1 }}>
       <TopBar title="Branding" subtitle={group.name} />
       <Screen clearTabBar={false}>
-        {/* Live preview: a mock home screen */}
+        {/* Live preview. This is the in-app mark — the one members see in the
+            dashboard header — drawn with the same `<AppIcon>` their device
+            uses, so what the admin approves here is literally what ships.
+            It is deliberately not framed as a home-screen preview: the
+            launcher icon is fixed at build time and this screen cannot move
+            it. */}
         <LinearGradient
           colors={['#2A2A33', '#16161C']}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 1 }}
           style={styles.phone}
         >
-          <Text style={[type.caption, { color: 'rgba(255,255,255,0.5)' }]}>
-            HOME SCREEN PREVIEW
-          </Text>
+          <Text style={[type.caption, { color: 'rgba(255,255,255,0.5)' }]}>IN-APP PREVIEW</Text>
           <View style={styles.homeRow}>
             <View style={{ alignItems: 'center', gap: 6 }}>
-              <LinearGradient
-                colors={preset.colors}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 1 }}
-                style={[styles.bigIcon, { borderRadius: shape.radius }]}
-              >
-                <Text style={styles.bigIconText}>
-                  {(monogram || 'IV').slice(0, MAX_LABEL).toUpperCase()}
-                </Text>
-              </LinearGradient>
+              <AppIcon
+                size={66}
+                shape={shape.id}
+                palette={[...preset.colors]}
+                label={monogram}
+                uri={icon ? icon.uri : iconKey ? savedIconUri : null}
+              />
               <Text style={styles.homeLabel} numberOfLines={1}>
                 {appName || DEFAULT_APP_NAME}
               </Text>
             </View>
-            {['Mail', 'Notes'].map((n) => (
-              <View key={n} style={{ alignItems: 'center', gap: 6, opacity: 0.3 }}>
-                <View style={[styles.ghostIcon, { borderRadius: shape.radius }]} />
-                <Text style={styles.homeLabel}>{n}</Text>
-              </View>
-            ))}
           </View>
           <Text style={[type.small, { color: 'rgba(255,255,255,0.45)' }]}>
-            {`Seen by ${selected.length} student${selected.length === 1 ? '' : 's'}`}
+            {`Seen by ${selected.length} student${selected.length === 1 ? '' : 's'} and their guardians`}
           </Text>
         </LinearGradient>
 
@@ -440,7 +455,7 @@ export default function BrandingEditor() {
 
         <Note
           icon="information-circle-outline"
-          text="iOS shows a system prompt when the icon changes. Android applies it silently on next launch. Students outside this selection keep the default Iverto.ai branding."
+          text="Members pick this up the next time the app opens — the mark and name in their dashboard header. Their guardians see it too. Students outside this selection keep the default Iverto.ai branding."
         />
 
         {apply.error ? (
@@ -476,9 +491,6 @@ export default function BrandingEditor() {
 const styles = StyleSheet.create({
   phone: { borderRadius: radius.xxl, padding: spacing.xl, gap: spacing.lg },
   homeRow: { flexDirection: 'row', gap: spacing.xl },
-  bigIcon: { width: 66, height: 66, alignItems: 'center', justifyContent: 'center' },
-  bigIconText: { color: '#fff', fontFamily: font.bold, fontSize: 22, letterSpacing: 0.5 },
-  ghostIcon: { width: 66, height: 66, backgroundColor: 'rgba(255,255,255,0.28)' },
   homeLabel: { color: '#fff', fontSize: 11, fontFamily: font.medium, maxWidth: 74 },
   presetGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.md },
   preset: {
