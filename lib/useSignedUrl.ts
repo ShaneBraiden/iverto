@@ -9,6 +9,13 @@
  * `ready` short-circuits the request entirely: where the API already sends a
  * URL beside the key (see `iconUrl`), pass it and nothing is fetched. That is
  * the cheap path, and the one to prefer as the server grows it.
+ *
+ * A branding `iconUrl` is not the five-minute kind — it is a permanent CDN
+ * link where the branding bucket is public, and a seven-day signed one where
+ * it is not, so it cannot expire mid-session. It is still re-read from the API
+ * on each launch rather than persisted, because on a private bucket the string
+ * itself does eventually die. The bytes behind it never change (every key ends
+ * in a fresh UUID), so the platform image cache is free to hold them.
  */
 import { useEffect, useState } from 'react';
 import { uploads as uploadsApi } from '@/lib/api/endpoints';

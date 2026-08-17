@@ -2,7 +2,11 @@
  * Every endpoint the app calls, one function each, grouped and ordered the way
  * `mobile-api-documentation.md` groups them. Paths are written from the version
  * segment on (`/v1/mobile/...`) exactly as the doc writes them; the client
- * prepends the `https://api.iverto.ai/devhostel` base.
+ * prepends the `https://api.iverto.ai/hostel` base, so a call resolves to
+ * `https://api.iverto.ai/hostel/v1/mobile/...`.
+ *
+ * The groups, roster and branding routes below are the contract in
+ * `Dev/mobile-branding-api.md`.
  */
 import { api, type Query } from './client';
 import type {
@@ -122,7 +126,15 @@ export const me = {
   /** Role-aware: a Student, a `{ parentContacts, children }`, or staff + sites. */
   get: (signal?: AbortSignal) => api.get<Me>(`${V1}/me`, undefined, signal),
 
-  /** What this device should render itself as. Call after login and on resume. */
+  /**
+   * What this device should render itself as. Call after login and on resume.
+   *
+   * Answers for whoever the token belongs to, resolving group → organisation →
+   * stock: a student gets their group's mark, a guardian gets the group all
+   * their wards agree on, and a warden or admin — who sit in no group — get
+   * the university's own. `isDefault` is the only field that says whether the
+   * app should draw the bundled lockup instead.
+   */
   branding: (signal?: AbortSignal) => api.get<Branding>(`${V1}/me/branding`, undefined, signal),
 };
 
@@ -314,12 +326,19 @@ export const admin = {
   group: (id: string, signal?: AbortSignal) =>
     api.get<GroupDetail>(`${V1}/admin/groups/${id}`, undefined, signal),
 
+  /**
+   * `name` is required and must be unique within the tenant — a duplicate is a
+   * 400. Everything else is optional; the usual flow is to create with a name
+   * and set the mark from the editor afterwards.
+   */
   createGroup: (body: {
     name: string;
     appName?: string;
     iconColors?: string[];
     shape?: string;
     iconLabel?: string;
+    /** Key from `POST /uploads` with `purpose=group-icon`. */
+    iconKey?: string;
   }) => api.post<Group>(`${V1}/admin/groups`, body),
 
   /**

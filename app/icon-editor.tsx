@@ -3,7 +3,9 @@
  *
  * The admin picks exactly which students belong to the group, then sets the
  * app icon AND the app name that those students alone will see. Everyone
- * outside the selection keeps the default Iverto.ai branding.
+ * outside the selection falls through to the next layer of branding — the
+ * organisation's own mark where the dashboard has set one, and the stock
+ * Iverto lockup only where it has not.
  *
  * Organisation admins only, like the groups list that reaches it — a warden
  * has no say in who is in a group or what it looks like.
@@ -149,7 +151,7 @@ export default function BrandingEditor() {
           'Branding applied',
           `${updated?.memberCount ?? selected.length} student${
             (updated?.memberCount ?? selected.length) === 1 ? '' : 's'
-          } will see it on next launch.`,
+          } and their guardians pick it up right away, or on next launch if the app is closed.`,
           [{ text: 'Done', onPress: () => router.back() }]
         );
       },
@@ -166,7 +168,14 @@ export default function BrandingEditor() {
     setUploading(true);
     setIconError(null);
     try {
-      const picked = await pickAndUpload('group-icon', ['image/png', 'image/jpeg']);
+      /* The four types the branding bucket accepts. HEIC is in the list
+         because that is what an iPhone hands over untouched. */
+      const picked = await pickAndUpload('group-icon', [
+        'image/png',
+        'image/jpeg',
+        'image/webp',
+        'image/heic',
+      ]);
       if (picked) {
         setIconKey(picked.upload.key);
         setIcon(picked.file);
@@ -358,8 +367,12 @@ export default function BrandingEditor() {
                 ? 'Uploading…'
                 : (icon?.name ?? (iconKey ? 'Custom icon on file' : 'Upload custom icon'))}
             </Text>
+            {/* 512px is the ask rather than the limit: this image is stored
+                once and then fetched by every member of the group, so its size
+                is paid for over and over. 5 MB is only what the server
+                refuses. */}
             <Text style={[type.small, { color: colors.textFaint }]} numberOfLines={2}>
-              PNG, 1024×1024, no transparency · max 5 MB
+              Square PNG, JPEG or WebP · 512×512 is plenty · max 5 MB
             </Text>
           </View>
           <Ionicons
@@ -444,18 +457,21 @@ export default function BrandingEditor() {
           />
         </View>
 
-        {/* Applying replaces the roster, so anyone dropped needs calling out. */}
+        {/* Applying replaces the roster, so anyone dropped needs calling out.
+            What they drop *to* is the organisation's own branding where one is
+            set, and only the stock Iverto mark otherwise — so the wording says
+            "no longer see this one" rather than naming a destination. */}
         {removing > 0 ? (
           <Note
             icon="alert-circle-outline"
             tone="warning"
-            text={`${removing} student${removing === 1 ? '' : 's'} currently in this group ${removing === 1 ? 'is' : 'are'} no longer selected and will be removed from it, returning to the default branding.`}
+            text={`${removing} student${removing === 1 ? '' : 's'} currently in this group ${removing === 1 ? 'is' : 'are'} no longer selected and will be removed from it, so ${removing === 1 ? 'that device stops' : 'those devices stop'} showing this branding.`}
           />
         ) : null}
 
         <Note
           icon="information-circle-outline"
-          text="Members pick this up the next time the app opens — the mark and name in their dashboard header. Their guardians see it too. Students outside this selection keep the default Iverto.ai branding."
+          text="Members see this straight away if the app is open, and on next launch otherwise — the mark and name in their dashboard header. Their guardians see it too. Students outside this selection fall back to your organisation's branding."
         />
 
         {apply.error ? (

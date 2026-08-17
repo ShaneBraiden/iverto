@@ -22,7 +22,7 @@
     "android": {
       "package": "com.iverto.ai",
       "googleServicesFile": "./google-services.json",
-      "versionCode": 1,
+      "versionCode": 2,
       "softwareKeyboardLayoutMode": "resize",
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
@@ -59,13 +59,21 @@
           "color": "#B9000E",
           "defaultChannel": "default"
         }
+      ],
+      [
+        "expo-build-properties",
+        {
+          "android": {
+            "targetSdkVersion": 35
+          }
+        }
       ]
     ],
     "experiments": {
       "typedRoutes": false
     },
     "extra": {
-      "apiUrl": "https://api.iverto.ai/devhostel"
+      "apiUrl": "https://api.iverto.ai/hostel"
     }
   }
 }

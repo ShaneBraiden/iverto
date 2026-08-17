@@ -124,12 +124,13 @@ export function AppHeader({
         {/* Brand strip — the mark sits above the role row so every dashboard
             says whose app this is without crowding the greeting.
 
-            For most devices that is Iverto. Where the university's admin has
-            branded the student's group, this is the one place in the shell
-            that carries it: their mark and their name, on every dashboard.
-            The stock lockup is the fallback, so an admin, an unbranded
-            student, or a launch before `/me/branding` answers all still get a
-            header that looks finished. */}
+            Whatever `/me/branding` resolved is what goes here: the student's
+            group mark, or the university's own where no group brands them —
+            which is what wardens and admins see, since they sit in no cohort.
+            The two arrive as the same payload and are drawn the same way. The
+            stock lockup is the fallback for `isDefault`, so an unbranded
+            campus or a launch before the call answers still gets a header that
+            looks finished. */}
         {/* The header comes *down* onto the screen while the body below rises
             to meet it — negative `distance`, which is the whole difference. */}
         <Appear distance={-8} style={styles.brandStrip}>

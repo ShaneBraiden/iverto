@@ -493,12 +493,14 @@ export type Group = {
   appName: string;
   iconColors: string[];
   shape: IconShape | string;
-  iconLabel: string;
+  /** ≤ 2-character monogram; null on a group that has never been branded. */
+  iconLabel: string | null;
   iconKey: string | null;
   /**
-   * Optional read URL for `iconKey`, when the server sends one. Without it the
-   * app resolves the key through `/uploads/signed-url`, which is one extra
-   * call per icon — a list of groups pays it per row.
+   * Read URL for `iconKey` — null when there is no icon, or when storage is
+   * not configured. Rendered directly; the app only resolves the key through
+   * `/uploads/signed-url` when this is missing, which is one extra call per
+   * icon and a list of groups pays it per row.
    */
   iconUrl?: string | null;
   memberCount: number;
@@ -510,14 +512,25 @@ export type GroupDetail = Group & {
   members: { studentId: string; name: string; rollNumber: string; addedAt: string }[];
 };
 
-/** Body of `POST /admin/groups/:id/branding`. */
+/**
+ * Body of `POST /admin/groups/:id/branding`. Every field is optional and an
+ * omitted one keeps its current value, so a caller can move the roster without
+ * restating the mark.
+ */
 export type BrandingPayload = {
-  appName: string;
-  iconColors: string[];
-  shape: string;
-  iconLabel: string;
+  /** ≤ 14 characters. */
+  appName?: string;
+  iconColors?: string[];
+  shape?: string;
+  /** ≤ 2 characters. */
+  iconLabel?: string;
   iconKey?: string;
-  /** When present, this **replaces** the group roster. */
+  /**
+   * When present this **replaces** the roster — send the complete intended
+   * membership. `[]` empties the group; omitting it leaves the roster alone.
+   * An id outside the caller's tenant rejects the whole write with a 400 that
+   * names it, and nothing is applied.
+   */
   memberStudentIds?: string[];
 };
 
@@ -533,18 +546,38 @@ export type RosterStudent = {
   groupName: string | null;
 };
 
-/** `GET /me/branding` — what this device renders itself as. */
+/**
+ * `GET /me/branding` and the `branding:updated` socket event — what this
+ * device renders itself as.
+ *
+ * Three layers resolve into this one object, most specific first: the member's
+ * **group**, then their **organisation**, then the stock Iverto lockup. Only
+ * `isDefault` says which of them answered in a way the client should act on —
+ * organisation branding carries a null `groupId` exactly as the stock payload
+ * does, so a null group is not a signal of anything.
+ */
 export type Branding = {
+  /** Null for organisation branding *and* for the default — see above. */
   groupId: string | null;
+  /** Null whenever `groupId` is. */
   groupName: string | null;
+  /** Never null; falls back to the stock name. */
   appName: string;
+  /** Hex, gradient stops in order. `[]` when unset. */
   iconColors: string[];
   shape: string;
-  iconLabel: string;
+  /** ≤ 2-character monogram, drawn on the gradient when there is no image. */
+  iconLabel: string | null;
   iconKey: string | null;
   /** As on `Group` — saves the device a `/uploads/signed-url` call on launch. */
   iconUrl?: string | null;
+  /** **The only field that decides stock vs custom.** */
   isDefault: boolean;
+  /**
+   * Opaque cache key for this payload — not for the image. It changes on every
+   * branding write and reads `"default"` when `isDefault`. Compare it as a
+   * string; it is not guaranteed to be a date or to increase.
+   */
   version: string;
 };
 

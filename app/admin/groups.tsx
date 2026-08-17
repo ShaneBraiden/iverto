@@ -112,7 +112,7 @@ export default function Groups() {
         <Note
           icon="color-palette-outline"
           tone="brand"
-          text="Each group gets its own app icon and app name. Members see the change on their next launch — everyone else is untouched."
+          text="Each group gets its own app icon and app name. Members see the change immediately if the app is open, and on next launch otherwise — everyone else keeps your organisation's branding."
         />
 
         <ScrollView

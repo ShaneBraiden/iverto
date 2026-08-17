@@ -7,10 +7,16 @@
  *   gradient + monogram      — the built-in scheme, and the fallback when the
  *                              artwork will not load
  *
- * The artwork is served from a signed URL that expires after five minutes, so
- * `onError` is not optional here: an expired link has to fall back to the
- * monogram rather than leave a hole in the header. The gradient needs no
- * network at all, which is also why it is what an offline launch shows.
+ * The artwork is served from a URL the app does not control the lifetime of —
+ * a permanent CDN link on a public branding bucket, a signed one good for
+ * seven days otherwise — so `onError` is not optional here: a link that has
+ * stopped resolving has to fall back to the monogram rather than leave a hole
+ * in the header. The gradient needs no network at all, which is also why it is
+ * what an offline launch shows.
+ *
+ * The bytes behind a given URL can never change — every object key ends in a
+ * fresh UUID, so a new logo is always a new URL — which is what makes the
+ * platform image cache safe to lean on here.
  *
  * This is the in-app mark, not the launcher icon — see `app/icon-editor.tsx`
  * for why the home-screen icon is a build-time concern.
@@ -41,8 +47,8 @@ export function AppIcon({
   shape?: string;
   /** `iconColors` from the branding payload. */
   palette?: string[];
-  /** `iconLabel` — up to two characters. */
-  label?: string;
+  /** `iconLabel` — up to two characters, and null on unbranded payloads. */
+  label?: string | null;
   /** Resolved read URL for uploaded artwork, when there is any. */
   uri?: string | null;
   style?: StyleProp<ViewStyle>;

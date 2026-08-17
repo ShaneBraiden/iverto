@@ -8,7 +8,7 @@
  * The namespace and the handshake path are two different things and both are
  * required, per the API doc:
  *
- *     io('https://api.iverto.ai/mobile', { path: '/devhostel/socket.io' })
+ *     io('https://api.iverto.ai/mobile', { path: '/hostel/socket.io' })
  *          ^ namespace on the origin        ^ the deployment's prefix
  *
  * Both are derived from `API_URL`, which is the one place the prefix is allowed
@@ -21,17 +21,26 @@
  */
 import { io, type Socket } from 'socket.io-client';
 import { API_URL } from '@/lib/api/client';
-import type { AppNotification, Permission } from '@/types';
+import type { AppNotification, Branding, Permission } from '@/types';
 
 type Events = {
   'notification:new': (payload: AppNotification) => void;
   'permission:updated': (payload: Permission) => void;
+  /**
+   * An admin rebranded a group this device belongs to — or dropped it from
+   * one, in which case the payload is the fallback the server resolved for it
+   * (the organisation's mark, or the stock lockup). Same shape as
+   * `GET /me/branding`, so it is applied directly rather than triggering a
+   * re-fetch. Organisation-level rebrands deliberately do *not* emit this;
+   * they land on the next launch.
+   */
+  'branding:updated': (payload: Branding) => void;
 };
 
 let socket: Socket | null = null;
 
 /**
- * `https://api.iverto.ai/devhostel` → namespace URL + handshake path.
+ * `https://api.iverto.ai/hostel` → namespace URL + handshake path.
  *
  * Split with a regex rather than `new URL()`: React Native's URL class has no
  * `origin` or `pathname` getters, so both would come back undefined.

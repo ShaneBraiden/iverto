@@ -5,10 +5,10 @@
  * runs `expo start`), falling back to `extra.apiUrl` in `app.json` so a release
  * build has a host even with no env set. Every path in this app is written
  * from the version segment onwards (`/v1/mobile/...`) exactly as the API doc
- * writes it, and the base carries the service prefix (`/devhostel` for dev,
- * `/hostel` for production):
+ * writes it, and the base carries the service prefix (`/hostel` for production,
+ * `/devhostel` for the dev deployment):
  *
- *     https://api.iverto.ai/devhostel  +  /v1/mobile/permissions
+ *     https://api.iverto.ai/hostel  +  /v1/mobile/permissions
  *
  * so a path can be copied out of the doc and pasted into `endpoints.ts`
  * unchanged.
