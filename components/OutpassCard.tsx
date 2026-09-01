@@ -4,8 +4,8 @@ import Ionicons from '@expo/vector-icons/Ionicons';
 import { router } from 'expo-router';
 import { Card, StatusPill } from '@/components/ui';
 import { colors, radius, spacing, type } from '@/theme';
-import { categoryLabel, shortId } from '@/lib/status';
-import { isoRange } from '@/lib/datetime';
+import { categoryLabel, isOverdue, overdueMinutes, shortId } from '@/lib/status';
+import { formatMinutes, isoRange } from '@/lib/datetime';
 import type { Category, Permission } from '@/types';
 
 /**
@@ -16,8 +16,17 @@ import type { Category, Permission } from '@/types';
  *
  * `categories` is optional: pass the tenant's category list and the tag shows
  * its label, otherwise the raw `type` is humanised.
+ *
+ * Memoised, because this is the row every list is made of and most of what
+ * re-renders those lists does not touch the rows: a keystroke in the search
+ * box, a status chip toggling, a socket bumping the unread badge. All of them
+ * re-render the screen while `item` keeps its identity, and without the memo
+ * every card on screen — sixty of them, after three taps of "Load more" —
+ * re-renders for each character typed. A genuinely new `item` still comes
+ * through, because a refetch builds new objects and the shallow compare sees
+ * that; there is no staleness to reason about.
  */
-export function OutpassCard({
+export const OutpassCard = React.memo(function OutpassCard({
   item,
   role,
   showRequester,
@@ -28,6 +37,11 @@ export function OutpassCard({
   showRequester?: boolean;
   categories?: Category[];
 }) {
+  /* The status pill says "Active", which stops being the useful half of the
+     truth the moment the return time has passed. A warden scanning the queue
+     for who to chase needs that on the card, not one tap in. */
+  const late = isOverdue(item);
+
   return (
     <Card onPress={() => router.push(`/outpass/${item.id}?role=${role}`)}>
       <View style={styles.head}>
@@ -71,6 +85,16 @@ export function OutpassCard({
           {isoRange(item.startTime ?? item.startDate, item.endTime)}
         </Text>
       </View>
+      {/* Added to the window rather than replacing it — how long they have
+          been late and when they were due back are both worth reading. */}
+      {late ? (
+        <View style={styles.metaRow}>
+          <Ionicons name="alert-circle" size={14} color={colors.danger} />
+          <Text style={[type.smallMed, { color: colors.danger, flex: 1 }]} numberOfLines={1}>
+            Overdue by {formatMinutes(overdueMinutes(item))}
+          </Text>
+        </View>
+      ) : null}
       {item.destination ? (
         <View style={styles.metaRow}>
           <Ionicons name="location-outline" size={14} color={colors.textMuted} />
@@ -81,7 +105,7 @@ export function OutpassCard({
       ) : null}
     </Card>
   );
-}
+});
 
 const styles = StyleSheet.create({
   head: { flexDirection: 'row', alignItems: 'flex-start', gap: spacing.md },

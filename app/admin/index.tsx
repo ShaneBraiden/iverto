@@ -42,8 +42,16 @@ import type { AdminStats } from '@/types';
 
 type IconName = React.ComponentProps<typeof Ionicons>['name'];
 
-/** Tile colours belong to the app; only the numbers come from the server. */
+/**
+ * Tile colours belong to the app; only the numbers come from the server.
+ *
+ * The two counts about students who are out lead into the pass list filtered
+ * to `active`, because both are a list of passes somebody has to close — a
+ * warden who sees "Overdue: 3" and has no way through to those three has been
+ * told off, not helped.
+ */
 function statTiles(stats: AdminStats) {
+  const toActive = () => router.push('/admin/requests?status=active');
   return [
     {
       label: 'Pending',
@@ -51,6 +59,7 @@ function statTiles(stats: AdminStats) {
       icon: 'time-outline' as IconName,
       fg: colors.warning,
       bg: colors.warningBg,
+      onPress: () => router.push('/admin/requests?status=pending'),
     },
     {
       label: 'Approved today',
@@ -65,6 +74,7 @@ function statTiles(stats: AdminStats) {
       icon: 'walk-outline' as IconName,
       fg: colors.info,
       bg: colors.infoBg,
+      onPress: toActive,
     },
     {
       label: 'Overdue',
@@ -72,6 +82,7 @@ function statTiles(stats: AdminStats) {
       icon: 'alert-circle-outline' as IconName,
       fg: colors.danger,
       bg: colors.dangerBg,
+      onPress: toActive,
     },
   ];
 }

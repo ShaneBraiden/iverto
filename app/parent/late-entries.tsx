@@ -122,7 +122,9 @@ export default function LateEntries() {
   );
 }
 
-function EntryCard({ entry }: { entry: LateEntry }) {
+/* Memoised for the same reason as `OutpassCard`: `entry` is its only prop, so
+   a re-render of the screen that leaves the list alone leaves the rows alone. */
+const EntryCard = React.memo(function EntryCard({ entry }: { entry: LateEntry }) {
   const major = entry.severity === 'major';
   const fg = major ? colors.danger : colors.warning;
   const bg = major ? colors.dangerBg : colors.warningBg;
@@ -210,7 +212,7 @@ function EntryCard({ entry }: { entry: LateEntry }) {
       ) : null}
     </Card>
   );
-}
+});
 
 const styles = StyleSheet.create({
   head: { flexDirection: 'row', alignItems: 'flex-start', gap: spacing.md },

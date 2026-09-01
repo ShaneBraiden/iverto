@@ -1,3 +1,88 @@
+# Iverto.ai 1.1.0 — Android 16
+
+A platform release. Nothing about what the app does has changed; what changed is the
+runtime underneath it and the Android version it is built for.
+
+| | |
+|---|---|
+| **Version** | 1.1.0 (versionCode 4) |
+| **Platform** | Android |
+| **Minimum Android** | 7.0 (API 24), targets API 36 |
+| **Runtime** | Expo SDK 54, React Native 0.81.5, React 19.1 |
+
+## Why this release exists
+
+Google Play requires every app to target Android 16 (API 36) from 31 August 2026. The
+previous build targeted API 35 and could not simply be re-pointed at 36: Play also requires
+**16 KB memory page support** for anything targeting API 35 or above, and React Native 0.74
+ships only 4 KB-aligned native libraries. Those arrive prebuilt from the React Native and
+Expo maven artifacts, so no Gradle setting can change them — the runtime had to move.
+
+Declaring API 36 without that move would have produced an app that passes Play's target-API
+check and then fails to start on 16 KB devices, which is every device shipping with Android
+15 or later.
+
+## What changed
+
+- **Expo SDK 51 → 54** (React Native 0.74.5 → 0.81.5, React 18 → 19.1). `compileSdk` and
+  `targetSdk` are both 36, and all bundled native libraries are 16 KB aligned.
+- **New Architecture (Fabric) is on.** Layout and view updates no longer cross the old
+  bridge, which is the largest single change to how the app feels under load.
+- **Edge-to-edge drawing**, which Android 16 enforces with no opt-out. The app already
+  measured safe-area insets on every screen, so the layout was ready for it.
+- **Predictive back** is enabled — the system back gesture previews where it is taking you.
+- **Keyboard handling rewritten** for Android 15+, which ignores `adjustResize` for
+  edge-to-edge apps. The window no longer shrinks when the keyboard opens, so the scroll
+  containers now measure the keyboard's top edge directly rather than trusting the window to
+  have moved. Sign-in, change-password and the request form are the screens this covers.
+- **Three permissions dropped** — `SYSTEM_ALERT_WINDOW`, `READ_EXTERNAL_STORAGE` and
+  `WRITE_EXTERNAL_STORAGE`. Expo's template and `expo-file-system` declare them by default;
+  this app never used any of them. CSV exports go to the cache directory and out through the
+  share sheet, which needs no permission.
+- **Lists re-render less.** The card every history and queue list is built from is memoised,
+  so typing in a search box no longer re-renders every row on screen for each character.
+
+## Artifacts
+
+| Artifact | Target | Size |
+|---|---|---|
+| `app-release.aab` | Google Play | 28.29 MB |
+| `app-arm64-v8a-release.apk` | Current 64-bit devices | 24.41 MB |
+| `app-armeabi-v7a-release.apk` | Older 32-bit devices | 19.63 MB |
+| `app-universal-release.apk` | Installs anywhere | 35.58 MB |
+
+The bundle is larger than 1.0.0's 17.78 MB, and most of that is not shipped: 12.2 MB of it is
+`BUNDLE-METADATA` — the R8 mapping file and native debug symbols Play keeps for crash
+symbolication and strips before delivery. What a device actually receives is roughly 11–12 MB
+(5.1 MB of arm64 native code, 3.7 MB of dex, 1.5 MB of resources, 1.1 MB of JS), against
+20.96 MB for the 1.0.0 arm64 APK.
+
+The direct-install APKs did grow — 20.96 MB to 24.41 MB for arm64. The JS bundle now ships
+uncompressed, which is React Native's default from 0.79 because it removes a decompression
+step from every cold start, and the New Architecture adds native code of its own. The trade is
+about 3 MB of download for a faster launch.
+
+Split APKs carry their own versionCode so a device cannot sidegrade between architectures:
+`armeabi-v7a` is 41, `arm64-v8a` is 43, and the universal APK keeps the base 4.
+
+## Verifying a build
+
+16 KB alignment is the requirement that is easiest to break by accident and hardest to notice,
+since a 4 KB-only build installs and runs perfectly on every 4 KB device. To check an APK or
+AAB, read the ELF program headers of its arm64 libraries — every `PT_LOAD` segment needs
+`p_align` of at least 16384. All 18 libraries in this build pass.
+
+## Minimum Android is now 7.0
+
+React Native 0.81 requires API 24. The previous floor was 6.0 (API 23), so devices on
+Android 6.0 and 6.0.1 will no longer receive updates. They keep the version they have.
+
+## Still true from 1.0.0
+
+Everything below describes the app as it was first released and still behaves that way.
+
+---
+
 # Iverto.ai 1.0.0 — first release
 
 Hostel outpass management for students, guardians and wardens — request a pass, get it
@@ -128,7 +213,7 @@ Accounts are provisioned by the hostel office. There is no self-service sign-up.
   permission and a store declaration, and this release does not ask for it. Guardians are told
   when a fix is stale rather than being shown an old one as if it were current.
 
-## Rolling out
+## Rolling out (as of 1.0.0)
 
 Hand out the `arm64-v8a` APK for current devices, or the universal APK when one file has to
 install everywhere. Point the build at a backend with `EXPO_PUBLIC_API_URL`; unset, it uses the

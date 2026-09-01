@@ -165,7 +165,45 @@ export type Permission = {
   createdAt: string;
   updatedAt: string;
   student?: PermissionStudent;
+
+  /* --- Closing a live pass, and the clock that runs while it is open --- */
+
+  /**
+   * The warden who closed the pass by hand, when one did. A gate scan and a
+   * warden both write `returnTime`; only this says a person did it, which is
+   * what the timeline needs to name them.
+   */
+  closedBy?: string | null;
+  /** Whatever the warden typed when closing it. */
+  closedNote?: string | null;
+  /**
+   * The server's own verdict on "should have been back by now, and isn't".
+   * Evaluated against `endTime` in the site's timezone.
+   *
+   * Optional because a server that has not shipped the overdue sweep yet sends
+   * neither this nor `overdueMinutes`; `lib/status.ts` falls back to comparing
+   * `endTime` against the device clock, so the app marks the same passes
+   * either way.
+   */
+  overdue?: boolean;
+  /** Minutes past `endTime`, when the server computes it. */
+  overdueMinutes?: number | null;
+  /**
+   * When the "late to hostel" alert last went out to the warden and the
+   * guardians. Null until it fires — the sweep reads it to avoid sending the
+   * same alert twice.
+   */
+  lateNotifiedAt?: string | null;
 };
+
+/**
+ * What closing a pass answers with.
+ *
+ * `lateEntry` is the record the closure created, and is null when the student
+ * was back inside the window — so the confirmation can say whether anything
+ * went on their file without a second call.
+ */
+export type ClosedPermission = Permission & { lateEntry?: LateEntry | null };
 
 /** `GET /permissions/:id` adds the chain and who closed it. */
 export type PermissionDetail = Permission & {
@@ -335,6 +373,12 @@ export type LateEntry = {
   resolutionNote: string | null;
   gate: string | null;
   recordedBy: string | null;
+  /**
+   * How the record came to exist: the gate scanner, the warden closing the
+   * pass by hand, or the overdue sweep opening one for a student who never
+   * came back. Absent on a server that does not distinguish them.
+   */
+  source?: 'gate' | 'warden' | 'system' | string;
   acknowledged: boolean;
   acknowledgedAt: string | null;
 };

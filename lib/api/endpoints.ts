@@ -18,6 +18,7 @@ import type {
   Branding,
   BrandingPayload,
   Category,
+  ClosedPermission,
   Curfew,
   EmergencyAlert,
   EmergencyCategory,
@@ -366,6 +367,21 @@ export const warden = {
     api.post<Permission>(`${V1}/warden/permissions/${id}/decision`, { response, note }),
 
   activate: (id: string) => api.post<Permission>(`${V1}/warden/permissions/${id}/activate`),
+
+  /**
+   * Closes a live pass by hand — the warden has seen the student back on
+   * campus. `active` and `student_exited` both accept it; anything else is a
+   * 409 `PERMISSION_NOT_ACTIVE`.
+   *
+   * Closing after `endTime` is allowed and is the normal case for a student
+   * who came back late: the server writes the late entry itself and returns it
+   * on `lateEntry`, so the note the warden types here is the reason that shows
+   * on the guardian's late-entry log. Calling it twice is a 200 with the pass
+   * already `completed` and `lateEntry: null` — see
+   * `Dev/pass-closure-and-late-alerts-api.md`.
+   */
+  endPass: (id: string, note?: string) =>
+    api.post<ClosedPermission>(`${V1}/warden/permissions/${id}/end`, note ? { note } : {}),
 
   /** Logs a guardian response that came in out of band. */
   resolveEscalated: (id: string, response: 'approve' | 'reject', note?: string) =>

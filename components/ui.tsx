@@ -273,7 +273,10 @@ export function Field({
   /** Pass false when handing focus to the next field, so the keyboard stays up. */
   blurOnSubmit?: boolean;
   /** Lets a previous field call `.focus()` on this one. */
-  inputRef?: React.RefObject<TextInput>;
+  /* `RefObject<TextInput | null>` and not `RefObject<TextInput>`: from React 19
+     `useRef<T>(null)` is typed as nullable, which is honest — the ref is null
+     until the input mounts. */
+  inputRef?: React.RefObject<TextInput | null>;
   onChangeText?: (t: string) => void;
   right?: React.ReactNode;
 }) {

@@ -130,6 +130,44 @@ export function needsWarden(status: PermissionStatus | string) {
   return status === 'pending_warden' || status === 'escalated';
 }
 
+/**
+ * The student is out on this pass, so the warden can close it by hand.
+ *
+ * `active` and `student_exited` are the same thing seen from two places — the
+ * warden activated the pass, and the gate scanned them out — and a campus
+ * without a working scanner only ever reaches the first. Both are open passes
+ * with a clock running against `endTime`, so both are closeable and both are
+ * what "late back" is measured on.
+ */
+export function isEndable(status: PermissionStatus | string) {
+  return status === 'active' || status === 'student_exited';
+}
+
+/**
+ * How far past its return time an open pass is, in minutes. `0` when it is not
+ * late, and `0` for any pass the student is not out on.
+ *
+ * The server's own count wins whenever it sends one: it is measured against
+ * the same clock that decides when the late alert goes out, so a phone whose
+ * time is off by ten minutes cannot disagree with what the guardian was told.
+ * Falling back to the device clock is what keeps the badge right against a
+ * server that has not shipped the overdue sweep yet.
+ */
+export function overdueMinutes(p: Permission, now: Date = new Date()) {
+  if (!isEndable(p.status)) return 0;
+  if (typeof p.overdueMinutes === 'number') return Math.max(0, p.overdueMinutes);
+  const due = p.endTime ? new Date(p.endTime) : null;
+  if (!due || Number.isNaN(due.getTime())) return 0;
+  return Math.max(0, Math.floor((now.getTime() - due.getTime()) / 60_000));
+}
+
+/** Out on a pass whose return time has already passed. */
+export function isOverdue(p: Permission, now?: Date) {
+  if (!isEndable(p.status)) return false;
+  if (typeof p.overdue === 'boolean') return p.overdue;
+  return overdueMinutes(p, now) > 0;
+}
+
 /* ------------------------------------------------------------------- Chips */
 
 /** The chips shown on each role's filter bar, in order. */

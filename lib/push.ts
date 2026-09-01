@@ -214,8 +214,12 @@ const REWRITTEN = 'ivertoRewritten';
 export async function foregroundBehaviour(
   notification: Notifications.Notification
 ): Promise<Notifications.NotificationBehavior> {
+  /* `shouldShowAlert` was split in expo-notifications 0.31 into the banner (the
+     heads-up card) and the list (the shade). Both are wanted here — the old
+     single flag meant exactly this. */
   const show: Notifications.NotificationBehavior = {
-    shouldShowAlert: true,
+    shouldShowBanner: true,
+    shouldShowList: true,
     shouldPlaySound: true,
     shouldSetBadge: false,
   };
@@ -248,7 +252,12 @@ export async function foregroundBehaviour(
     trigger: Platform.OS === 'android' ? { channelId: 'default' } : null,
   }).catch((err) => console.warn(`[push] rewrite-failed: ${String(err)}`));
 
-  return { shouldShowAlert: false, shouldPlaySound: false, shouldSetBadge: false };
+  return {
+    shouldShowBanner: false,
+    shouldShowList: false,
+    shouldPlaySound: false,
+    shouldSetBadge: false,
+  };
 }
 
 /* ------------------------------------------------------------- Deep linking */

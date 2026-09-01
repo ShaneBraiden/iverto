@@ -34,6 +34,8 @@ export type ApiErrorCode =
   | 'TOO_MANY_REQUESTS'
   | 'INTERNAL_ERROR'
   | 'PERMISSION_ALREADY_DECIDED'
+  /* Closing a pass that is not open — see Dev/pass-closure-and-late-alerts-api.md. */
+  | 'PERMISSION_NOT_ACTIVE'
   | 'PROFILE_REQUEST_PENDING'
   | 'PROFILE_REQUEST_ALREADY_REVIEWED'
   | 'NETWORK'

@@ -41,9 +41,16 @@ import {
   ViewStyle,
 } from 'react-native';
 
-/* Android needs this opt-in before `LayoutAnimation` does anything. Called at
-   import so any module that reaches for `animateLayout()` is already covered. */
-if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
+/* Old-architecture Android needs this opt-in before `LayoutAnimation` does
+   anything. Called at import so any module that reaches for `animateLayout()`
+   is already covered.
+
+   Fabric enables layout animations itself and turns the call into a no-op that
+   warns in dev, so it is skipped there — `nativeFabricUIManager` on the global
+   is how the renderer announces itself. `animateLayout()` works on both. */
+const isFabric = (globalThis as { nativeFabricUIManager?: unknown }).nativeFabricUIManager != null;
+
+if (Platform.OS === 'android' && !isFabric && UIManager.setLayoutAnimationEnabledExperimental) {
   UIManager.setLayoutAnimationEnabledExperimental(true);
 }
 

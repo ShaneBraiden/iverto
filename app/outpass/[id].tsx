@@ -6,7 +6,8 @@
  *
  *   student → cancel, while the state machine still allows it
  *   parent  → approve / reject / pull in the warden
- *   admin   → warden decision when it is theirs to make, otherwise override
+ *   admin   → warden decision when it is theirs to make, closing a live pass
+ *             once the student is back, otherwise override
  *
  * The timeline is not assembled here: `timeline` comes back rendered by the
  * server, one step per stage with its own state, so the app never has to
@@ -43,10 +44,20 @@ import {
   permissions as permissionApi,
   warden as wardenApi,
 } from '@/lib/api/endpoints';
-import { errorCode, errorMessage, useMutation, useQuery } from '@/lib/api/useQuery';
+import { errorCode, errorMessage, errorStatus, useMutation, useQuery } from '@/lib/api/useQuery';
 import { attachmentUrl } from '@/lib/attachments';
-import { isCancellable, needsGuardian, needsWarden, OVERRIDE_STATUSES, shortId, statusInfo } from '@/lib/status';
-import { isoToDateTime, timeAgo } from '@/lib/datetime';
+import {
+  isCancellable,
+  isEndable,
+  isOverdue,
+  needsGuardian,
+  needsWarden,
+  overdueMinutes,
+  OVERRIDE_STATUSES,
+  shortId,
+  statusInfo,
+} from '@/lib/status';
+import { formatMinutes, isoToDateTime, isoToTime, timeAgo } from '@/lib/datetime';
 import type { PermissionStatus, TimelineStep } from '@/types';
 
 type Role = 'student' | 'parent' | 'admin';
@@ -56,7 +67,7 @@ export default function OutpassDetail() {
   const role: Role =
     roleParam === 'parent' ? 'parent' : roleParam === 'admin' ? 'admin' : 'student';
 
-  const [noteOpen, setNoteOpen] = useState<'reject' | 'override' | null>(null);
+  const [noteOpen, setNoteOpen] = useState<'reject' | 'override' | 'end' | null>(null);
   const [note, setNote] = useState('');
   const [overrideTo, setOverrideTo] = useState<PermissionStatus>('rejected_warden');
 
@@ -125,6 +136,42 @@ export default function OutpassDetail() {
     onSuccess: () => done('The pass is now active.'),
     onError,
   });
+  /* Closing a live pass. The note is optional and only worth asking for when
+     the student is already late, because that is the case where it becomes the
+     reason on the guardian's late-entry log rather than a comment nobody
+     reads. The server decides whether a late entry is written — the app never
+     asserts "this was late", it just reports what came back. */
+  const endPass = useMutation((reason?: string) => wardenApi.endPass(id!, reason), {
+    onSuccess: (closed) =>
+      done(
+        closed.lateEntry
+          ? 'Pass closed. The late return is on the record and the guardians have been told.'
+          : 'Pass closed. They are marked back on campus.'
+      ),
+    onError: (err) => {
+      /* Feature detection, the same way `auth.refresh` and the geofence routes
+         do it: a 404 here is "this deployment has not shipped the route yet",
+         not "no such pass", and the generic copy for 404 — "that record isn't
+         there any more" — would send a warden looking for a pass that is
+         plainly on the screen in front of them. Override is the way through
+         until it lands. */
+      if (errorStatus(err) === 404) {
+        setNoteOpen(null);
+        Alert.alert(
+          'Not available on this campus yet',
+          'This server has not enabled closing a pass from the app. Use “Override status” → “Mark completed” until it does.'
+        );
+        return;
+      }
+      /* Somebody else — the gate scanner, another warden — already closed it. */
+      if (errorCode(err) === 'PERMISSION_NOT_ACTIVE') {
+        done();
+        Alert.alert('Already closed', errorMessage(err));
+        return;
+      }
+      onError(err);
+    },
+  });
   /* An escalated request is one the guardian never answered in-app. The warden
      rings them, and this is where that answer gets recorded against the pass. */
   const resolveEscalated = useMutation(
@@ -144,6 +191,7 @@ export default function OutpassDetail() {
     cancel.pending ||
     wardenApprove.pending ||
     activate.pending ||
+    endPass.pending ||
     resolveEscalated.pending ||
     override.pending;
 
@@ -163,6 +211,22 @@ export default function OutpassDetail() {
   }
 
   const meta = statusInfo(item.status);
+
+  /* Worked out on render rather than held in a ticking timer: the screen
+     re-renders on focus and after every action, and "2h 15m late" does not
+     need to be right to the second. */
+  const late = isOverdue(item);
+  const lateBy = overdueMinutes(item);
+
+  /* Same fact, three readers, three different next steps — and "the warden has
+     been alerted" is a strange thing to tell the warden. */
+  const overdueText = `Overdue by ${formatMinutes(lateBy)}. The pass ended at ${isoToTime(item.endTime)} and there is no record of them back on campus. ${
+    role === 'admin'
+      ? 'The guardians have been alerted. Close the pass once they are in.'
+      : role === 'parent'
+        ? 'The warden has been alerted.'
+        : 'Your warden and your guardians have been told — check in at the hostel office.'
+  }`;
 
   const share = () =>
     Share.share({
@@ -187,10 +251,48 @@ export default function OutpassDetail() {
 
   const confirmNote = () => {
     const value = note.trim();
+    /* The only one of the three that goes through without a note. */
+    if (noteOpen === 'end') return endPass.mutate(value || undefined);
     if (!value) return;
     if (noteOpen === 'override') override.mutate(overrideTo, value);
     else reject.mutate(value);
   };
+
+  /* One sheet, three jobs — so the copy for each lives in one place instead of
+     as a run of ternaries down the markup. */
+  const sheetCopy =
+    noteOpen === 'override'
+      ? {
+          title: 'Override this request?',
+          subtitle:
+            'Pick the state to force it into. This is recorded against your account.',
+          fieldLabel: 'Why?',
+          placeholder: 'Overridden after gate check',
+          confirm: 'Confirm override',
+          variant: 'danger' as const,
+          noteRequired: true,
+        }
+      : noteOpen === 'end'
+        ? {
+            title: late ? 'Close this pass as a late return?' : 'Close this pass?',
+            subtitle: late
+              ? `${item.student?.name ?? 'The student'} is ${formatMinutes(lateBy)} past the ${isoToTime(item.endTime)} return time. Closing it now logs a late return that their guardians can see.`
+              : `Marks ${item.student?.name ?? 'the student'} back on campus and closes the pass. The student and their guardians are told.`,
+            fieldLabel: late ? 'Reason for the delay (optional)' : 'Note (optional)',
+            placeholder: late ? 'Train was delayed' : 'Seen back at the gate',
+            confirm: 'Mark returned',
+            variant: 'success' as const,
+            noteRequired: false,
+          }
+        : {
+            title: 'Reject request?',
+            subtitle: `${item.student?.name ?? 'The student'} is notified along with your reason.`,
+            fieldLabel: 'Reason',
+            placeholder: 'Let them know why',
+            confirm: 'Confirm reject',
+            variant: 'danger' as const,
+            noteRequired: true,
+          };
 
   return (
     <View style={{ flex: 1 }}>
@@ -217,6 +319,18 @@ export default function OutpassDetail() {
             <Text style={[type.small, { color: colors.textMuted }]}>{meta.explainer}</Text>
           </View>
         </View>
+
+        {/* Overdue outranks the status banner's own explainer: "The pass is
+            live right now" is true and beside the point once the return time
+            has gone by. Shown to every role — the student and the guardian are
+            told the same thing the warden is. */}
+        {late ? (
+          <Note
+            icon="alert-circle-outline"
+            tone="danger"
+            text={overdueText}
+          />
+        ) : null}
 
         {/* Requester block */}
         {item.student ? (
@@ -256,8 +370,16 @@ export default function OutpassDetail() {
           {item.exitTime ? (
             <Row icon="exit-outline" label="Scanned out" value={isoToDateTime(item.exitTime)} />
           ) : null}
+          {/* A gate scan and a warden closing the pass by hand both write
+              `returnTime`; only `closedBy` says which, and "scanned in" on a
+              pass nobody scanned is the kind of small lie that costs an
+              argument later. */}
           {item.returnTime ? (
-            <Row icon="enter-outline" label="Scanned in" value={isoToDateTime(item.returnTime)} />
+            <Row
+              icon="enter-outline"
+              label={item.closedBy ? 'Marked returned' : 'Scanned in'}
+              value={isoToDateTime(item.returnTime)}
+            />
           ) : null}
         </Card>
 
@@ -281,6 +403,15 @@ export default function OutpassDetail() {
                 icon="shield-checkmark-outline"
                 tone={item.status === 'rejected_warden' ? 'danger' : 'info'}
                 text={`Warden: “${item.wardenNote}”`}
+              />
+            </View>
+          ) : null}
+          {item.closedNote ? (
+            <View style={{ marginTop: spacing.sm }}>
+              <Note
+                icon="log-in-outline"
+                tone="success"
+                text={`On return: “${item.closedNote}”`}
               />
             </View>
           ) : null}
@@ -394,6 +525,21 @@ export default function OutpassDetail() {
               />
             ) : null}
 
+            {/* Closing the pass is the warden's half of the late-return rule:
+                a pass still open past its return time is what the server's
+                sweep alerts on, so this is the action that stops the alert
+                going out — and, once it has, the one that ends it. */}
+            {isEndable(item.status) ? (
+              <Button
+                label={late ? 'Close pass — they are back' : 'End pass — student returned'}
+                variant="success"
+                icon="log-in-outline"
+                loading={endPass.pending}
+                disabled={busy}
+                onPress={() => setNoteOpen('end')}
+              />
+            ) : null}
+
             {/* Escalated: the guardian never answered in the app, so the only
                 way forward is for somebody to ring them and log the answer. */}
             {item.status === 'escalated' || item.status === 'contact_parent' ? (
@@ -442,16 +588,13 @@ export default function OutpassDetail() {
         <PoweredBy />
       </Screen>
 
-      {/* Rejecting and overriding both carry a note, so they share a sheet. */}
+      {/* Rejecting, overriding and closing a pass all carry a note, so they
+          share one sheet — see `sheetCopy` for what each says. */}
       <Sheet
         visible={noteOpen !== null}
         onClose={() => setNoteOpen(null)}
-        title={noteOpen === 'override' ? 'Override this request?' : 'Reject request?'}
-        subtitle={
-          noteOpen === 'override'
-            ? 'Pick the state to force it into. This is recorded against your account.'
-            : `${item.student?.name ?? 'The student'} is notified along with your reason.`
-        }
+        title={sheetCopy.title}
+        subtitle={sheetCopy.subtitle}
       >
         <View style={{ paddingHorizontal: spacing.lg, gap: spacing.lg }}>
           {noteOpen === 'override' ? (
@@ -468,10 +611,8 @@ export default function OutpassDetail() {
           ) : null}
 
           <Field
-            label={noteOpen === 'override' ? 'Why?' : 'Reason'}
-            placeholder={
-              noteOpen === 'override' ? 'Overridden after gate check' : 'Let them know why'
-            }
+            label={sheetCopy.fieldLabel}
+            placeholder={sheetCopy.placeholder}
             multiline
             value={note}
             onChangeText={setNote}
@@ -486,12 +627,12 @@ export default function OutpassDetail() {
               onPress={() => setNoteOpen(null)}
             />
             <Button
-              label={noteOpen === 'override' ? 'Confirm override' : 'Confirm reject'}
-              variant="danger"
+              label={sheetCopy.confirm}
+              variant={sheetCopy.variant}
               full={false}
               style={{ flex: 1.2 }}
-              loading={reject.pending || override.pending}
-              disabled={note.trim().length === 0 || busy}
+              loading={reject.pending || override.pending || endPass.pending}
+              disabled={(sheetCopy.noteRequired && note.trim().length === 0) || busy}
               onPress={confirmNote}
             />
           </View>

@@ -2,28 +2,32 @@
   "expo": {
     "name": "Iverto.ai",
     "slug": "iverto-ai",
-    "version": "1.0.0",
+    "version": "1.1.0",
     "orientation": "portrait",
     "scheme": "iverto",
     "userInterfaceStyle": "light",
-    "newArchEnabled": false,
+    "newArchEnabled": true,
     "icon": "./assets/icon.png",
     "splash": {
       "image": "./assets/splash.png",
       "resizeMode": "contain",
       "backgroundColor": "#F3F3F3"
     },
-    "assetBundlePatterns": ["assets/*.png"],
+    "assetBundlePatterns": [
+      "assets/*.png"
+    ],
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.iverto.ai",
-      "buildNumber": "1"
+      "buildNumber": "2"
     },
     "android": {
       "package": "com.iverto.ai",
       "googleServicesFile": "./google-services.json",
-      "versionCode": 2,
+      "versionCode": 4,
       "softwareKeyboardLayoutMode": "resize",
+      "edgeToEdgeEnabled": true,
+      "predictiveBackGestureEnabled": true,
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#F3F3F3"
@@ -32,9 +36,21 @@
         {
           "action": "VIEW",
           "autoVerify": false,
-          "data": [{ "scheme": "iverto" }],
-          "category": ["BROWSABLE", "DEFAULT"]
+          "data": [
+            {
+              "scheme": "iverto"
+            }
+          ],
+          "category": [
+            "BROWSABLE",
+            "DEFAULT"
+          ]
         }
+      ],
+      "blockedPermissions": [
+        "android.permission.SYSTEM_ALERT_WINDOW",
+        "android.permission.READ_EXTERNAL_STORAGE",
+        "android.permission.WRITE_EXTERNAL_STORAGE"
       ]
     },
     "web": {
@@ -64,10 +80,36 @@
         "expo-build-properties",
         {
           "android": {
-            "targetSdkVersion": 35
+            "minSdkVersion": 24,
+            "compileSdkVersion": 36,
+            "targetSdkVersion": 36,
+            "buildToolsVersion": "36.0.0",
+            "buildArchs": [
+              "armeabi-v7a",
+              "arm64-v8a"
+            ],
+            "enableMinifyInReleaseBuilds": true,
+            "enableShrinkResourcesInReleaseBuilds": true,
+            "enablePngCrunchInReleaseBuilds": true,
+            "enableBundleCompression": false,
+            "useLegacyPackaging": false,
+            "packagingOptions": {
+              "exclude": [
+                "META-INF/DEPENDENCIES",
+                "META-INF/LICENSE*",
+                "META-INF/NOTICE*",
+                "META-INF/*.version",
+                "DebugProbesKt.bin"
+              ]
+            },
+            "extraProguardRules": "# --- Kotlin reflection ------------------------------------------------------\n# Expo resolves module and view-prop types through kotlin-reflect at runtime.\n# That needs the generic signatures and @kotlin.Metadata annotations intact —\n# without them prop binding dies with \"Unresolved class: <type>\".\n-keepattributes Signature,InnerClasses,EnclosingMethod\n-keepattributes RuntimeVisibleAnnotations,RuntimeVisibleParameterAnnotations\n-keepattributes AnnotationDefault\n-keep class kotlin.Metadata { *; }\n-keep class kotlin.reflect.jvm.internal.** { *; }\n-dontwarn kotlin.**\n\n# --- Hermes -----------------------------------------------------------------\n# The JS engine is reached entirely through JNI, so R8 sees no callers.\n-keep class com.facebook.hermes.unicode.** { *; }\n-keep class com.facebook.jni.** { *; }\n\n# --- Native view managers ---------------------------------------------------\n# These libraries ship no consumer rules of their own. Their ViewManagers are\n# resolved by name from JS, so keep the class names intact.\n-keep class com.swmansion.rnscreens.** { *; }\n-keep class com.swmansion.gesturehandler.** { *; }\n-keep class com.th3rdwave.safeareacontext.** { *; }\n\n# --- Crash reports ----------------------------------------------------------\n# Keep line numbers so release stack traces stay readable, but rename the\n# source file attribute so it doesn't leak original filenames.\n-keepattributes SourceFile,LineNumberTable\n-renamesourcefileattribute SourceFile\n\n# --- Logging ----------------------------------------------------------------\n# Strip verbose/debug logging from release builds.\n-assumenosideeffects class android.util.Log {\n    public static *** v(...);\n    public static *** d(...);\n}\n"
+          },
+          "ios": {
+            "deploymentTarget": "15.1"
           }
         }
-      ]
+      ],
+      "./plugins/with-android-release"
     ],
     "experiments": {
       "typedRoutes": false

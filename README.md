@@ -1,6 +1,6 @@
 # Iverto Outpass — Mobile UI
 
-Single codebase for Android + iOS. **React Native (Expo SDK 51) + Expo Router + TypeScript.**
+Single codebase for Android + iOS. **React Native (Expo SDK 54) + Expo Router + TypeScript.**
 This pass is **UI only** — screens are static, no auth logic, no network calls.
 
 ## Run
@@ -400,46 +400,82 @@ durable options:
    "plugins": [
      "expo-router",
      ["expo-build-properties", {
-       "android": { "compileSdkVersion": 34, "targetSdkVersion": 34, "minSdkVersion": 24 }
+       "android": { "compileSdkVersion": 36, "targetSdkVersion": 36, "minSdkVersion": 24 }
      }]
    ]
    ```
 
 Option 2 is the recommended path for this project — it keeps `android/` disposable.
 
-### Keeping the size config through a prebuild
+### Keeping the size and signing config through a prebuild
 
-The settings that hold the APK under 40 MB live inside generated files, so
-`prebuild --clean` reverts them. They are four edits, all documented by comments in place:
+Nothing here has to be re-applied by hand any more. `android/` is disposable: run
+`npx expo prebuild --platform android --clean` whenever you like and every setting below
+comes back.
 
-| File | Edit |
+Two mechanisms carry it, and which one a setting uses is worth knowing before you go
+looking for it:
+
+| Setting | Where it lives |
 |---|---|
-| `android/gradle.properties` | `reactNativeArchitectures=armeabi-v7a,arm64-v8a` (drop `x86`, `x86_64`), plus `android.enableProguardInReleaseBuilds=true` and `android.enableShrinkResourcesInReleaseBuilds=true` |
-| `android/app/build.gradle` | `reactNativeArchitectures()` helper, `defaultConfig { ndk { abiFilters ... } }`, the `splits { abi { ... } }` block, `packagingOptions.resources.excludes`, and the per-ABI `versionCodeOverride` loop |
-| `android/app/proguard-rules.pro` | Kotlin-reflection `-keepattributes`, Hermes and view-manager keep rules |
-| `app.json` | nothing — it is already prebuild-safe |
+| `minSdkVersion`, `compileSdkVersion`, `targetSdkVersion`, `buildToolsVersion` | `expo-build-properties` in `app.json` |
+| ABIs to build (`armeabi-v7a`, `arm64-v8a` — no x86) | `expo-build-properties` → `buildArchs` |
+| R8, resource shrinking, PNG crunching, bundle compression | `expo-build-properties` |
+| `packagingOptions` excludes, extra Proguard rules | `expo-build-properties` |
+| `ndk { abiFilters }`, ABI splits + universal APK, per-ABI `versionCode` | `plugins/with-android-release.js` |
+| Release upload-key `signingConfig` | `plugins/with-android-release.js` |
+| The Android 16 restricted-resizability opt-out | `plugins/with-android-release.js` |
 
-The quickest way to restore them is `git diff` against the commit that introduced them, since
-`android/` is gitignored but these three files are small and self-contained. If you find
-yourself doing this often, take Option 1 above and commit `android/` instead.
+Rule of thumb: if `expo-build-properties` has a key for it, use the key — it is versioned
+with Expo and survives SDK upgrades untouched. `plugins/with-android-release.js` exists only
+for the gaps, and it appends a second `android { }` block to `android/app/build.gradle`
+rather than rewriting the template's, so an SDK upgrade that reformats the template cannot
+break it.
 
-Two of the settings — R8 and resource shrinking — *can* be expressed durably today:
+The upload keystore is deliberately *not* in this repo. `plugins/with-android-release.js`
+reads four properties from the user-level `~/.gradle/gradle.properties`
+(`%USERPROFILE%\.gradle\gradle.properties` on Windows):
+
+```properties
+IVERTO_UPLOAD_STORE_FILE=…
+IVERTO_UPLOAD_STORE_PASSWORD=…
+IVERTO_UPLOAD_KEY_ALIAS=…
+IVERTO_UPLOAD_KEY_PASSWORD=…
+```
+
+Without them the release build still succeeds — it falls back to the debug key, so it runs
+but is not publishable. That is intentional: a fresh clone and a CI job with no secrets
+should both be able to build.
+
+## Checking a release before you upload it
+
+Two of Play's requirements fail in ways that ordinary testing cannot see, so check them
+against the built artifact rather than trusting the config.
+
+**16 KB memory pages.** Required for anything targeting API 35 or above. A build whose
+native libraries are 4 KB-aligned installs and runs perfectly on every 4 KB device, so
+nothing in normal testing catches it — it only fails on 16 KB hardware, which is what new
+Android 15+ devices ship with, and Play rejects it. The libraries come prebuilt inside
+dependency AARs, so no Gradle setting fixes a bad one; the runtime has to move. That is
+what forced the Expo SDK 51 → 54 upgrade.
 
 ```bash
-npx expo install expo-build-properties
+npm run check:16kb -- android/app/build/outputs/bundle/release/app-release.aab
 ```
 
-```json
-["expo-build-properties", {
-  "android": {
-    "enableProguardInReleaseBuilds": true,
-    "enableShrinkResourcesInReleaseBuilds": true
-  }
-}]
+Exits non-zero if any arm64 library has a `PT_LOAD` segment aligned below 16384, and names
+the offenders. Safe to gate a release on.
+
+**Target API level.** Read it off the merged manifest, not `app.json` — `app.json` is the
+input, and the merged manifest is what Play actually receives:
+
+```bash
+grep -o 'targetSdkVersion="[0-9]*"' \
+  android/app/build/intermediates/merged_manifest/release/processReleaseMainManifest/AndroidManifest.xml
 ```
 
-The ABI splits and `abiFilters` have no `expo-build-properties` equivalent, so those two still
-have to be re-applied by hand.
+The same file is the place to confirm that `blockedPermissions` did its job: anything listed
+there should be absent from the merged output entirely, not merely marked for removal.
 
 ## Versioning
 

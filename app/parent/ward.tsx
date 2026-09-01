@@ -49,6 +49,8 @@ import { EMERGENCY_CATEGORIES } from '@/constants/config';
 import { parent as parentApi } from '@/lib/api/endpoints';
 import { errorCode, errorMessage, useMutation, useQuery } from '@/lib/api/useQuery';
 import { useRefetchOnFocus } from '@/lib/useFocusRefetch';
+import { isOverdue, overdueMinutes } from '@/lib/status';
+import { formatMinutes, isoToTime } from '@/lib/datetime';
 import type { EmergencyCategory } from '@/types';
 
 export default function Ward() {
@@ -107,6 +109,10 @@ export default function Ward() {
   }
 
   const warden = current.hostel?.wardens?.[0];
+  /* Bound once so the overdue reads below stay narrowed — the style callback
+     on the strip is a closure and loses the null check otherwise. */
+  const activePass = current.activePermission;
+  const passLate = !!activePass && isOverdue(activePass);
 
   return (
     <View style={{ flex: 1 }}>
@@ -166,16 +172,36 @@ export default function Ward() {
             </View>
           </View>
 
-          {/* The pass they are actually out on, when there is one. */}
-          {current.activePermission ? (
+          {/* The pass they are actually out on, when there is one. Past its
+              return time it turns red and says so: the guardian gets a push
+              when the sweep fires, and opening the app afterwards has to show
+              the same thing rather than a calm strip saying they are out. */}
+          {activePass ? (
             <Pressable
-              onPress={() => router.push(`/outpass/${current.activePermission!.id}?role=parent`)}
-              style={({ pressed }) => [styles.activePass, pressed && { opacity: 0.7 }]}
+              onPress={() => router.push(`/outpass/${activePass.id}?role=parent`)}
+              style={({ pressed }) => [
+                styles.activePass,
+                passLate && { backgroundColor: colors.dangerBg },
+                pressed && { opacity: 0.7 },
+              ]}
             >
-              <Ionicons name="ticket-outline" size={16} color={colors.primary} />
-              <Text style={[type.small, { color: colors.text, flex: 1 }]} numberOfLines={1}>
-                Out on: {current.activePermission.reason}
-              </Text>
+              <Ionicons
+                name={passLate ? 'alert-circle' : 'ticket-outline'}
+                size={16}
+                color={passLate ? colors.danger : colors.primary}
+                style={{ flexShrink: 0 }}
+              />
+              <View style={{ flex: 1, minWidth: 0 }}>
+                <Text style={[type.small, { color: colors.text }]} numberOfLines={1}>
+                  Out on: {activePass.reason}
+                </Text>
+                {passLate ? (
+                  <Text style={[type.smallMed, { color: colors.danger }]} numberOfLines={2}>
+                    Overdue by {formatMinutes(overdueMinutes(activePass))} — due back at{' '}
+                    {isoToTime(activePass.endTime)}
+                  </Text>
+                ) : null}
+              </View>
               <Ionicons name="chevron-forward" size={15} color={colors.textFaint} />
             </Pressable>
           ) : null}

@@ -10,7 +10,7 @@
  * Nothing is left behind that matters: the cache directory is the OS's to
  * clear, and each export overwrites the previous file of the same name.
  */
-import * as FileSystem from 'expo-file-system';
+import { File, Paths } from 'expo-file-system';
 import * as Sharing from 'expo-sharing';
 
 export class ExportError extends Error {}
@@ -30,16 +30,21 @@ export async function shareCsv(csv: string, prefix: string) {
     throw new ExportError('The export came back empty — nothing matches that filter.');
   }
 
-  const uri = `${FileSystem.cacheDirectory}${filename(prefix)}`;
-  await FileSystem.writeAsStringAsync(uri, csv, {
-    encoding: FileSystem.EncodingType.UTF8,
-  });
+  /* SDK 54's file API is the object-based one — `FileSystem.cacheDirectory` and
+     `writeAsStringAsync` now live behind `expo-file-system/legacy`. `create`
+     with `overwrite` rather than a bare `write`, because an export of the same
+     name from earlier today may still be sitting in the cache, and `write`
+     against a file that was never created throws. Both calls are synchronous;
+     a CSV is small enough that this is not worth a frame. */
+  const file = new File(Paths.cache, filename(prefix));
+  file.create({ overwrite: true, intermediates: true });
+  file.write(csv);
 
   if (!(await Sharing.isAvailableAsync())) {
     throw new ExportError('This device has nowhere to share the file to.');
   }
 
-  await Sharing.shareAsync(uri, {
+  await Sharing.shareAsync(file.uri, {
     mimeType: 'text/csv',
     dialogTitle: 'Export',
     UTI: 'public.comma-separated-values-text',

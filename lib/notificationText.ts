@@ -138,6 +138,21 @@ const COPY: Record<string, NotificationCopy> = {
     title: 'Late return recorded',
     body: 'A return after the due-back time has been logged.',
   },
+  /* The overdue sweep. Deliberately worded for whoever is reading it without
+     naming them: the same alert goes to the warden and to every guardian on
+     the student's record, and the server's own body names the student. */
+  PASS_OVERDUE: {
+    title: 'Late back to the hostel',
+    body: 'The pass window has ended and there is no record of them back on campus.',
+  },
+  LATE_TO_HOSTEL: {
+    title: 'Late back to the hostel',
+    body: 'The pass window has ended and there is no record of them back on campus.',
+  },
+  PASS_CLOSED: {
+    title: 'Back on campus',
+    body: 'The warden has closed the pass and marked them returned.',
+  },
 
   /* --- Everything else that reaches an inbox --- */
   ANNOUNCEMENT: { title: 'Campus announcement', body: 'There is a new announcement for you.' },
@@ -185,6 +200,9 @@ const ICONS: Record<string, string> = {
   GATE_SCAN_IN: 'log-in-outline',
   GATE_SCAN_OUT: 'log-out-outline',
   LATE_ENTRY: 'time-outline',
+  PASS_OVERDUE: 'alert-circle-outline',
+  LATE_TO_HOSTEL: 'alert-circle-outline',
+  PASS_CLOSED: 'log-in-outline',
   ANNOUNCEMENT: 'megaphone-outline',
   PROFILE_REQUEST: 'create-outline',
   PROFILE_REQUEST_CREATED: 'create-outline',
@@ -229,6 +247,10 @@ function guess(code: string): NotificationCopy | null {
   if (code.includes('EMERGENC')) return COPY.EMERGENCY;
   if (code.includes('ANNOUNCE')) return COPY.ANNOUNCEMENT;
   if (code.includes('PROFILE')) return COPY.PROFILE_REQUEST;
+  /* Before LATE: `LATE_TO_HOSTEL` is the nobody-has-come-back alert, not the
+     record written afterwards, and the two say opposite things about whether
+     the student is accounted for. */
+  if (code.includes('OVERDUE') || code.includes('LATE_TO_HOSTEL')) return COPY.PASS_OVERDUE;
   if (code.includes('LATE')) return COPY.LATE_ENTRY;
   if (code.includes('SCAN')) {
     return code.includes('OUT') ? COPY.GATE_SCAN_OUT : COPY.GATE_SCAN_IN;
@@ -293,6 +315,7 @@ export function notificationIcon(n: NotificationLike) {
   if (code.includes('EMERGENC')) return 'warning-outline';
   if (code.includes('ANNOUNCE')) return 'megaphone-outline';
   if (code.includes('PROFILE')) return 'create-outline';
+  if (code.includes('OVERDUE')) return 'alert-circle-outline';
   if (code.includes('SCAN')) return 'scan-outline';
   if (code.includes('REJECT') || code.includes('DECLIN')) return 'close-circle-outline';
   if (code.includes('APPROV')) return 'checkmark-circle-outline';

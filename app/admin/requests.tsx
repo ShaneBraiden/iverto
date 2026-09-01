@@ -12,6 +12,7 @@
 import React, { useEffect, useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, Pressable, Alert } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
+import { router, useLocalSearchParams } from 'expo-router';
 import { Screen, TopBar } from '@/components/Screen';
 import {
   Chip,
@@ -36,10 +37,29 @@ import { CHIPS, statusParam } from '@/lib/status';
 import { ExportError, shareCsv } from '@/lib/export';
 import type { StatusChip } from '@/types';
 
+/** `?status=active` from the overview tiles. Anything else opens on `all`. */
+function chipParam(value: string | string[] | undefined): StatusChip {
+  const key = Array.isArray(value) ? value[0] : value;
+  return CHIPS.some((c) => c.key === key) ? (key as StatusChip) : 'all';
+}
+
 export default function AdminRequests() {
+  const { status: fromTile } = useLocalSearchParams<{ status?: string }>();
   const [chip, setChip] = useState<StatusChip>('all');
   const [query, setQuery] = useState('');
   const [needle, setNeedle] = useState('');
+
+  /* This is a tab screen and stays mounted once visited, so a tile tap on the
+     overview arrives at a screen that is already up with a chip of its own —
+     initial state alone would silently ignore it. Applying the param and then
+     clearing it keeps both honest: the tile wins on arrival, the chips are the
+     user's from then on, and tapping the same tile twice works the second time
+     because there is no stale param left to match against. */
+  useEffect(() => {
+    if (!fromTile) return;
+    setChip(chipParam(fromTile));
+    router.setParams({ status: '' });
+  }, [fromTile]);
 
   /* Typing shouldn't fire a request per keystroke. */
   useEffect(() => {

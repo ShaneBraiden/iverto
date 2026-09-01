@@ -1,0 +1,2134 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Iverto.ai — User Manual</title>
+<meta name="description" content="Iverto.ai campus outpass — how a request works, and the full guide for students, guardians and wardens.">
+<meta name="color-scheme" content="light">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+/* ═══════════════════════════════════════════════════════════════════════
+   Tokens — lifted from theme/index.ts
+   ═══════════════════════════════════════════════════════════════════════ */
+:root{
+  --primary:#B9000E; --primary-dark:#8E000B; --accent:#D81324;
+  --primary-soft:rgba(185,0,14,.08); --primary-light:#FCECED;
+  --bg:#F3F3F3;
+  --text:#18181B; --muted:#6B6B76; --faint:#9E9EA9;
+  --border:rgba(24,24,27,.07); --border-strong:rgba(24,24,27,.14);
+  --hairline:rgba(24,24,27,.06);
+  --glass:rgba(255,255,255,.80); --glass-strong:rgba(255,255,255,.90);
+  --glass-border:rgba(255,255,255,.72);
+  --success:#059669; --success-bg:rgba(16,185,129,.10);
+  --warning:#B45309; --warning-bg:rgba(245,158,11,.12);
+  --danger:#DC2626;  --danger-bg:rgba(239,68,68,.10);
+  --info:#0284C7;    --info-bg:rgba(14,165,233,.10);
+  --neutral-bg:rgba(24,24,27,.05);
+  --card-shadow:0 8px 20px rgba(11,11,18,.05);
+  --s:.75; --nav-h:62px; --maxw:1400px;
+}
+*,*::before,*::after{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%;scroll-behavior:smooth;scroll-padding-top:calc(var(--nav-h) + 18px)}
+body{
+  margin:0;color:var(--text);overflow-x:hidden;
+  font-family:Poppins,-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+  font-size:15.5px;line-height:1.62;
+  background:
+    radial-gradient(58% 42% at 6% 0%,rgba(185,0,14,.07),transparent 60%),
+    radial-gradient(50% 38% at 100% 8%,rgba(24,24,27,.05),transparent 58%),
+    linear-gradient(180deg,#F6F6F6,#EFEFEF);
+  background-attachment:fixed;
+  -webkit-font-smoothing:antialiased;
+}
+img,svg{max-width:100%}
+a{color:var(--primary);text-decoration:none}
+a:hover{text-decoration:underline}
+h1,h2,h3,h4{margin:0;line-height:1.24;letter-spacing:-.02em;font-weight:600}
+p{margin:0 0 1em}p:last-child{margin-bottom:0}
+code{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:.86em;
+  background:var(--neutral-bg);padding:.15em .45em;border-radius:6px}
+:focus-visible{outline:2px solid var(--primary);outline-offset:3px;border-radius:5px}
+.wrap{max-width:var(--maxw);margin:0 auto;padding:0 24px}
+.skip{position:absolute;left:-9999px;top:0;background:var(--primary);color:#fff;padding:10px 16px;z-index:300}
+.skip:focus{left:0}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   Nav
+   ═══════════════════════════════════════════════════════════════════════ */
+.topnav{
+  position:sticky;top:0;z-index:100;height:var(--nav-h);
+  background:rgba(255,255,255,.86);border-bottom:1px solid var(--border);
+}
+@supports (backdrop-filter:blur(1px)){
+  .topnav{backdrop-filter:saturate(180%) blur(16px);-webkit-backdrop-filter:saturate(180%) blur(16px)}
+}
+.topnav-in{max-width:var(--maxw);margin:0 auto;height:100%;padding:0 24px;display:flex;align-items:center;gap:18px}
+.lockup{display:flex;align-items:center;gap:10px;flex-shrink:0;color:var(--text)}
+.lockup:hover{text-decoration:none}
+.lockup .mk{
+  width:32px;height:32px;flex-shrink:0;border-radius:10px;background:#F3F3F3;
+  border:1px solid var(--hairline);display:grid;place-items:center;color:var(--primary);
+}
+.lockup b{font-size:15px;font-weight:600;letter-spacing:-.01em}
+.lockup b i{color:var(--primary);font-style:normal}
+.lockup small{display:block;font-size:10.5px;font-weight:400;color:var(--faint);letter-spacing:0;line-height:1.1}
+.navlinks{margin-left:auto;display:flex;align-items:center;gap:3px}
+.navlinks a{color:var(--muted);font-size:13.5px;font-weight:500;padding:7px 11px;border-radius:999px;
+  white-space:nowrap;transition:background .15s,color .15s}
+.navlinks a:hover{background:var(--neutral-bg);color:var(--text);text-decoration:none}
+.navlinks a.on{background:var(--primary-soft);color:var(--primary)}
+.navbtn{display:none;margin-left:auto;width:40px;height:40px;border-radius:12px;cursor:pointer;
+  background:#fff;border:1px solid var(--border);color:var(--text);align-items:center;justify-content:center}
+@media (max-width:1000px){
+  .navlinks{position:fixed;inset:var(--nav-h) 0 auto 0;flex-direction:column;align-items:stretch;gap:2px;
+    background:#fff;border-bottom:1px solid var(--border);padding:10px 16px 16px;display:none;
+    box-shadow:0 18px 40px rgba(11,11,18,.10);max-height:calc(100vh - var(--nav-h));overflow-y:auto}
+  .navlinks.open{display:flex}
+  .navlinks a{padding:11px 14px;border-radius:10px;font-size:15px}
+  .navbtn{display:flex}
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   Hero + flow stage
+   ═══════════════════════════════════════════════════════════════════════ */
+.hero{padding:38px 0 16px;text-align:center}
+.eyebrow{display:inline-flex;align-items:center;gap:8px;font-size:11.5px;font-weight:600;letter-spacing:.11em;
+  text-transform:uppercase;color:var(--primary);background:var(--primary-soft);
+  border:1px solid rgba(185,0,14,.2);padding:6px 14px;border-radius:999px;margin-bottom:16px}
+.hero h1{font-size:clamp(1.9rem,4.6vw,3rem);font-weight:700;max-width:30ch;margin:0 auto}
+.hero .lede{margin:10px auto 0;color:var(--muted);font-size:clamp(.98rem,2vw,1.1rem);max-width:60ch}
+
+.stage{
+  background:var(--glass-strong);border:1px solid var(--glass-border);border-radius:34px;
+  box-shadow:0 1px 2px rgba(11,11,18,.04),0 18px 50px rgba(11,11,18,.07);
+  padding:26px 28px 18px;margin:16px 0 22px;
+}
+.flow{display:flex;align-items:flex-start;justify-content:center;gap:0}
+.col{display:flex;flex-direction:column;align-items:center;flex-shrink:0}
+.step{display:flex;flex-direction:column;align-items:center;gap:5px;margin-bottom:13px;text-align:center}
+.step .n{width:27px;height:27px;border-radius:10px;flex-shrink:0;
+  background:linear-gradient(140deg,var(--primary),var(--accent));color:#fff;
+  display:grid;place-items:center;font-size:13px;font-weight:700;box-shadow:0 6px 14px rgba(185,0,14,.24)}
+.step h3{font-size:15px;font-weight:600}
+.step span{font-size:12.5px;color:var(--muted)}
+.gap{position:relative;display:flex;align-items:center;justify-content:center;align-self:center;
+  width:78px;flex-shrink:0;color:var(--primary);margin-top:40px}
+.gap svg{opacity:.7}
+.gap .spark{position:absolute;left:8px;top:50%;width:9px;height:9px;margin-top:-4.5px;border-radius:50%;
+  background:var(--primary);opacity:0;box-shadow:0 0 0 5px rgba(185,0,14,.14)}
+
+.stagebar{display:flex;align-items:center;justify-content:center;gap:14px;margin-top:16px;
+  padding-top:14px;border-top:1px solid var(--border);flex-wrap:wrap}
+.replay{
+  display:inline-flex;align-items:center;gap:8px;padding:9px 18px;border-radius:999px;cursor:pointer;
+  background:var(--primary);color:#fff;border:0;font-family:inherit;font-size:13.5px;font-weight:600;
+  box-shadow:0 8px 18px rgba(185,0,14,.22);transition:transform .15s,box-shadow .15s;
+}
+.replay:hover{transform:translateY(-1px);box-shadow:0 12px 24px rgba(185,0,14,.28)}
+.replay:active{transform:translateY(0)}
+.stagebar .cap{font-size:12.5px;color:var(--faint)}
+
+/* ── Device ──────────────────────────────────────────────────────────── */
+.device{padding:4px;border-radius:38px;background:#17171A;flex-shrink:0;
+  box-shadow:0 2px 4px rgba(11,11,18,.10),0 26px 50px rgba(11,11,18,.20)}
+.viewport{width:calc(390px * var(--s));height:calc(780px * var(--s));
+  border-radius:34px;overflow:hidden;position:relative;background:#F3F3F3}
+/* Authored at true app point sizes, then scaled whole — every value below
+   matches theme/index.ts one-for-one. */
+.screen{
+  width:390px;height:780px;transform:scale(var(--s));transform-origin:top left;position:relative;
+  display:flex;flex-direction:column;overflow:hidden;
+  font-size:15px;line-height:1.42;color:var(--text);
+  background:
+    radial-gradient(60% 34% at 4% 0%,rgba(185,0,14,.07),transparent 62%),
+    radial-gradient(54% 30% at 100% 22%,rgba(24,24,27,.05),transparent 60%),
+    linear-gradient(180deg,#F6F6F6,#EFEFEF);
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   App chrome — components/Screen.tsx & TabBar.tsx
+   ═══════════════════════════════════════════════════════════════════════ */
+.sysbar{height:48px;flex-shrink:0;display:flex;align-items:flex-end;padding:0 24px 5px;justify-content:space-between}
+.sysbar b{font-size:14px;font-weight:600;letter-spacing:-.2px}
+.sysbar .ic{display:flex;align-items:center;gap:5px;opacity:.9}
+
+.apphead{flex-shrink:0;background:var(--glass-strong);border-bottom:1px solid var(--glass-border);
+  border-radius:0 0 28px 28px;padding:0 16px 16px;box-shadow:0 8px 20px rgba(11,11,18,.05)}
+.brandstrip{display:flex;align-items:center;gap:6px;margin-bottom:12px}
+.brandstrip span{font-size:13px;font-weight:600;letter-spacing:.2px}
+.brandstrip span i{color:var(--primary);font-style:normal}
+.headrow{display:flex;align-items:center;gap:12px}
+.headrow .who{flex:1;min-width:0}
+.headrow .greet{display:block;font-size:13px;color:var(--muted)}
+.headrow .name{display:block;font-size:19px;font-weight:600;letter-spacing:-.2px}
+.metarow{display:flex;align-items:center;gap:4px;margin-top:1px}
+.metarow .m{font-size:13px;color:var(--faint)}
+.metachip{display:inline-flex;align-items:center;gap:2px;padding:1px 6px;border-radius:10px;
+  background:var(--primary-soft);color:var(--primary);font-size:13px;font-weight:500}
+.bell{width:40px;height:40px;border-radius:20px;flex-shrink:0;position:relative;
+  background:var(--glass-strong);border:1px solid var(--border);display:grid;place-items:center;color:var(--text)}
+.bell .bdg{position:absolute;top:4px;right:4px;min-width:16px;height:16px;padding:0 4px;border-radius:8px;
+  background:var(--primary);color:#fff;font-size:10px;font-weight:700;display:grid;place-items:center;line-height:1}
+
+.topbar{flex-shrink:0;border-bottom:1px solid var(--border);background:var(--glass-strong);
+  display:flex;align-items:center;gap:8px;padding:0 16px 12px}
+.topbar .iconbtn{width:38px;height:38px;flex-shrink:0;border-radius:14px;background:var(--glass-strong);
+  border:1px solid var(--border);display:grid;place-items:center;color:var(--text)}
+.topbar .tt{flex:1;min-width:0}
+.topbar .tt b{display:block;font-size:19px;font-weight:600;letter-spacing:-.2px}
+.topbar .tt span{display:block;font-size:13px;color:var(--muted);margin-top:-1px}
+
+.body{flex:1;min-height:0;overflow:hidden;padding:16px;display:flex;flex-direction:column;gap:24px}
+.body.tight{gap:16px}
+
+.tabs{flex-shrink:0;height:64px;display:flex;align-items:center;background:var(--glass-strong);
+  border-top:1px solid var(--border);padding:8px 0}
+.tabs .t{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;
+  color:var(--faint);font-size:11px;font-weight:600;position:relative}
+.tabs .t.on{color:var(--primary)}
+.tabs .t .disc{position:absolute;top:-6px;height:34px;left:50%;transform:translateX(-50%);
+  width:54px;border-radius:999px;background:var(--primary-soft)}
+.tabs .t .gl,.tabs .t .lb{position:relative}
+.tabs .t .tb{position:absolute;top:-4px;left:calc(50% + 6px);min-width:16px;height:16px;padding:0 4px;
+  border-radius:8px;background:var(--primary);color:#fff;font-size:10px;font-weight:700;
+  display:grid;place-items:center;line-height:1}
+.homebar{flex-shrink:0;height:26px;display:grid;place-items:center}
+.homebar i{display:block;width:134px;height:5px;border-radius:3px;background:rgba(24,24,27,.22)}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   App components — components/ui.tsx
+   ═══════════════════════════════════════════════════════════════════════ */
+.acard{background:var(--glass);border:1px solid var(--glass-border);border-radius:22px;
+  padding:16px;box-shadow:var(--card-shadow)}
+.row{display:flex;align-items:center;gap:12px;padding:7px 0}
+.row .ri{width:28px;height:28px;border-radius:10px;flex-shrink:0;background:var(--primary-soft);
+  display:grid;place-items:center;color:var(--primary)}
+.row .rl{font-size:13px;color:var(--muted);flex-shrink:1}
+.row .rv{font-size:13px;font-weight:600;flex:1;text-align:right}
+.lbl{font-size:13px;font-weight:500;color:var(--muted)}
+.hint{font-size:13px;color:var(--faint)}
+.chips{display:flex;flex-wrap:wrap;gap:8px}
+.chip{display:inline-flex;align-items:center;gap:6px;padding:8px 16px;border-radius:999px;
+  border:1px solid var(--border);background:var(--glass);font-size:13px;font-weight:500;color:var(--muted)}
+.chip.on{background:var(--primary-soft);border-color:var(--primary);color:var(--primary)}
+.pickers{display:flex;gap:12px}
+.picker{flex:1;min-width:0;display:flex;align-items:center;gap:8px;min-height:58px;padding:8px 12px;
+  border-radius:18px;border:1px solid var(--border);background:var(--glass-strong);color:var(--primary)}
+.picker .pt{flex:1;min-width:0}
+.picker .pt small{display:block;font-size:11px;font-weight:600;letter-spacing:.6px;color:var(--faint)}
+.picker .pt b{display:block;font-size:13px;font-weight:500;color:var(--text)}
+.picker .cv{color:var(--faint);flex-shrink:0}
+.field{display:flex;flex-direction:column;gap:8px}
+.input{min-height:52px;border-radius:18px;border:1px solid var(--border);background:var(--glass-strong);
+  padding:0 16px;display:flex;align-items:center;gap:12px;font-size:15px}
+.input .ii{color:var(--primary);flex-shrink:0;display:flex}
+.btn{min-height:52px;border-radius:18px;display:flex;align-items:center;justify-content:center;gap:8px;
+  padding:8px 12px;font-size:15px;font-weight:600}
+.btn.primary{background:var(--primary);color:#fff;box-shadow:0 8px 18px rgba(185,0,14,.24)}
+.btn.success{background:var(--success-bg);color:var(--success);border:1px solid rgba(5,150,105,.22)}
+.btn.danger{background:var(--danger-bg);color:var(--danger);border:1px solid rgba(220,38,38,.22)}
+.btnrow{display:flex;gap:12px}
+.btnrow .btn{flex:1}
+.apill{display:inline-flex;align-items:center;gap:5px;padding:3px 12px;border-radius:999px;
+  font-size:11px;font-weight:600;letter-spacing:.6px;flex-shrink:0}
+.apill .dot{width:6px;height:6px;border-radius:50%;background:currentColor;flex-shrink:0;position:relative}
+.apill.pending{background:var(--warning-bg);color:var(--warning)}
+.apill.approved{background:var(--success-bg);color:var(--success)}
+.apill.active{background:var(--info-bg);color:var(--info)}
+.anote{display:flex;gap:8px;padding:12px;border-radius:14px;align-items:flex-start}
+.anote .nt{font-size:13px;color:var(--muted);flex:1}
+.anote .ni{flex-shrink:0;display:flex;margin-top:1px}
+.anote.warning{background:var(--warning-bg)}.anote.warning .ni{color:var(--warning)}
+.anote.info{background:var(--info-bg)}.anote.info .ni{color:var(--info)}
+.sechead{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}
+.sechead b{font-size:16px;font-weight:600}
+.avatar{border-radius:50%;flex-shrink:0;background:var(--glass-strong);border:1px solid var(--border);
+  display:grid;place-items:center;color:var(--primary)}
+.caption{font-size:11px;font-weight:600;letter-spacing:.6px}
+.caption.brand{color:var(--primary)}
+.whorow{display:flex;align-items:center;gap:12px}
+.whorow .who{flex:1;min-width:0}
+.whorow .who b{display:block;font-size:15px;font-weight:600}
+.whorow .who span{display:block;font-size:13px;color:var(--muted)}
+.reasonbox{margin-top:12px;padding:12px;border-radius:14px;background:var(--neutral-bg)}
+.reasonbox .caption{display:block}
+.reasonbox b{display:block;font-size:15px;font-weight:600;margin-top:2px}
+.lines{display:flex;flex-direction:column;gap:4px;margin-top:12px}
+.line{display:flex;align-items:center;gap:6px;font-size:13px;color:var(--muted)}
+.line .li{color:var(--faint);flex-shrink:0;display:flex}
+.linkrow{display:flex;align-items:center;justify-content:center;gap:6px;margin-top:12px;font-size:13px}
+.linkrow a{color:var(--primary)}
+.linkrow i{color:var(--faint);font-style:normal}
+.tl{display:flex;flex-direction:column}
+.tlrow{display:flex;gap:12px}
+.tlrow .rail{display:flex;flex-direction:column;align-items:center}
+.tlrow .si{width:30px;height:30px;border-radius:15px;flex-shrink:0;display:grid;place-items:center}
+.tlrow .sl{flex:1;width:2px;background:var(--border);margin:2px 0}
+.tlrow .sc{flex:1;min-width:0;padding-bottom:16px}
+.tlrow:last-child .sc{padding-bottom:0}
+.tlrow .sc b{display:block;font-size:13px;font-weight:500}
+.tlrow .sc span{display:block;font-size:13px;color:var(--muted)}
+.si.done{background:var(--success-bg);color:var(--success)}
+.si.current{background:var(--warning-bg);color:var(--warning)}
+.si.pending{background:var(--neutral-bg);color:var(--faint)}
+.empty{display:flex;flex-direction:column;align-items:center;gap:8px;padding:48px 16px;text-align:center}
+.empty .ei{width:64px;height:64px;border-radius:32px;display:grid;place-items:center;margin-bottom:8px;
+  background:var(--glass-strong);border:1px solid var(--border);color:var(--faint)}
+.empty b{font-size:16px;font-weight:600}
+.empty span{font-size:13px;color:var(--muted)}
+.powered{margin-top:auto;display:flex;align-items:center;justify-content:center;gap:6px;
+  padding-top:16px;color:var(--faint);font-size:11px;font-weight:500;letter-spacing:.2px}
+.focus{position:relative}
+.focus::after{content:"";position:absolute;inset:-9px;border-radius:27px;
+  border:1.5px solid var(--primary);opacity:.3;pointer-events:none}
+
+/* Push banner — only ever visible during the walkthrough */
+.push{
+  position:absolute;left:12px;right:12px;top:52px;z-index:5;display:flex;align-items:center;gap:10px;
+  padding:12px 14px;border-radius:20px;background:rgba(255,255,255,.97);
+  border:1px solid var(--glass-border);box-shadow:0 14px 34px rgba(11,11,18,.16);
+  transform:translateY(-150%);opacity:0;pointer-events:none;
+}
+.push .pk{width:30px;height:30px;flex-shrink:0;border-radius:9px;background:#F3F3F3;
+  border:1px solid var(--hairline);display:grid;place-items:center;color:var(--primary)}
+.push .pb{flex:1;min-width:0}
+.push .pb b{display:block;font-size:13px;font-weight:600}
+.push .pb span{display:block;font-size:12px;color:var(--muted)}
+.push .pw{font-size:11px;color:var(--faint);flex-shrink:0}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   Walkthrough animation — driven entirely by .stage.anim[data-step]
+   Without JS, or with reduced motion, every screen rests in its final state.
+   ═══════════════════════════════════════════════════════════════════════ */
+@keyframes tapRing{
+  0%{opacity:.55;transform:scale(.97)}
+  55%{opacity:.28;transform:scale(1.05)}
+  100%{opacity:.3;transform:scale(1)}
+}
+@keyframes tapPress{
+  0%{transform:scale(1)}40%{transform:scale(.955)}100%{transform:scale(1)}
+}
+@keyframes travel{
+  0%{opacity:0;transform:translateX(0) scale(.5)}
+  18%{opacity:1;transform:translateX(10px) scale(1)}
+  82%{opacity:1;transform:translateX(52px) scale(1)}
+  100%{opacity:0;transform:translateX(62px) scale(.5)}
+}
+@keyframes dropIn{
+  0%{transform:translateY(-150%);opacity:0}
+  16%{transform:translateY(4px);opacity:1}
+  24%{transform:translateY(0);opacity:1}
+  82%{transform:translateY(0);opacity:1}
+  100%{transform:translateY(-150%);opacity:0}
+}
+@keyframes riseIn{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:none}}
+@keyframes popIn{from{opacity:0;transform:scale(.7)}to{opacity:1;transform:scale(1)}}
+@keyframes livePulse{
+  0%{box-shadow:0 0 0 0 currentColor;opacity:.5}
+  70%{box-shadow:0 0 0 5px currentColor;opacity:0}
+  100%{box-shadow:0 0 0 0 currentColor;opacity:0}
+}
+
+/* the pulsing halo behind an unsettled status dot — components/motion.tsx LiveDot */
+.apill.pending .dot::after,.apill.active .dot::after{
+  content:"";position:absolute;inset:0;border-radius:50%;animation:livePulse 2s ease-out infinite;
+}
+
+/* --- resting state: the alternates only the walkthrough uses --- */
+.p2-empty,.push,.pre,.p3-live,.p2-done,.p2-ok,.p2-h2,.s1-post,.tapfx{display:none}
+.stage.anim .p2-empty,.stage.anim .pre{display:flex}
+.stage.anim .pre.inl{display:inline-flex}
+.stage.anim .push{display:flex}
+/* a screen holds two whole phases — the form, and where you land after it */
+.phase{flex:1;min-height:0;display:flex;flex-direction:column}
+/* .phase would otherwise out-order the hidden list above */
+.phase.s1-post{display:none}
+
+/* dim everything but the screen in play */
+.stage.anim .col{opacity:.46;transition:opacity .5s ease}
+.stage.anim .col.on{opacity:1}
+
+/* ── which button is being clicked ────────────────────────────────────────
+   At rest the ring is a faint hint. During the beat that belongs to it the
+   ring lights up, a cursor drops onto the button, presses, and a ripple
+   spreads from the contact point — so there is never a question about what
+   was just tapped.                                                        */
+.focus::after{opacity:.16;transition:opacity .3s,box-shadow .3s}
+.tapfx{position:absolute;left:50%;top:50%;width:0;height:0;z-index:7;pointer-events:none}
+.tapring{position:absolute;left:-11px;top:-11px;width:22px;height:22px;border-radius:50%;
+  border:2.5px solid var(--primary);opacity:0}
+.tapring.b{border-color:var(--success)}
+.tapcur{position:absolute;left:1px;top:1px;width:30px;height:30px;border-radius:50%;
+  background:#fff;box-shadow:0 5px 14px rgba(11,11,18,.32),0 0 0 1px rgba(24,24,27,.06);
+  display:grid;place-items:center;color:var(--text);transform:scale(0);opacity:0}
+
+@keyframes tapRing{
+  0%{opacity:.16;transform:scale(1)}
+  18%{opacity:1;transform:scale(1.03)}
+  100%{opacity:1;transform:scale(1)}
+}
+@keyframes tapPress{0%{transform:scale(1)}42%{transform:scale(.955)}100%{transform:scale(1)}}
+@keyframes tapRipple{
+  0%{transform:scale(.35);opacity:.85}
+  75%{transform:scale(3.6);opacity:0}
+  100%{transform:scale(3.6);opacity:0}
+}
+@keyframes tapCursor{
+  0%{transform:translate(10px,12px) scale(.4);opacity:0}
+  22%{transform:translate(0,0) scale(1);opacity:1}
+  40%{transform:translate(0,0) scale(.8);opacity:1}
+  56%{transform:translate(0,0) scale(1);opacity:1}
+  86%{transform:translate(0,0) scale(1);opacity:1}
+  100%{transform:translate(6px,8px) scale(.9);opacity:0}
+}
+@keyframes travel{
+  0%{opacity:0;transform:translateX(0) scale(.5)}
+  18%{opacity:1;transform:translateX(10px) scale(1)}
+  82%{opacity:1;transform:translateX(52px) scale(1)}
+  100%{opacity:0;transform:translateX(62px) scale(.5)}
+}
+@keyframes dropIn{
+  0%{transform:translateY(-150%);opacity:0}
+  16%{transform:translateY(4px);opacity:1}
+  24%{transform:translateY(0);opacity:1}
+  82%{transform:translateY(0);opacity:1}
+  100%{transform:translateY(-150%);opacity:0}
+}
+@keyframes riseIn{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:none}}
+@keyframes popIn{from{opacity:0;transform:scale(.7)}to{opacity:1;transform:scale(1)}}
+@keyframes livePulse{
+  0%{box-shadow:0 0 0 0 currentColor;opacity:.5}
+  70%{box-shadow:0 0 0 5px currentColor;opacity:0}
+  100%{box-shadow:0 0 0 0 currentColor;opacity:0}
+}
+.apill.pending .dot::after,.apill.active .dot::after{
+  content:"";position:absolute;inset:0;border-radius:50%;animation:livePulse 2s ease-out infinite;
+}
+
+/* the three tap beats, one per screen */
+.stage.anim[data-step="1"] .c1 .focus,
+.stage.anim[data-step="3"] .c2 .focus,
+.stage.anim[data-step="5"] .c3 .focus{animation:tapPress .55s ease-out}
+.stage.anim[data-step="1"] .c1 .focus::after,
+.stage.anim[data-step="3"] .c2 .focus::after,
+.stage.anim[data-step="5"] .c3 .focus::after{
+  opacity:1;box-shadow:0 0 0 5px rgba(185,0,14,.14);animation:tapRing .5s ease-out both}
+.stage.anim[data-step="1"] .c1 .tapfx,
+.stage.anim[data-step="3"] .c2 .tapfx,
+.stage.anim[data-step="5"] .c3 .tapfx{display:block}
+.stage.anim[data-step="1"] .c1 .tapring,
+.stage.anim[data-step="3"] .c2 .tapring,
+.stage.anim[data-step="5"] .c3 .tapring{animation:tapRipple 1s ease-out .22s}
+.stage.anim[data-step="1"] .c1 .tapcur,
+.stage.anim[data-step="3"] .c2 .tapcur,
+.stage.anim[data-step="5"] .c3 .tapcur{animation:tapCursor 1.25s cubic-bezier(.22,.61,.36,1) both}
+
+/* the two hand-offs */
+.stage.anim[data-step="2"] .g1 .spark{animation:travel .9s ease-in-out}
+.stage.anim[data-step="2"] .c2 .push{animation:dropIn 2.6s ease-out}
+.stage.anim[data-step="4"] .g2 .spark{animation:travel .9s ease-in-out}
+.stage.anim[data-step="4"] .c3 .push{animation:dropIn 2.6s ease-out}
+/* and the closing beat, where the news reaches the student */
+.stage.anim[data-step="6"] .c1 .push{animation:dropIn 2.6s ease-out}
+
+/* ── guardian: empty queue, then the request, then the decision ────────── */
+.stage.anim .p2-note,.stage.anim .p2-card,.stage.anim .p2-badge{display:none}
+.stage.anim:is([data-step="2"],[data-step="3"],[data-step="4"],[data-step="5"]) .p2-empty{display:none}
+.stage.anim:is([data-step="2"],[data-step="3"],[data-step="4"],[data-step="5"]) .p2-note{display:flex;animation:riseIn .5s ease-out both}
+.stage.anim:is([data-step="2"],[data-step="3"],[data-step="4"],[data-step="5"]) .p2-card{display:block;animation:riseIn .55s .1s ease-out both}
+.stage.anim:is([data-step="2"],[data-step="3"],[data-step="4"],[data-step="5"]) .p2-badge{display:grid;animation:popIn .4s .35s ease-out both}
+.stage.anim[data-step="6"] .p2-empty{display:none}
+.stage.anim[data-step="6"] .p2-h1{display:none}
+.stage.anim[data-step="6"] .p2-h2{display:block}
+.stage.anim[data-step="6"] .p2-ok{display:flex;animation:riseIn .5s ease-out both}
+.stage.anim[data-step="6"] .p2-done{display:block;animation:riseIn .55s .1s ease-out both}
+
+/* ── student: the form, then where submitting lands you ───────────────── */
+.stage.anim[data-step="6"] .s1-pre{display:none}
+.stage.anim[data-step="6"] .s1-post{display:flex;animation:riseIn .5s ease-out both}
+
+/* ── warden: the pass is still with the guardian until step 4 ──────────── */
+.stage.anim .post{display:none}
+.stage.anim:is([data-step="4"],[data-step="5"],[data-step="6"]) .pre{display:none}
+.stage.anim:is([data-step="4"],[data-step="5"],[data-step="6"]) .post{display:flex;animation:riseIn .5s ease-out both}
+.stage.anim:is([data-step="4"],[data-step="5"],[data-step="6"]) .post.blk{display:block}
+.stage.anim:is([data-step="4"],[data-step="5"],[data-step="6"]) .post.grd{display:grid}
+.stage.anim:is([data-step="4"],[data-step="5"],[data-step="6"]) .post.inl{display:inline-flex}
+/* the pass only goes live on the last tap */
+.stage.anim:is([data-step="5"],[data-step="6"]) .p3-done.inl{display:none}
+.stage.anim:is([data-step="5"],[data-step="6"]) .apill.p3-live{display:inline-flex;animation:popIn .45s ease-out both}
+
+/* success tone for the guardian's decided strip */
+.anote.success{background:var(--success-bg)}
+.anote.success .ni{color:var(--success)}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   Manual layout
+   ═══════════════════════════════════════════════════════════════════════ */
+.layout{max-width:var(--maxw);margin:0 auto;padding:26px 24px 84px;display:grid;
+  grid-template-columns:240px minmax(0,1fr);gap:56px;align-items:start}
+@media (max-width:1080px){.layout{grid-template-columns:1fr;gap:0}}
+.toc{position:sticky;top:calc(var(--nav-h) + 22px);max-height:calc(100vh - var(--nav-h) - 44px);
+  overflow-y:auto;padding-right:8px}
+.toc h4{font-size:10.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--faint);
+  margin:0 0 9px;font-weight:600}
+.toc h4:not(:first-child){margin-top:22px}
+.toc ul{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:1px}
+.toc a{display:block;font-size:13.5px;color:var(--muted);padding:6px 12px;border-radius:8px;
+  border-left:2px solid transparent;transition:color .15s,background .15s}
+.toc a:hover{color:var(--text);background:var(--neutral-bg);text-decoration:none}
+.toc a.on{color:var(--primary);background:var(--primary-soft);border-left-color:var(--primary);font-weight:500}
+@media (max-width:1080px){.toc{display:none}}
+
+.content{min-width:0}
+.content > section{scroll-margin-top:calc(var(--nav-h) + 20px)}
+.content > section + section{margin-top:60px;padding-top:52px;border-top:1px solid var(--border)}
+.content h2{font-size:clamp(1.45rem,3.2vw,1.9rem);font-weight:700;margin-bottom:8px}
+.content h3{font-size:1.14rem;margin:38px 0 12px;display:flex;align-items:center;gap:10px;
+  scroll-margin-top:calc(var(--nav-h) + 20px)}
+.content h4{font-size:.98rem;margin:24px 0 8px}
+.kicker{display:block;font-size:11.5px;font-weight:600;letter-spacing:.11em;text-transform:uppercase;
+  color:var(--primary);margin-bottom:10px}
+.lede{color:var(--muted);max-width:70ch;margin-bottom:24px}
+
+.card{background:rgba(255,255,255,.92);border:1px solid var(--glass-border);border-radius:20px;
+  padding:22px 24px;box-shadow:var(--card-shadow)}
+.grid{display:grid;gap:16px;margin:22px 0}
+.g2{grid-template-columns:repeat(auto-fit,minmax(250px,1fr))}
+.g3{grid-template-columns:repeat(auto-fit,minmax(212px,1fr))}
+.rolecards{display:grid;gap:16px;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));margin-top:22px}
+.rolecard{display:block;background:rgba(255,255,255,.92);border:1px solid var(--glass-border);
+  border-radius:20px;padding:24px;box-shadow:var(--card-shadow);color:var(--text);
+  transition:transform .2s,box-shadow .2s,border-color .2s}
+.rolecard:hover{text-decoration:none;transform:translateY(-4px);
+  box-shadow:0 18px 34px rgba(11,11,18,.10);border-color:rgba(185,0,14,.2)}
+.rolecard .ico{width:44px;height:44px;border-radius:13px;background:var(--primary-soft);color:var(--primary);
+  display:grid;place-items:center;margin-bottom:15px}
+.rolecard strong{display:block;font-size:1.04rem;font-weight:600;margin-bottom:5px}
+.rolecard em{font-style:normal;font-size:13.5px;color:var(--muted);display:block}
+.rolecard .go{margin-top:13px;font-size:13px;font-weight:500;color:var(--primary);
+  display:inline-flex;align-items:center;gap:6px}
+
+.flist{list-style:none;margin:0;padding:0;display:flex;flex-direction:column}
+.flist li{display:flex;gap:13px;padding:12px 0;border-bottom:1px solid var(--hairline);align-items:flex-start}
+.flist li:first-child{padding-top:0}
+.flist li:last-child{border-bottom:0;padding-bottom:0}
+.flist .fi{width:30px;height:30px;border-radius:9px;background:var(--neutral-bg);color:var(--muted);
+  display:grid;place-items:center;flex-shrink:0;margin-top:1px}
+.flist b{display:block;font-weight:600;font-size:14.5px}
+.flist em{display:block;font-style:normal;font-size:13.6px;color:var(--muted);line-height:1.55}
+
+ol.steps{list-style:none;counter-reset:s;margin:22px 0 0;padding:0}
+ol.steps > li{counter-increment:s;position:relative;padding:0 0 24px 46px}
+ol.steps > li::before{content:counter(s);position:absolute;left:0;top:-1px;width:29px;height:29px;
+  border-radius:10px;background:var(--primary);color:#fff;display:grid;place-items:center;
+  font-size:13px;font-weight:700}
+ol.steps > li::after{content:"";position:absolute;left:14px;top:34px;bottom:6px;width:1.5px;background:var(--border)}
+ol.steps > li:last-child{padding-bottom:0}
+ol.steps > li:last-child::after{display:none}
+ol.steps b{display:block;font-weight:600;margin-bottom:3px}
+ol.steps p{color:var(--muted);font-size:14.2px;margin:0}
+
+ul.plain{margin:14px 0;padding-left:20px;color:var(--muted)}
+ul.plain li{margin-bottom:8px}
+ul.plain li::marker{color:var(--primary)}
+ul.plain b{color:var(--text)}
+
+.note{display:flex;gap:12px;border-radius:14px;padding:14px 16px;margin:22px 0;font-size:14.2px;
+  border:1px solid transparent;line-height:1.56}
+.note .ni{flex-shrink:0;margin-top:2px}
+.note p{margin:0}
+.note.tip{background:var(--primary-soft);border-color:rgba(185,0,14,.2)}.note.tip .ni{color:var(--primary)}
+.note.warn{background:var(--warning-bg);border-color:rgba(180,83,9,.28)}.note.warn .ni{color:var(--warning)}
+.note.info{background:var(--info-bg);border-color:rgba(2,132,199,.24)}.note.info .ni{color:var(--info)}
+.note.ok{background:var(--success-bg);border-color:rgba(5,150,105,.24)}.note.ok .ni{color:var(--success)}
+
+.pill{display:inline-flex;align-items:center;gap:6px;font-size:12.2px;font-weight:600;
+  padding:3px 10px;border-radius:999px;white-space:nowrap;line-height:1.7}
+.pill::before{content:"";width:6px;height:6px;border-radius:50%;background:currentColor;flex-shrink:0}
+.p-pending{color:var(--warning);background:var(--warning-bg)}
+.p-approved{color:var(--success);background:var(--success-bg)}
+.p-active{color:var(--info);background:var(--info-bg)}
+.p-rejected{color:var(--danger);background:var(--danger-bg)}
+.p-expired,.p-cancelled{color:var(--faint);background:var(--neutral-bg)}
+
+.tablewrap{overflow-x:auto;border:1px solid var(--border);border-radius:14px;margin:22px 0;
+  background:rgba(255,255,255,.92);-webkit-overflow-scrolling:touch}
+table{border-collapse:collapse;width:100%;min-width:540px;font-size:14px}
+th,td{text-align:left;padding:12px 16px;border-bottom:1px solid var(--hairline);vertical-align:top}
+thead th{background:rgba(24,24,27,.03);font-size:11.5px;letter-spacing:.07em;text-transform:uppercase;
+  color:var(--muted);font-weight:600;white-space:nowrap}
+tbody tr:last-child td{border-bottom:0}
+.yes{color:var(--success);font-weight:600}
+.no{color:var(--faint)}
+
+details.faq{background:rgba(255,255,255,.92);border:1px solid var(--glass-border);border-radius:14px;
+  margin-bottom:10px;overflow:hidden}
+details.faq summary{cursor:pointer;padding:16px 20px;font-weight:600;font-size:14.8px;list-style:none;
+  display:flex;align-items:flex-start;gap:12px;transition:background .15s}
+details.faq summary::-webkit-details-marker{display:none}
+details.faq summary:hover{background:rgba(24,24,27,.02)}
+details.faq summary::after{content:"";margin-left:auto;flex-shrink:0;width:9px;height:9px;margin-top:6px;
+  border-right:2px solid var(--faint);border-bottom:2px solid var(--faint);transform:rotate(45deg);
+  transition:transform .22s}
+details.faq[open] summary::after{transform:rotate(-135deg)}
+details.faq[open] summary{color:var(--primary)}
+details.faq .ans{padding:0 20px 18px 52px;color:var(--muted);font-size:14.2px;animation:riseIn .3s ease-out}
+details.faq .q{width:26px;height:26px;border-radius:8px;background:var(--primary-soft);color:var(--primary);
+  display:grid;place-items:center;font-size:12px;font-weight:700;flex-shrink:0;margin-top:-1px}
+@media (max-width:520px){details.faq .ans{padding-left:20px}}
+
+footer{border-top:1px solid var(--border);background:rgba(255,255,255,.7)}
+.foot{max-width:var(--maxw);margin:0 auto;padding:38px 24px 20px;display:flex;flex-wrap:wrap;
+  gap:28px;justify-content:space-between;align-items:flex-start}
+.foot p{font-size:13.4px;color:var(--muted);margin:12px 0 0;max-width:40ch}
+.footlinks{display:flex;flex-wrap:wrap;gap:10px 24px;font-size:13.6px}
+.footlinks a{color:var(--muted)}
+.footlinks a:hover{color:var(--primary)}
+.copy{max-width:var(--maxw);margin:0 auto;padding:0 24px 32px;font-size:12.4px;color:var(--faint)}
+
+/* ── Scroll reveal ───────────────────────────────────────────────────── */
+.reveal{opacity:0;transform:translateY(18px)}
+.stage .col{transition:opacity .5s ease}
+.js .reveal{transition:opacity .6s cubic-bezier(.22,.61,.36,1),transform .6s cubic-bezier(.22,.61,.36,1)}
+.reveal.in{opacity:1;transform:none}
+html:not(.js) .reveal{opacity:1;transform:none}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   Recreated screens inside the manual
+   ═══════════════════════════════════════════════════════════════════════ */
+.shot{display:grid;grid-template-columns:auto minmax(0,1fr);gap:34px;align-items:start;margin:24px 0 10px}
+.shot.two{grid-template-columns:auto auto minmax(200px,1fr);gap:22px}
+.shotfig{margin:0;display:flex;flex-direction:column;align-items:center;gap:9px}
+.shotfig figcaption{font-size:12.4px;color:var(--faint);font-weight:500}
+.shotnotes h4{margin-top:2px;font-size:.95rem}
+.shotnotes ul.plain{margin-top:10px}
+/* figures carry their own scale, so the walkthrough above can shrink freely */
+.device.sm{--s:.7;padding:4px;border-radius:31px;
+  box-shadow:0 2px 4px rgba(11,11,18,.08),0 16px 30px rgba(11,11,18,.13)}
+.device.sm .viewport{height:calc(838px * var(--s));border-radius:28px}
+.device.sm .screen{height:838px}
+@media (max-width:900px){
+  .shot,.shot.two{grid-template-columns:1fr;gap:20px;justify-items:center}
+  .shotnotes{width:100%}
+}
+@media (max-width:560px){.device.sm{--s:.62}}
+
+/* OutpassCard — components/OutpassCard.tsx */
+.opcard{background:var(--glass);border:1px solid var(--glass-border);border-radius:22px;
+  padding:16px;box-shadow:var(--card-shadow)}
+.opcard .ophead{display:flex;align-items:flex-start;gap:12px}
+.opcard .opmain{flex:1;min-width:0}
+.opcard .opid{display:flex;align-items:center;gap:8px;margin-bottom:3px}
+.opcard .opreason{display:block;font-size:15px;font-weight:600}
+.cattag{padding:2px 8px;border-radius:999px;background:var(--neutral-bg);
+  font-size:11px;font-weight:600;letter-spacing:.6px;color:var(--muted)}
+.opdiv{height:1px;background:var(--border);margin:12px 0}
+.opmeta{display:flex;align-items:center;gap:6px;padding:2px 0;font-size:13px;color:var(--muted)}
+.opmeta svg{flex-shrink:0}
+
+/* StatCard */
+.statrow{display:flex;gap:12px;align-items:stretch}
+.statcard{flex:1;min-width:0;background:var(--glass);border:1px solid var(--glass-border);
+  border-radius:22px;padding:14px 12px;box-shadow:var(--card-shadow);
+  display:flex;flex-direction:column;gap:3px}
+.statcard .sv{font-size:23px;font-weight:700;letter-spacing:-.4px;line-height:1.15}
+.statcard .sl{font-size:13px;color:var(--muted)}
+
+/* IconTile / ListTile */
+.icontile{border-radius:14px;background:var(--primary-soft);color:var(--primary);
+  display:grid;place-items:center;flex-shrink:0}
+.acard.flush{padding:0}
+.ltile{display:flex;align-items:center;gap:12px;padding:12px 16px}
+.ltile .lt{flex:1;min-width:0}
+.ltile .lt b{display:block;font-size:15px;font-weight:600}
+.ltile .lt span{display:block;font-size:13px;color:var(--muted)}
+.ltile > svg:last-child{color:var(--faint);flex-shrink:0}
+.ldiv{height:1px;background:var(--border);margin-left:64px}
+
+/* curfew strip, emergency alert, filter bar, activity feed, quick tools */
+.curfew{display:flex;align-items:center;gap:8px;padding:12px;border-radius:14px}
+.curfew .cd{width:8px;height:8px;border-radius:4px;flex-shrink:0}
+.curfew .cl{font-size:13px;font-weight:500;flex-shrink:0}
+.curfew .cr{margin-left:auto;font-size:13px;color:var(--muted)}
+.alert{display:flex;gap:8px;padding:14px;border-radius:18px;background:var(--danger-bg);align-items:flex-start}
+.alert .am{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
+.alert .am b{font-size:13px;font-weight:500;color:var(--danger)}
+.alert .am span{font-size:13px;color:var(--muted)}
+.alert .ar{font-size:13px;font-weight:500;color:var(--primary);flex-shrink:0}
+.filterbar{display:flex;gap:8px;overflow:hidden}
+.actrow{display:flex;align-items:center;gap:12px;padding:9px 0}
+.actrow .ai{width:34px;height:34px;border-radius:12px;background:var(--neutral-bg);color:var(--muted);
+  display:grid;place-items:center;flex-shrink:0}
+.actrow .at{flex:1;min-width:0}
+.actrow .at b{display:block;font-size:13px;font-weight:500}
+.actrow .at span{display:block;font-size:13px;color:var(--faint)}
+.tools{display:flex;flex-wrap:wrap;gap:10px}
+.tool{width:calc(33.333% - 7px);background:var(--glass);border:1px solid var(--glass-border);
+  border-radius:18px;padding:13px 6px;box-shadow:var(--card-shadow);display:flex;
+  flex-direction:column;align-items:center;gap:7px;font-size:12px;font-weight:500}
+.loadmore{text-align:center;font-size:13px;font-weight:500;color:var(--primary);padding:6px}
+
+/* sign-in screen */
+.loginwrap{flex:1;min-height:0;display:flex;flex-direction:column;justify-content:center;
+  padding:0 20px;gap:16px;overflow:hidden}
+.loginbrand{display:flex;flex-direction:column;align-items:center;gap:8px;margin-bottom:4px}
+.loginbrand .lb{width:60px;height:60px;border-radius:19px;background:#F3F3F3;
+  border:1px solid var(--hairline);display:grid;place-items:center;color:var(--primary)}
+.loginbrand b{font-size:22px;font-weight:700;letter-spacing:-.3px}
+.loginbrand > span{font-size:13px;color:var(--muted)}
+
+/* ── Responsive ──────────────────────────────────────────
+   Three phones side by side only reads if the whole card fits one screen, so
+   the scale answers to viewport HEIGHT first and width second. Below 1080px
+   the flow stacks and scrolling is expected again — which is why that rule
+   comes last and wins.                                                     */
+@media (max-width:1260px){:root{--s:.67}}
+@media (max-width:1120px){:root{--s:.61}}
+@media (max-height:1000px){:root{--s:.67}}
+@media (max-height:900px){:root{--s:.60}}
+@media (max-height:810px){:root{--s:.54}}
+@media (max-height:710px){:root{--s:.48}}
+@media (max-width:1080px){
+  :root{--s:.87}
+  .flow{flex-direction:column;align-items:center}
+  .gap{margin:22px 0 18px;width:auto;transform:rotate(90deg)}
+  .gap .spark{left:2px}
+  .step{margin-bottom:14px}
+}
+@media (max-width:560px){
+  :root{--s:.77}
+  .wrap,.topnav-in,.layout{padding-left:14px;padding-right:14px}
+  .stage{padding:22px 14px 18px;border-radius:26px}
+  .hero{padding:30px 0 14px}
+}
+@media (prefers-reduced-motion:reduce){
+  html{scroll-behavior:auto}
+  *,*::before,*::after{animation:none !important;transition:none !important}
+  .reveal{opacity:1 !important;transform:none !important}
+}
+@media print{
+  body{background:#fff}
+  .topnav,.toc,.stagebar,.navbtn{display:none}
+  .layout{grid-template-columns:1fr;padding-top:0}
+  details.faq .ans{display:block}
+  .stage,.card,.tablewrap{box-shadow:none;break-inside:avoid}
+}
+</style>
+</head>
+<body>
+<a class="skip" href="#manual">Skip to the manual</a>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false"><defs>
+ <g id="o-person"><circle cx="12" cy="7.6" r="3.8"/><path d="M4.6 20.4a7.4 7.4 0 0 1 14.8 0"/></g>
+ <g id="o-id"><rect x="2.6" y="4.8" width="18.8" height="14.4" rx="2.6"/><circle cx="8.2" cy="11" r="2.2"/><path d="M5.2 16.8c.6-1.7 1.7-2.5 3-2.5s2.4.8 3 2.5M14.6 10h4.4M14.6 13.8h4.4"/></g>
+ <g id="o-bed"><path d="M3 17.4V6.6M3 12.4h13a4.4 4.4 0 0 1 4.4 4.4v.6M3 17.4h18M3.4 20.4v-2M20.4 20.4v-2"/><circle cx="7.4" cy="9.4" r="2.1"/></g>
+ <g id="o-cal"><rect x="3.4" y="5" width="17.2" height="15.6" rx="2.6"/><path d="M3.4 9.8h17.2M8 3.2v3.4M16 3.2v3.4"/></g>
+ <g id="o-clock"><circle cx="12" cy="12" r="8.6"/><path d="M12 7.2V12l3.2 2"/></g>
+ <g id="o-pin"><path d="M12 21.2s6.9-5.9 6.9-11a6.9 6.9 0 1 0-13.8 0c0 5.1 6.9 11 6.9 11z"/><circle cx="12" cy="10" r="2.4"/></g>
+ <g id="o-call"><path d="M6.4 3.4h2.4l1.6 4-2 1.6a11.8 11.8 0 0 0 6.6 6.6l1.6-2 4 1.6v2.4a1.8 1.8 0 0 1-1.9 1.8A16.4 16.4 0 0 1 4.6 5.3 1.8 1.8 0 0 1 6.4 3.4z"/></g>
+ <g id="o-send"><path d="M20.6 3.4 3.2 10.6l6.6 2.6 2.6 6.6z"/><path d="M9.8 13.2 20.6 3.4"/></g>
+ <g id="o-cdown"><path d="m6.6 9.4 5.4 5.4 5.4-5.4"/></g>
+ <g id="o-cfwd"><path d="m9.4 6.6 5.4 5.4-5.4 5.4"/></g>
+ <g id="o-back"><path d="M19.4 12H5.2"/><path d="m10.6 6.4-5.4 5.6 5.4 5.6"/></g>
+ <g id="o-tick"><path d="m4.6 12.6 4.8 4.8L19.6 7"/></g>
+ <g id="o-x"><path d="M6.6 6.6 17.4 17.4M17.4 6.6 6.6 17.4"/></g>
+ <g id="o-done2"><path d="M2.6 13.2 6 16.6l7.4-7.4M12.4 16.4l2 2 7-7"/></g>
+ <g id="o-school"><path d="M2.4 9 12 4.2 21.6 9 12 13.8z"/><path d="M6.4 11.9v4.6c0 1.7 2.5 3 5.6 3s5.6-1.3 5.6-3v-4.6"/></g>
+ <g id="o-people"><circle cx="9" cy="8.4" r="3.2"/><path d="M3.4 19.6a5.6 5.6 0 0 1 11.2 0"/><path d="M15.4 6.2a3.2 3.2 0 0 1 0 6M17 19.6a5.6 5.6 0 0 0-2-4.3"/></g>
+ <g id="o-bell"><path d="M6.2 9.6a5.8 5.8 0 1 1 11.6 0c0 4.8 2 5.9 2 5.9H4.2s2-1.1 2-5.9z"/><path d="M10 19.2a2 2 0 0 0 4 0"/></g>
+ <g id="o-home"><path d="M3 10.6 12 3.4l9 7.2V20a1 1 0 0 1-1 1h-5v-6.2H9V21H4a1 1 0 0 1-1-1z"/></g>
+ <g id="o-add"><circle cx="12" cy="12" r="8.6"/><path d="M12 8v8M8 12h8"/></g>
+ <g id="o-albums"><rect x="3.4" y="7.4" width="17.2" height="13.2" rx="2.4"/><path d="M6.4 4.6h11.2M7.8 2.2h8.4"/></g>
+ <g id="o-grid"><rect x="3.6" y="3.6" width="7" height="7" rx="2"/><rect x="13.4" y="3.6" width="7" height="7" rx="2"/><rect x="3.6" y="13.4" width="7" height="7" rx="2"/><rect x="13.4" y="13.4" width="7" height="7" rx="2"/></g>
+ <g id="o-docs"><path d="M9 3.4h5.2l4.2 4.2v9.2a1.8 1.8 0 0 1-1.8 1.8H9a1.8 1.8 0 0 1-1.8-1.8V5.2A1.8 1.8 0 0 1 9 3.4z"/><path d="M14 3.4v4.4h4.4"/><path d="M4.6 7.6v11a2 2 0 0 0 2 2h8"/></g>
+ <g id="o-edit"><path d="M4 20.2h4.2L20 8.4 15.8 4.2 4 16z"/><path d="M14.4 5.6 18.6 9.8"/></g>
+ <g id="o-shield"><path d="M12 3.2 19.8 6v6.1c0 4.9-3.4 7.8-7.8 8.7-4.4-.9-7.8-3.8-7.8-8.7V6z"/><path d="m8.9 12.1 2.2 2.2 4-4.2"/></g>
+ <g id="o-out"><path d="M15.4 16.6 19.8 12l-4.4-4.6M19.4 12H9.2"/><path d="M14 4.6H6.6a2 2 0 0 0-2 2v10.8a2 2 0 0 0 2 2H14"/></g>
+ <g id="o-in"><path d="M10.6 16.6 15 12l-4.4-4.6M14.6 12H4.4"/><path d="M9.4 4.6h7.8a2 2 0 0 1 2 2v10.8a2 2 0 0 1-2 2H9.4"/></g>
+ <g id="o-tagp"><path d="M3.6 11.2V4.8a1.2 1.2 0 0 1 1.2-1.2h6.4l9 9-7.6 7.6z"/><circle cx="7.6" cy="7.6" r="1.4"/></g>
+ <g id="o-walk"><circle cx="13.6" cy="4.4" r="1.8"/><path d="m9.6 20.6 2.2-5.6-2.6-2.4.8-4.6 3.6-1 2.6 3.2 3 1M12.2 15l1.8 5.6"/></g>
+ <g id="o-warn"><path d="M12 3.8 21.2 20H2.8z"/><path d="M12 10v4.2M12 17.1v.7"/></g>
+ <g id="o-info"><circle cx="12" cy="12" r="8.6"/><path d="M12 11v5.4M12 7.8v.6"/></g>
+ <g id="o-doc"><path d="M13.6 3.4H7.4a2 2 0 0 0-2 2v13.2a2 2 0 0 0 2 2h9.2a2 2 0 0 0 2-2V8.4z"/><path d="M13.4 3.4v5h5M8.8 13h6.4M8.8 16.4h4.4"/></g>
+ <g id="o-arrow"><path d="M4 12h15"/><path d="m13.4 6.4 5.6 5.6-5.6 5.6"/></g>
+ <g id="o-replay"><path d="M20.4 12a8.4 8.4 0 1 1-2.6-6.1"/><path d="M20.6 3.6v5.2h-5.2"/></g>
+ <g id="o-wifi"><path d="M2.6 9.2a14.4 14.4 0 0 1 18.8 0M5.8 12.6a9.6 9.6 0 0 1 12.4 0M9 16a5 5 0 0 1 6 0"/><circle cx="12" cy="19.4" r="1.2" fill="currentColor" stroke="none"/></g>
+ <g id="o-key"><circle cx="8.4" cy="12" r="3.8"/><path d="M12.2 12h8.2M17.6 12v3.2M20.4 12v2.4"/></g>
+ <g id="o-lock"><rect x="4.8" y="10.4" width="14.4" height="10" rx="2.2"/><path d="M8.2 10.4V7.6a3.8 3.8 0 0 1 7.6 0v2.8"/></g>
+ <g id="o-mega"><path d="M4.4 9.6v4.8h3l8 4.2V5.4l-8 4.2z"/><path d="M18.4 9.2a4.2 4.2 0 0 1 0 5.6"/></g>
+ <g id="o-down"><path d="M12 3.4v12.2"/><path d="m7.2 11 4.8 4.8 4.8-4.8"/><path d="M4 20.4h16"/></g>
+ <g id="o-search"><circle cx="10.8" cy="10.8" r="6.4"/><path d="m15.6 15.6 4.4 4.4"/></g>
+ <g id="o-pointer"><path d="M6.2 2.8 18.4 12l-5.2.9 3 6.1-2.6 1.3-3-6.1-4.4 3.7z" fill="currentColor" stroke="none"/></g>
+ <!-- Iverto mark — the exact path from assets/logo.svg -->
+ <symbol id="mark" viewBox="-64 -64 1152 1152"><path fill="currentColor" stroke="none" d="M476 984C468 983 452 981 439 979C435 979 430 978 427 977C423 977 419 976 417 976C411 975 405 974 393 972C375 969 375 969 357 965C347 962 341 960 329 956C325 954 316 952 309 949C293 944 291 943 281 937C276 934 265 928 254 923C244 917 239 915 231 909C227 907 221 904 219 902C213 898 210 896 201 890C184 878 178 873 168 864C165 861 160 856 156 853C142 840 127 824 114 807C108 799 105 795 99 789C92 780 90 777 82 763C76 754 75 752 69 740C67 737 64 731 62 728C58 721 57 719 49 703C38 683 35 677 30 659C28 655 26 648 25 644C20 631 19 627 17 616C16 613 16 609 15 608C14 602 9 582 8 578C4 564 3 558 2 544C1 539 1 533 1 530C0 522 0 497 1 488C1 482 2 479 2 463C2 451 2 444 2 441C3 438 3 432 3 428C4 413 5 409 10 391C11 386 13 380 14 377C15 374 16 368 17 364C20 354 28 333 36 314C38 309 41 301 43 296C48 283 49 280 55 269C57 266 60 261 62 257C71 240 77 231 85 221C87 217 93 210 97 205C109 188 112 184 123 172C136 157 140 153 149 145C153 142 157 138 160 135C172 124 180 118 188 112C200 105 202 103 213 95C238 75 264 60 292 48C315 39 325 38 325 44C325 48 318 56 306 66C295 75 280 93 268 111C265 114 262 119 260 122C239 149 224 174 218 190C215 197 211 206 208 212C201 228 198 235 195 247C194 251 192 257 191 260C184 281 182 291 180 302C179 307 178 313 177 317C174 329 171 351 169 366C168 377 168 425 169 436C170 449 174 471 176 482C177 488 178 492 180 501C180 504 182 509 183 513C184 516 185 522 186 526C187 531 189 537 192 546C195 554 198 563 199 567C200 570 202 576 203 579C205 581 207 587 209 592C216 608 219 616 229 633C244 662 252 674 263 688C269 696 275 704 279 710C286 720 289 723 303 737C306 741 311 746 313 749C319 754 320 756 329 764C351 784 355 787 367 795C371 797 378 803 384 807C402 819 402 820 415 827C424 832 435 837 442 840C445 842 451 844 455 846C469 853 491 862 508 867C514 870 529 873 541 875C545 876 551 877 555 878C565 881 584 884 601 886C604 886 607 887 607 887C608 887 616 887 626 887C639 887 644 888 647 888C654 889 664 889 671 888C674 888 679 887 690 887C716 887 734 885 755 880C767 877 771 877 773 880C777 886 765 896 740 910C730 915 727 917 719 922C715 924 710 927 705 929C701 931 695 934 691 936C679 942 673 945 653 952C638 957 634 958 617 963C615 963 610 965 607 966C596 969 592 970 584 970C569 972 540 976 518 980C505 983 486 984 476 984ZM608 814C602 814 574 810 568 810C556 808 547 806 527 800C519 798 510 795 507 794C492 790 480 785 467 778C465 777 459 774 454 771C438 763 428 757 415 748C412 746 407 742 403 740C390 731 374 718 360 702C353 694 350 691 343 685C333 676 330 673 325 664C319 655 316 650 312 646C305 636 302 632 295 619C293 616 290 611 289 609C280 593 279 592 276 585C268 565 262 548 257 533C255 523 253 518 251 512C248 503 247 501 246 492C246 488 245 480 244 465C241 439 241 438 241 420C241 400 242 388 245 373C247 363 247 361 248 354C249 342 249 340 253 328C254 325 255 320 256 317C261 299 262 294 271 276C277 266 278 264 280 264C283 264 285 270 285 286C286 305 286 306 287 310C288 318 289 322 289 328C290 331 290 335 290 337C291 342 292 347 293 351C297 366 298 371 300 377C301 380 302 385 303 389C306 404 309 412 315 425C317 428 320 435 322 440C329 456 331 460 339 471C342 476 346 483 349 486C356 498 358 501 366 510C368 513 371 516 373 518C374 520 378 524 380 528C387 536 396 546 416 565C428 577 456 597 476 609C516 632 529 638 557 646C578 653 583 654 596 657C600 658 605 659 608 660C620 664 621 664 631 665C634 665 641 666 646 667C666 669 676 669 701 666C709 666 718 665 720 665C722 665 726 664 728 664C732 663 734 663 745 660C748 660 755 658 760 657C788 652 802 647 830 635C835 633 841 630 844 629C860 623 867 619 898 598C913 589 935 572 944 563C966 543 989 517 1007 495C1015 485 1018 483 1021 486C1025 490 1024 498 1015 527C1014 531 1012 537 1010 542C1005 560 1001 571 993 586C977 619 977 619 968 632C961 643 960 644 954 654C944 667 944 667 928 684C921 691 914 698 913 700C908 705 903 710 898 714C893 718 891 720 884 727C869 740 847 754 822 767C817 770 809 773 806 775C788 785 783 787 764 793C754 796 752 797 741 801C726 806 724 807 710 808C706 809 699 810 693 810C682 812 668 814 662 814C657 814 613 814 608 814ZM671 590C664 589 656 588 641 585C637 585 632 584 628 583C621 582 603 579 598 577C581 573 556 562 536 549C531 545 526 542 518 538C508 533 506 531 495 522C478 509 468 500 450 482C441 473 433 461 425 448C420 438 411 424 405 416C393 397 389 385 393 377C397 370 404 370 440 376C456 379 458 379 469 379C474 380 481 380 484 380C491 381 516 381 524 381C541 380 558 377 571 374C579 373 583 372 591 371C610 369 635 362 657 351C664 348 686 338 694 335C717 325 718 325 737 311C742 308 748 304 750 302C768 291 780 283 788 275C790 273 794 270 797 267C818 249 840 225 850 210C855 204 857 201 861 197C870 186 877 175 885 162C887 158 891 152 893 148C903 134 905 131 911 117C914 112 917 104 919 101C921 97 924 91 926 87C935 67 940 60 946 60C952 60 954 63 963 78C966 84 968 88 973 95C978 103 984 115 993 133C1005 157 1007 164 1010 180C1012 190 1017 210 1020 219C1024 233 1025 245 1023 264C1023 268 1023 275 1023 281C1022 293 1022 293 1020 310C1018 326 1014 345 1010 358C1007 368 1000 386 993 398C985 416 964 452 956 462C952 467 942 479 934 486C931 489 926 494 924 497C917 505 913 508 901 516C897 519 892 523 889 526C872 539 867 542 848 552C833 559 830 561 823 563C820 564 813 567 808 569C792 576 790 576 774 580C756 584 749 585 742 586C739 587 733 587 730 588C717 590 720 590 695 590C682 590 672 590 671 590Z"/></symbol>
+</defs></svg>
+
+<header class="topnav">
+  <div class="topnav-in">
+    <a class="lockup" href="#top">
+      <span class="mk"><svg width="22" height="22"><use href="#mark"/></svg></span>
+      <span><b>Iverto<i>.ai</i></b><small>User Manual</small></span>
+    </a>
+    <button class="navbtn" id="navbtn" aria-expanded="false" aria-controls="navlinks" aria-label="Open navigation">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill=none stroke=currentColor stroke-width=1.9 stroke-linecap=round><path d="M4 7h16M4 12h16M4 17h16"/></svg>
+    </button>
+    <nav class="navlinks" id="navlinks" aria-label="Main">
+      <a href="#top">Walkthrough</a>
+      <a href="#overview">Overview</a>
+      <a href="#getting-started">Getting started</a>
+      <a href="#student">Student</a>
+      <a href="#guardian">Guardian</a>
+      <a href="#warden">Warden</a>
+      <a href="#statuses">Statuses</a>
+      <a href="#faq">FAQ</a>
+    </nav>
+  </div>
+</header>
+
+<div class="wrap" id="top">
+  <div class="hero">
+    <span class="eyebrow">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill=none stroke=currentColor stroke-width=1.9 stroke-linecap=round stroke-linejoin=round><use href="#o-shield"/></svg>
+      Campus outpass &amp; gate-pass
+    </span>
+    <h1>How an outpass request works</h1>
+    <p class="lede">One request. Three screens. Watch it move.</p>
+  </div>
+
+  <!-- ═══════════════════════════ WALKTHROUGH ═══════════════════════════ -->
+  <div class="stage" id="stage" data-step="0">
+  <div class="flow">
+
+  <!-- ── 1 · STUDENT ── -->
+  <div class="col c1">
+    <div class="step">
+      <span class="n">1</span>
+      <h3>Student</h3>
+      <span>Raises the request</span>
+    </div>
+
+    <div class="device"><div class="viewport"><div class="screen">
+      <div class="push">
+        <span class="pk"><svg width=18 height=18><use href="#mark"/></svg></span>
+        <span class="pb"><b>Your pass is active</b><span>#A7F3K2 &middot; the gate can let you out</span></span>
+        <span class="pw">now</span>
+      </div>
+
+      <div class="sysbar">
+        <b>9:41</b>
+        <span class="ic">
+          <svg width=15 height=15 viewBox="0 0 24 24" fill=none stroke=currentColor stroke-width=1.7 stroke-linecap=round stroke-linejoin=round><use href="#o-wifi"/></svg>
+          <svg width=22 height=12 viewBox="0 0 34 16" fill=none stroke=currentColor stroke-width=1.4><rect x=1 y=1 width=26 height=14 rx=4 opacity=".45"/><rect x=3.5 y=3.5 width=19 height=9 rx=2 fill=currentColor stroke=none/><path d="M30 5.5v5" stroke-linecap=round opacity=".45"/></svg>
+        </span>
+      </div>
+
+      <div class="phase s1-pre">
+      <div class="topbar"><div class="tt"><b>New outpass</b><span>Fill in your trip details</span></div></div>
+
+      <div class="body tight">
+        <div class="acard">
+          <div class="row">
+            <span class="ri"><svg width=16 height=16 viewBox="0 0 24 24" fill=none stroke=currentColor stroke-width=1.7 stroke-linecap=round stroke-linejoin=round><use href="#o-person"/></svg></span>
+            <span class="rl">Requested by</span><span class="rv">Shane Braiden</span>
+          </div>
+        </div>
+
+        <div>
+          <div class="lbl" style="margin-bottom:12px">Category</div>
+          <div class="chips">
+            <span class="chip on">Home visit</span><span class="chip">Medical</span><span class="chip">Local</span>
+          </div>
+        </div>
+
+        <div>
+          <div class="lbl" style="margin-bottom:12px">Leaving</div>
+          <div class="pickers">
+            <div class="picker">
+              <svg width=18 height=18 viewBox="0 0 24 24" fill=none stroke=currentColor stroke-width=1.7 stroke-linecap=round stroke-linejoin=round><use href="#o-cal"/></svg>
+              <span class="pt"><small>DATE</small><b>Thu, 12 Mar</b></span>
+              <span class="cv"><svg width=16 height=16 viewBox="0 0 24 24" fill=none stroke=currentColor stroke-width=2 stroke-linecap=round stroke-linejoin=round><use href="#o-cdown"/></svg></span>
+            </div>
+            <div class="picker">
+              <svg width=18 height=18 viewBox="0 0 24 24" fill=none stroke=currentColor stroke-width=1.7 stroke-linecap=round stroke-linejoin=round><use href="#o-clock"/></svg>
+              <span class="pt"><small>TIME</small><b>09:00 AM</b></span>
+              <span class="cv"><svg width=16 height=16 viewBox="0 0 24 24" fill=none stroke=currentColor stroke-width=2 stroke-linecap=round stroke-linejoin=round><use href="#o-cdown"/></svg></span>
+            </div>
+          </div>
+        </div>
+
+        <div>
+          <div class="lbl" style="margin-bottom:12px">Returning</div>
+          <div class="pickers">
+            <div class="picker">
+              <svg width=18 height=18 viewBox="0 0 24 24" fill=none stroke=currentColor stroke-width=1.7 stroke-linecap=round stroke-linejoin=round><use href="#o-cal"/></svg>
+              <span class="pt"><small>DATE</small><b>Fri, 13 Mar</b></span>
+              <span class="cv"><svg width=16 height=16 viewBox="0 0 24 24" fill=none stroke=currentColor stroke-width=2 stroke-linecap=round stroke-linejoin=round><use href="#o-cdown"/></svg></span>
+            </div>
+            <div class="picker">
+              <svg width=18 height=18 viewBox="0 0 24 24" fill=none stroke=currentColor stroke-width=1.7 stroke-linecap=round stroke-linejoin=round><use href="#o-clock"/></svg>
+              <span class="pt"><small>TIME</small><b>07:00 PM</b></span>
+              <span class="cv"><svg width=16 height=16 viewBox="0 0 24 24" fill=none stroke=currentColor stroke-width=2 stroke-linecap=round stroke-linejoin=round><use href="#o-cdown"/></svg></span>
+            </div>
+          </div>
+        </div>
+
+        <div class="field">
+          <span class="lbl">Reason</span>
+          <div class="input">Sister's wedding at home.</div>
+        </div>
+
+        <div class="focus">
+          <span class="tapfx"><span class="tapring"></span><span class="tapcur"><svg width=15 height=15 viewBox="0 0 24 24"><use href="#o-pointer"/></svg></span></span>
+          <div class="btn primary">
+            <svg width=18 height=18 viewBox="0 0 24 24" fill=none stroke=currentColor stroke-width=1.7 stroke-linecap=round stroke-linejoin=round><use href="#o-send"/></svg>
+            Submit request
+          </div>
+        </div>
+      </div>
+
+      <div class="tabs">
+        <span class="t"><span class="gl"><svg width=22 height=22 viewBox="0 0 24 24" fill=none stroke=currentColor stroke-width=1.7 stroke-linecap=round stroke-linejoin=round><use href="#o-home"/></svg></span><span class="lb">Home</span></span>
+        <span class="t on"><span class="disc"></span><span class="gl"><svg width=22 height=22 viewBox="0 0 24 24" fill=none stroke=currentColor stroke-width=1.7 stroke-linecap=round stroke-linejoin=round><use href="#o-add"/></svg></span><span class="lb">Request</span></span>
+        <span class="t"><span class="gl"><svg width=22 height=22 viewBox="0 0 24 24" fill=none stroke=currentColor stroke-width=1.7 stroke-linecap=round stroke-linejoin=round><use href="#o-albums"/></svg></span><span class="lb">History</span></span>
+        <span class="t"><span class="gl"><svg width=22 height=22 viewBox="0 0 24 24" fill=none stroke=currentColor stroke-width=1.7 stroke-linecap=round stroke-linejoin=round><use href="#o-person"/></svg></span><span class="lb">Profile</span></span>
+      </div>
+      <div class="homebar"><i></i></div>
+      </div><!-- /.s1-pre -->
+
+      <div class="phase s1-post">
+      <div class="apphead">
+        <div class="brandstrip">
+          <svg width=18 height=18 style="color:#B9000E"><use href="#mark"/></svg>
+          <span>Iverto<i>.ai</i></span>
+        </div>
+        <div class="headrow">
+          <span class="avatar" style="width:46px;height:46px">
+            <svg width=22 height=22 viewBox="0 0 24 24" fill=none stroke=currentColor stroke-width=1.7 stroke-linecap=round stroke-linejoin=round><use href="#o-school"/></svg>
+          </span>
+          <span class="who">
+            <span class="greet">Good morning</span>
+            <span class="name">Shane Braiden</span>
+            <span class="metarow"><span class="m">21CS1043 &middot; B-214</span></span>
+          </span>
+          <span class="bell">
+            <svg width=20 height=20 viewBox="0 0 24 24" fill=none stroke=currentColor stroke-width=1.7 stroke-linecap=round stroke-linejoin=round><use href="#o-bell"/></svg>
+            <span class="bdg">1</span>
+          </span>
+        </div>
+      </div>
+
+      <div class="body tight">
+        <div class="curfew" style="background:var(--success-bg)">
+          <span class="cd" style="background:var(--success)"></span>
+          <span class="cl" style="color:var(--success)">On campus</span>
+          <span class="cr">Curfew 21:00&ndash;06:00</span>
+        </div>
+
+        <div class="acard">
+          <div style="display:flex;align-items:center;justify-content:space-between;gap:8px">
+            <span class="caption brand">LATEST REQUEST</span>
+            <span class="apill active"><span class="dot"></span>Active</span>
+          </div>
+          <div style="font-size:16px;font-weight:600;margin-top:8px">Sister's wedding at home.</div>
+          <div style="font-size:13px;color:var(--muted);margin-top:2px">12 Mar, 09:00 AM &ndash; 13 Mar, 07:00 PM</div>
+          <div style="display:flex;align-items:center;gap:6px;margin-top:12px;padding-top:12px;border-top:1px solid var(--border)">
+            <span style="color:var(--info);display:flex"><svg width=14 height=14 viewBox="0 0 24 24" fill=none stroke=currentColor stroke-width=1.7 stroke-linecap=round stroke-linejoin=round><use href="#o-walk"/></svg></span>
+            <span style="flex:1;font-size:13px;color:var(--muted)">The pass is live right now.</span>
+          </div>
+        </div>
+
+        <div class="statrow">
+          <div class="statcard"><span class="icontile" style="width:32px;height:32px;background:var(--success-bg);color:var(--success)"><svg width=17 height=17 viewBox="0 0 24 24" fill=none stroke=currentColor stroke-width=1.7 stroke-linecap=round stroke-linejoin=round><use href="#o-done2"/></svg></span><span class="sv" style="color:var(--success)">13</span><span class="sl">Approved</span></div>
+          <div class="statcard"><span class="icontile" style="width:32px;height:32px;background:var(--warning-bg);color:var(--warning)"><svg width=17 height=17 viewBox="0 0 24 24" fill=none stroke=currentColor stroke-width=1.7 stroke-linecap=round stroke-linejoin=round><use href="#o-clock"/></svg></span><span class="sv" style="color:var(--warning)">0</span><span class="sl">Pending</span></div>
+          <div class="statcard"><span class="icontile" style="width:32px;height:32px;background:var(--danger-bg);color:var(--danger)"><svg width=17 height=17 viewBox="0 0 24 24" fill=none stroke=currentColor stroke-width=1.7 stroke-linecap=round stroke-linejoin=round><use href="#o-x"/></svg></span><span class="sv" style="color:var(--danger)">0</span><span class="sl">Rejected</span></div>
+        </div>
+
+        <div class="powered">
+          <svg width=12 height=12><use href="#mark"/></svg>
+          Powered by Iverto.ai
+        </div>
+      </div>
+
+      <div class="tabs">
+        <span class="t on"><span class="disc"></span><span class="gl"><svg width=22 height=22 viewBox="0 0 24 24" fill=none stroke=currentColor stroke-width=1.7 stroke-linecap=round stroke-linejoin=round><use href="#o-home"/></svg></span><span class="lb">Home</span></span>
+        <span class="t"><span class="gl"><svg width=22 height=22 viewBox="0 0 24 24" fill=none stroke=currentColor stroke-width=1.7 stroke-linecap=round stroke-linejoin=round><use href="#o-add"/></svg></span><span class="lb">Request</span></span>
+        <span class="t"><span class="gl"><svg width=22 height=22 viewBox="0 0 24 24" fill=none stroke=currentColor stroke-width=1.7 stroke-linecap=round stroke-linejoin=round><use href="#o-albums"/></svg></span><span class="lb">History</span></span>
+        <span class="t"><span class="gl"><svg width=22 height=22 viewBox="0 0 24 24" fill=none stroke=currentColor stroke-width=1.7 stroke-linecap=round stroke-linejoin=round><use href="#o-person"/></svg></span><span class="lb">Profile</span></span>
+      </div>
+      <div class="homebar"><i></i></div>
+      </div><!-- /.s1-post -->
+    </div></div></div>
+  </div>
+
+  <div class="gap g1" aria-hidden="true">
+    <span class="spark"></span>
+    <svg width=42 height=42 viewBox="0 0 24 24" fill=none stroke=currentColor stroke-width=1.6 stroke-linecap=round stroke-linejoin=round><use href="#o-arrow"/></svg>
+  </div>
+
+  <!-- ── 2 · GUARDIAN ── -->
+  <div class="col c2">
+    <div class="step">
+      <span class="n">2</span>
+      <h3>Guardian</h3>
+      <span>Approves it</span>
+    </div>
+
+    <div class="device"><div class="viewport"><div class="screen">
+      <div class="push">
+        <span class="pk"><svg width=18 height=18><use href="#mark"/></svg></span>
+        <span class="pb"><b>Approval needed</b><span>Shane Braiden · Home visit</span></span>
+        <span class="pw">now</span>
+      </div>
+
+      <div class="sysbar">
+        <b>9:45</b>
+        <span class="ic">
+          <svg width=15 height=15 viewBox="0 0 24 24" fill=none stroke=currentColor stroke-width=1.7 stroke-linecap=round stroke-linejoin=round><use href="#o-wifi"/></svg>
+          <svg width=22 height=12 viewBox="0 0 34 16" fill=none stroke=currentColor stroke-width=1.4><rect x=1 y=1 width=26 height=14 rx=4 opacity=".45"/><rect x=3.5 y=3.5 width=19 height=9 rx=2 fill=currentColor stroke=none/><path d="M30 5.5v5" stroke-linecap=round opacity=".45"/></svg>
+        </span>
+      </div>
+
+      <div class="apphead">
+        <div class="brandstrip">
+          <svg width=18 height=18 style="color:#B9000E"><use href="#mark"/></svg>
+          <span>Iverto<i>.ai</i></span>
+        </div>
+        <div class="headrow">
+          <span class="avatar" style="width:46px;height:46px">
+            <svg width=22 height=22 viewBox="0 0 24 24" fill=none stroke=currentColor stroke-width=1.7 stroke-linecap=round stroke-linejoin=round><use href="#o-people"/></svg>
+          </span>
+          <span class="who">
+            <span class="greet">Signed in as</span>
+            <span class="name">Father</span>
+            <span class="metarow">
+              <span class="m">Guardian of</span>
+              <span class="metachip">Shane Braiden
+                <svg width=13 height=13 viewBox="0 0 24 24" fill=none stroke=currentColor stroke-width=2.2 stroke-linecap=round stroke-linejoin=round><use href="#o-cdown"/></svg>
+              </span>
+            </span>
+          </span>
+          <span class="bell">
+            <svg width=20 height=20 viewBox="0 0 24 24" fill=none stroke=currentColor stroke-width=1.7 stroke-linecap=round stroke-linejoin=round><use href="#o-bell"/></svg>
+            <span class="bdg p2-badge">1</span>
+          </span>
+        </div>
+      </div>
+
+      <div class="body">
+        <div class="anote warning p2-note">
+          <span class="ni"><svg width=16 height=16 viewBox="0 0 24 24" fill=none stroke=currentColor stroke-width=1.7 stroke-linecap=round stroke-linejoin=round><use href="#o-warn"/></svg></span>
+          <span class="nt">1 request needs your approval. Shane Braiden can't leave campus until you respond.</span>
+        </div>
+
+        <div class="anote success p2-ok">
+          <span class="ni"><svg width=16 height=16 viewBox="0 0 24 24" fill=none stroke=currentColor stroke-width=2 stroke-linecap=round stroke-linejoin=round><use href="#o-tick"/></svg></span>
+          <span class="nt">You approved Shane Braiden's request. The pass is active.</span>
+        </div>
+
+        <div>
+          <div class="sechead"><b class="p2-h1">Awaiting your decision</b><b class="p2-h2">Decided just now</b></div>
+
+          <div class="empty p2-empty">
+            <span class="ei"><svg width=28 height=28 viewBox="0 0 24 24" fill=none stroke=currentColor stroke-width=1.6 stroke-linecap=round stroke-linejoin=round><use href="#o-done2"/></svg></span>
+            <b>All caught up</b>
+            <span>Nothing is waiting on you for Shane Braiden right now.</span>
+          </div>
+
+          <div class="acard p2-card">
+            <div class="whorow">
+              <span class="avatar" style="width:42px;height:42px">
+                <svg width=20 height=20 viewBox="0 0 24 24" fill=none stroke=currentColor stroke-width=1.7 stroke-linecap=round stroke-linejoin=round><use href="#o-school"/></svg>
+              </span>
+              <span class="who"><b>Shane Braiden</b><span>21CS1043 · asked 4m ago</span></span>
+              <span class="apill pending"><span class="dot"></span>Awaiting guardian</span>
+            </div>
+
+            <div class="reasonbox">
+              <span class="caption brand">#A7F3K2 · HOME VISIT</span>
+              <b>Sister's wedding at home.</b>
+            </div>
+
+            <div class="lines">
+              <span class="line"><span class="li"><svg width=14 height=14 viewBox="0 0 24 24" fill=none stroke=currentColor stroke-width=1.7 stroke-linecap=round stroke-linejoin=round><use href="#o-out"/></svg></span>Leaves 12 Mar, 09:00 AM</span>
+              <span class="line"><span class="li"><svg width=14 height=14 viewBox="0 0 24 24" fill=none stroke=currentColor stroke-width=1.7 stroke-linecap=round stroke-linejoin=round><use href="#o-in"/></svg></span>Returns 13 Mar, 07:00 PM</span>
+              <span class="line"><span class="li"><svg width=14 height=14 viewBox="0 0 24 24" fill=none stroke=currentColor stroke-width=1.7 stroke-linecap=round stroke-linejoin=round><use href="#o-pin"/></svg></span>Chennai</span>
+              <span class="line"><span class="li"><svg width=14 height=14 viewBox="0 0 24 24" fill=none stroke=currentColor stroke-width=1.7 stroke-linecap=round stroke-linejoin=round><use href="#o-call"/></svg></span>Reachable on +91 98400 12345</span>
+            </div>
+
+            <div class="btnrow" style="margin-top:12px">
+              <span class="btn danger">
+                <svg width=18 height=18 viewBox="0 0 24 24" fill=none stroke=currentColor stroke-width=2 stroke-linecap=round stroke-linejoin=round><use href="#o-x"/></svg>
+                Reject
+              </span>
+              <span class="focus" style="flex:1;display:flex">
+                <span class="tapfx"><span class="tapring b"></span><span class="tapcur"><svg width=15 height=15 viewBox="0 0 24 24"><use href="#o-pointer"/></svg></span></span>
+                <span class="btn success" style="flex:1">
+                  <svg width=18 height=18 viewBox="0 0 24 24" fill=none stroke=currentColor stroke-width=2 stroke-linecap=round stroke-linejoin=round><use href="#o-tick"/></svg>
+                  Approve
+                </span>
+              </span>
+            </div>
+
+            <div class="linkrow"><a href="#guardian">View full details</a><i>·</i><a href="#guardian-decide">Talk to the warden first</a></div>
+          </div>
+
+          <div class="acard p2-done">
+            <div class="whorow">
+              <span class="avatar" style="width:42px;height:42px">
+                <svg width=20 height=20 viewBox="0 0 24 24" fill=none stroke=currentColor stroke-width=1.7 stroke-linecap=round stroke-linejoin=round><use href="#o-school"/></svg>
+              </span>
+              <span class="who"><b>Shane Braiden</b><span>21CS1043 &middot; decided just now</span></span>
+              <span class="apill approved"><span class="dot"></span>Approved</span>
+            </div>
+
+            <div class="reasonbox">
+              <span class="caption brand">#A7F3K2 &middot; HOME VISIT</span>
+              <b>Sister's wedding at home.</b>
+            </div>
+
+            <div class="lines">
+              <span class="line"><span class="li"><svg width=14 height=14 viewBox="0 0 24 24" fill=none stroke=currentColor stroke-width=1.7 stroke-linecap=round stroke-linejoin=round><use href="#o-out"/></svg></span>Leaves 12 Mar, 09:00 AM</span>
+              <span class="line"><span class="li"><svg width=14 height=14 viewBox="0 0 24 24" fill=none stroke=currentColor stroke-width=1.7 stroke-linecap=round stroke-linejoin=round><use href="#o-in"/></svg></span>Returns 13 Mar, 07:00 PM</span>
+              <span class="line"><span class="li"><svg width=14 height=14 viewBox="0 0 24 24" fill=none stroke=currentColor stroke-width=1.7 stroke-linecap=round stroke-linejoin=round><use href="#o-pin"/></svg></span>Chennai</span>
+            </div>
+
+            <div class="anote success" style="margin-top:12px">
+              <span class="ni"><svg width=15 height=15 viewBox="0 0 24 24" fill=none stroke=currentColor stroke-width=2.2 stroke-linecap=round stroke-linejoin=round><use href="#o-tick"/></svg></span>
+              <span class="nt">You approved this &middot; the warden has activated the pass.</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="powered">
+          <svg width=12 height=12><use href="#mark"/></svg>
+          Powered by Iverto.ai
+        </div>
+      </div>
+
+      <div class="tabs">
+        <span class="t on"><span class="disc"></span><span class="gl"><svg width=22 height=22 viewBox="0 0 24 24" fill=none stroke=currentColor stroke-width=1.7 stroke-linecap=round stroke-linejoin=round><use href="#o-done2"/></svg><span class="tb p2-badge">1</span></span><span class="lb">Approvals</span></span>
+        <span class="t"><span class="gl"><svg width=22 height=22 viewBox="0 0 24 24" fill=none stroke=currentColor stroke-width=1.7 stroke-linecap=round stroke-linejoin=round><use href="#o-albums"/></svg></span><span class="lb">History</span></span>
+        <span class="t"><span class="gl"><svg width=22 height=22 viewBox="0 0 24 24" fill=none stroke=currentColor stroke-width=1.7 stroke-linecap=round stroke-linejoin=round><use href="#o-school"/></svg></span><span class="lb">Ward</span></span>
+        <span class="t"><span class="gl"><svg width=22 height=22 viewBox="0 0 24 24" fill=none stroke=currentColor stroke-width=1.7 stroke-linecap=round stroke-linejoin=round><use href="#o-person"/></svg></span><span class="lb">Profile</span></span>
+      </div>
+      <div class="homebar"><i></i></div>
+    </div></div></div>
+  </div>
+
+  <div class="gap g2" aria-hidden="true">
+    <span class="spark"></span>
+    <svg width=42 height=42 viewBox="0 0 24 24" fill=none stroke=currentColor stroke-width=1.6 stroke-linecap=round stroke-linejoin=round><use href="#o-arrow"/></svg>
+  </div>
+
+  <!-- ── 3 · WARDEN ── -->
+  <div class="col c3">
+    <div class="step">
+      <span class="n">3</span>
+      <h3>Warden</h3>
+      <span>Activates the pass</span>
+    </div>
+
+    <div class="device"><div class="viewport"><div class="screen">
+      <div class="push">
+        <span class="pk"><svg width=18 height=18><use href="#mark"/></svg></span>
+        <span class="pb"><b>Guardian approved the pass</b><span>#A7F3K2 · Shane Braiden</span></span>
+        <span class="pw">now</span>
+      </div>
+
+      <div class="sysbar">
+        <b>9:46</b>
+        <span class="ic">
+          <svg width=15 height=15 viewBox="0 0 24 24" fill=none stroke=currentColor stroke-width=1.7 stroke-linecap=round stroke-linejoin=round><use href="#o-wifi"/></svg>
+          <svg width=22 height=12 viewBox="0 0 34 16" fill=none stroke=currentColor stroke-width=1.4><rect x=1 y=1 width=26 height=14 rx=4 opacity=".45"/><rect x=3.5 y=3.5 width=19 height=9 rx=2 fill=currentColor stroke=none/><path d="M30 5.5v5" stroke-linecap=round opacity=".45"/></svg>
+        </span>
+      </div>
+
+      <div class="topbar">
+        <span class="iconbtn"><svg width=18 height=18 viewBox="0 0 24 24" fill=none stroke=currentColor stroke-width=1.9 stroke-linecap=round stroke-linejoin=round><use href="#o-back"/></svg></span>
+        <span class="tt"><b>#A7F3K2</b><span>home_visit</span></span>
+      </div>
+
+      <div class="body tight">
+        <div class="acard">
+          <div class="whorow">
+            <span class="avatar" style="width:44px;height:44px">
+              <svg width=21 height=21 viewBox="0 0 24 24" fill=none stroke=currentColor stroke-width=1.7 stroke-linecap=round stroke-linejoin=round><use href="#o-school"/></svg>
+            </span>
+            <span class="who"><b>Shane Braiden</b><span>21CS1043 · B-214</span></span>
+            <span class="apill pending pre inl"><span class="dot"></span>Awaiting guardian</span>
+            <span class="apill approved post inl p3-done"><span class="dot"></span>Approved</span>
+            <span class="apill active p3-live"><span class="dot"></span>Active</span>
+          </div>
+        </div>
+
+        <div class="acard">
+          <div class="row">
+            <span class="ri"><svg width=16 height=16 viewBox="0 0 24 24" fill=none stroke=currentColor stroke-width=1.7 stroke-linecap=round stroke-linejoin=round><use href="#o-pin"/></svg></span>
+            <span class="rl">Destination</span><span class="rv">Chennai</span>
+          </div>
+          <div class="row">
+            <span class="ri"><svg width=16 height=16 viewBox="0 0 24 24" fill=none stroke=currentColor stroke-width=1.7 stroke-linecap=round stroke-linejoin=round><use href="#o-out"/></svg></span>
+            <span class="rl">Leaving</span><span class="rv">12 Mar, 09:00 AM</span>
+          </div>
+        </div>
+
+        <div>
+          <div class="sechead"><b>Timeline</b></div>
+          <div class="tl">
+            <div class="tlrow">
+              <span class="rail"><span class="si done"><svg width=15 height=15 viewBox="0 0 24 24" fill=none stroke=currentColor stroke-width=2.4 stroke-linecap=round stroke-linejoin=round><use href="#o-tick"/></svg></span><span class="sl"></span></span>
+              <span class="sc"><b>Submitted</b><span>Shane Braiden · 6m ago</span></span>
+            </div>
+            <div class="tlrow">
+              <span class="rail"><span class="si done"><svg width=15 height=15 viewBox="0 0 24 24" fill=none stroke=currentColor stroke-width=2.4 stroke-linecap=round stroke-linejoin=round><use href="#o-tick"/></svg></span><span class="sl"></span></span>
+              <span class="sc"><b>Warden cleared</b><span>R. Kannan · 5m ago</span></span>
+            </div>
+            <div class="tlrow pre">
+              <span class="rail"><span class="si current"><svg width=10 height=10 viewBox="0 0 24 24"><circle cx=12 cy=12 r=9 fill=currentColor/></svg></span><span class="sl"></span></span>
+              <span class="sc"><b>Guardian decision</b><span>In progress</span></span>
+            </div>
+            <div class="tlrow post">
+              <span class="rail"><span class="si done"><svg width=15 height=15 viewBox="0 0 24 24" fill=none stroke=currentColor stroke-width=2.4 stroke-linecap=round stroke-linejoin=round><use href="#o-tick"/></svg></span><span class="sl"></span></span>
+              <span class="sc"><b>Guardian approved</b><span>Father · just now</span></span>
+            </div>
+            <div class="tlrow pre">
+              <span class="rail"><span class="si pending"><svg width=11 height=11 viewBox="0 0 24 24" fill=none stroke=currentColor stroke-width=3><circle cx=12 cy=12 r=8/></svg></span></span>
+              <span class="sc"><b>Pass activation</b><span>Not started</span></span>
+            </div>
+            <div class="tlrow post">
+              <span class="rail"><span class="si current"><svg width=10 height=10 viewBox="0 0 24 24"><circle cx=12 cy=12 r=9 fill=currentColor/></svg></span></span>
+              <span class="sc"><b>Pass activation</b><span>In progress</span></span>
+            </div>
+          </div>
+        </div>
+
+        <div class="anote warning pre">
+          <span class="ni"><svg width=16 height=16 viewBox="0 0 24 24" fill=none stroke=currentColor stroke-width=1.7 stroke-linecap=round stroke-linejoin=round><use href="#o-clock"/></svg></span>
+          <span class="nt">Waiting on the guardian to respond.</span>
+        </div>
+
+        <div class="focus post blk">
+          <span class="tapfx"><span class="tapring"></span><span class="tapcur"><svg width=15 height=15 viewBox="0 0 24 24"><use href="#o-pointer"/></svg></span></span>
+          <div class="btn primary">
+            <svg width=18 height=18 viewBox="0 0 24 24" fill=none stroke=currentColor stroke-width=1.7 stroke-linecap=round stroke-linejoin=round><use href="#o-walk"/></svg>
+            Activate pass
+          </div>
+        </div>
+
+        <div class="anote info post">
+          <span class="ni"><svg width=16 height=16 viewBox="0 0 24 24" fill=none stroke=currentColor stroke-width=1.7 stroke-linecap=round stroke-linejoin=round><use href="#o-info"/></svg></span>
+          <span class="nt">The gate can let Shane Braiden out once the pass is active.</span>
+        </div>
+
+      </div>
+      <div class="homebar"><i></i></div>
+    </div></div></div>
+  </div>
+
+  </div><!-- /.flow -->
+
+  <div class="stagebar">
+    <button class="replay" id="replay" type="button">
+      <svg width=15 height=15 viewBox="0 0 24 24" fill=none stroke=currentColor stroke-width=2 stroke-linecap=round stroke-linejoin=round><use href="#o-replay"/></svg>
+      <span id="replaylabel">Play the walkthrough</span>
+    </button>
+    <span class="cap">Warden clears it first, then the guardian decides — see <a href="#journey">the approval chain</a>.</span>
+  </div>
+  </div><!-- /.stage -->
+</div>
+
+<main id="manual">
+<div class="layout">
+
+<aside class="toc" aria-label="On this page">
+  <h4>Start</h4>
+  <ul>
+    <li><a href="#top">Walkthrough</a></li>
+    <li><a href="#overview">What the app does</a></li>
+    <li><a href="#roles">Who does what</a></li>
+    <li><a href="#getting-started">Getting started</a></li>
+    <li><a href="#journey">The approval chain</a></li>
+  </ul>
+  <h4>Student</h4>
+  <ul>
+    <li><a href="#student">Home screen</a></li>
+    <li><a href="#student-request">Raising a request</a></li>
+    <li><a href="#student-history">History &amp; tracking</a></li>
+    <li><a href="#student-profile">Profile &amp; location</a></li>
+  </ul>
+  <h4>Guardian</h4>
+  <ul>
+    <li><a href="#guardian">Approvals</a></li>
+    <li><a href="#guardian-decide">Making a decision</a></li>
+    <li><a href="#guardian-ward">Your ward</a></li>
+    <li><a href="#guardian-emergency">Emergency alert</a></li>
+  </ul>
+  <h4>Warden</h4>
+  <ul>
+    <li><a href="#warden">Overview</a></li>
+    <li><a href="#warden-passes">The pass queue</a></li>
+    <li><a href="#warden-decide">Clearing &amp; rejecting</a></li>
+    <li><a href="#warden-tools">Tools &amp; export</a></li>
+  </ul>
+  <h4>Everyone</h4>
+  <ul>
+    <li><a href="#statuses">Status reference</a></li>
+    <li><a href="#notifications">Notifications</a></li>
+    <li><a href="#account">Account &amp; settings</a></li>
+    <li><a href="#faq">FAQ</a></li>
+    <li><a href="#support">Support</a></li>
+  </ul>
+</aside>
+
+<div class="content">
+
+<!-- ══════════════════════════ OVERVIEW ══════════════════════════ -->
+<section id="overview" class="reveal">
+  <span class="kicker">Overview</span>
+  <h2>What the app does</h2>
+  <p class="lede">
+    A student who wants to leave campus raises an <b>outpass request</b>. It travels through a fixed
+    chain — warden, then guardian — and only becomes a usable pass once both have signed off. The gate
+    scans the student out and back in, and the app records both.
+  </p>
+
+  <div class="shot"><figure class="shotfig"><div class="device sm"><div class="viewport"><div class="screen"><div class="sysbar"><b>8:12</b><span class="ic"><svg width=15 height=15 viewBox="0 0 24 24" fill=none stroke=currentColor stroke-width=1.7 stroke-linecap=round stroke-linejoin=round><use href="#o-wifi"/></svg><svg width=22 height=12 viewBox="0 0 34 16" fill=none stroke=currentColor stroke-width=1.4><rect x=1 y=1 width=26 height=14 rx=4 opacity=".45"/><rect x=3.5 y=3.5 width=19 height=9 rx=2 fill=currentColor stroke=none/><path d="M30 5.5v5" stroke-linecap=round opacity=".45"/></svg></span></div><div class="apphead"><div class="brandstrip"><svg width=18 height=18 style="color:#B9000E"><use href="#mark"/></svg><span>Iverto<i>.ai</i></span></div><div class="headrow"><span class="avatar" style="width:46px;height:46px"><svg width=22 height=22 viewBox="0 0 24 24" fill=none stroke=currentColor stroke-width=1.7 stroke-linecap=round stroke-linejoin=round><use href="#o-school"/></svg></span><span class="who"><span class="greet">Good morning</span><span class="name">Shane Braiden</span><span class="metarow"><span class="m">21CS1043 &middot; B-214</span></span></span><span class="bell"><svg width=20 height=20 viewBox="0 0 24 24" fill=none stroke=currentColor stroke-width=1.7 stroke-linecap=round stroke-linejoin=round><use href="#o-bell"/></svg><span class="bdg">2</span></span></div></div><div class="body tight"><div class="curfew" style="background:var(--success-bg)"><span class="cd" style="background:var(--success)"></span><span class="cl" style="color:var(--success)">On campus</span><span class="cr">Curfew 21:00&ndash;06:00</span></div><div class="acard"><div style="display:flex;align-items:center;justify-content:space-between;gap:8px"><span class="caption brand">LATEST REQUEST</span><span class="apill pending"><span class="dot"></span>Awaiting guardian</span></div><div style="font-size:16px;font-weight:600;margin-top:8px">Sister's wedding at home.</div><div style="font-size:13px;color:var(--muted);margin-top:2px">12 Mar, 09:00 AM &ndash; 13 Mar, 07:00 PM</div><div style="display:flex;align-items:center;gap:6px;margin-top:12px;padding-top:12px;border-top:1px solid var(--border)"><span style="color:var(--warning);display:flex"><svg width=14 height=14 viewBox="0 0 24 24" fill=none stroke=currentColor stroke-width=1.7 stroke-linecap=round stroke-linejoin=round><use href="#o-clock"/></svg></span><span style="flex:1;font-size:13px;color:var(--muted)">Waiting for the guardian to respond.</span><span style="color:var(--faint);display:flex"><svg width=16 height=16 viewBox="0 0 24 24" fill=none stroke=currentColor stroke-width=1.7 stroke-linecap=round stroke-linejoin=round><use href="#o-cfwd"/></svg></span></div></div><div class="acard"><div style="display:flex;align-items:center;gap:12px"><span class="icontile" style="width:42px;height:42px"><svg width=21 height=21 viewBox="0 0 24 24" fill=none stroke=currentColor stroke-width=1.7 stroke-linecap=round stroke-linejoin=round><use href="#o-add"/></svg></span><span style="flex:1;min-width:0"><b style="display:block;font-size:15px;font-weight:600">New outpass request</b><span style="display:block;font-size:13px;color:var(--muted)">Takes about a minute to fill</span></span><span style="color:var(--faint);display:flex"><svg width=18 height=18 viewBox="0 0 24 24" fill=none stroke=currentColor stroke-width=1.7 stroke-linecap=round stroke-linejoin=round><use href="#o-cfwd"/></svg></span></div></div><div class="statrow"><div class="statcard"><span class="icontile" style="width:32px;height:32px;background:var(--success-bg);color:var(--success)"><svg width=17 height=17 viewBox="0 0 24 24" fill=none stroke=currentColor stroke-width=1.7 stroke-linecap=round stroke-linejoin=round><use href="#o-done2"/></svg></span><span class="sv" style="color:var(--success)">12</span><span class="sl">Approved</span></div><div class="statcard"><span class="icontile" style="width:32px;height:32px;background:var(--warning-bg);color:var(--warning)"><svg width=17 height=17 viewBox="0 0 24 24" fill=none stroke=currentColor stroke-width=1.7 stroke-linecap=round stroke-linejoin=round><use href="#o-clock"/></svg></span><span class="sv" style="color:var(--warning)">1</span><span class="sl">Pending</span></div><div class="statcard"><span class="icontile" style="width:32px;height:32px;background:var(--danger-bg);color:var(--danger)"><svg width=17 height=17 viewBox="0 0 24 24" fill=none stroke=currentColor stroke-width=1.7 stroke-linecap=round stroke-linejoin=round><use href="#o-x"/></svg></span><span class="sv" style="color:var(--danger)">0</span><span class="sl">Rejected</span></div></div><div><div class="sechead"><b>Recent requests</b><span style="font-size:13px;font-weight:500;color:var(--primary)">View all</span></div><div class="opcard"><div class="ophead"><div class="opmain"><div class="opid"><span class="caption brand">#K92M1D</span><span class="cattag">MEDICAL</span></div><span class="opreason">Dentist appointment.</span></div><span class="apill approved"><span class="dot"></span>Completed</span></div><div class="opdiv"></div><div class="opmeta"><svg width=14 height=14 viewBox="0 0 24 24" fill=none stroke=currentColor stroke-width=1.7 stroke-linecap=round stroke-linejoin=round><use href="#o-cal"/></svg>28 Feb, 02:00 PM</div><div class="opmeta"><svg width=14 height=14 viewBox="0 0 24 24" fill=none stroke=currentColor stroke-width=1.7 stroke-linecap=round stroke-linejoin=round><use href="#o-pin"/></svg>City Clinic</div></div></div></div><div class="tabs"><span class="t on"><span class="disc"></span><span class="gl"><svg width=22 height=22 viewBox="0 0 24 24" fill=none stroke=currentColor stroke-width=1.7 stroke-linecap=round stroke-linejoin=round><use href="#o-home"/></svg></span><span class="lb">Home</span></span><span class="t"><span class="gl"><svg width=22 height=22 viewBox="0 0 24 24" fill=none stroke=currentColor stroke-width=1.7 stroke-linecap=round stroke-linejoin=round><use href="#o-add"/></svg></span><span class="lb">Request</span></span><span class="t"><span class="gl"><svg width=22 height=22 viewBox="0 0 24 24" fill=none stroke=currentColor stroke-width=1.7 stroke-linecap=round stroke-linejoin=round><use href="#o-albums"/></svg></span><span class="lb">History</span></span><span class="t"><span class="gl"><svg width=22 height=22 viewBox="0 0 24 24" fill=none stroke=currentColor stroke-width=1.7 stroke-linecap=round stroke-linejoin=round><use href="#o-person"/></svg></span><span class="lb">Profile</span></span></div><div class="homebar"><i></i></div></div></div></div><figcaption>Student &middot; Home</figcaption></figure><div class="shotnotes"><h4>On this screen</h4><ul class="plain"><li>A strip saying <b>On campus</b> or <b>Currently out</b>, with your curfew window.</li><li>Your <b>latest request</b>, its status pill and what is holding it up.</li><li><b>New outpass request</b> — the quickest way in.</li><li>Counters for <b>Approved</b>, <b>Pending</b> and <b>Rejected</b>, across your whole history.</li><li><b>Recent requests</b>, with <i>View all</i> for the rest.</li></ul></div></div>
+
+  <div class="card">
+    <ul class="flist">
+      <li>
+        <span class="fi"><svg width=17 height=17 viewBox="0 0 24 24" fill=none stroke=currentColor stroke-width=1.7 stroke-linecap=round stroke-linejoin=round><use href="#o-doc"/></svg></span>
+        <div><b>One request, one trail</b><em>Category, destination, reason, times, emergency contact and any supporting document travel together. Nothing is decided over a phone call the record does not show.</em></div>
+      </li>
+      <li>
+        <span class="fi"><svg width=17 height=17 viewBox="0 0 24 24" fill=none stroke=currentColor stroke-width=1.7 stroke-linecap=round stroke-linejoin=round><use href="#o-done2"/></svg></span>
+        <div><b>Two approvals, in order</b><em>The warden clears it first, then the guardian decides. Neither can be skipped, and both are timestamped against the pass.</em></div>
+      </li>
+      <li>
+        <span class="fi"><svg width=17 height=17 viewBox="0 0 24 24" fill=none stroke=currentColor stroke-width=1.7 stroke-linecap=round stroke-linejoin=round><use href="#o-bell"/></svg></span>
+        <div><b>Everyone hears immediately</b><em>Each step pushes a notification to the people it affects and leaves a copy in the in-app inbox, so turning push off never loses the record.</em></div>
+      </li>
+      <li>
+        <span class="fi"><svg width=17 height=17 viewBox="0 0 24 24" fill=none stroke=currentColor stroke-width=1.7 stroke-linecap=round stroke-linejoin=round><use href="#o-clock"/></svg></span>
+        <div><b>Late returns are logged</b><em>If the gate scans a student in after the time on their pass, the difference is recorded with the reason and what the office did about it.</em></div>
+      </li>
+      <li>
+        <span class="fi"><svg width=17 height=17 viewBox="0 0 24 24" fill=none stroke=currentColor stroke-width=1.7 stroke-linecap=round stroke-linejoin=round><use href="#o-pin"/></svg></span>
+        <div><b>Presence, when enabled</b><em>Guardians see whether their ward is on campus from the gate scans, and — if the student opts in — from a live location fix as well.</em></div>
+      </li>
+    </ul>
+  </div>
+</section>
+
+<!-- ══════════════════════════ ROLES ══════════════════════════ -->
+<section id="roles" class="reveal">
+  <span class="kicker">Roles</span>
+  <h2>Who does what</h2>
+  <p class="lede">
+    Your account has exactly one role, set by the campus office. You never choose it at sign-in — the
+    app opens whichever set of screens belongs to you.
+  </p>
+
+  <div class="rolecards">
+    <a class="rolecard" href="#student">
+      <span class="ico"><svg width=21 height=21 viewBox="0 0 24 24" fill=none stroke=currentColor stroke-width=1.7 stroke-linecap=round stroke-linejoin=round><use href="#o-school"/></svg></span>
+      <strong>Student</strong>
+      <em>Raise outpass requests, watch them move through approval, track your own history.</em>
+      <span class="go">Student guide <svg width=13 height=13 viewBox="0 0 24 24" fill=none stroke=currentColor stroke-width=2 stroke-linecap=round stroke-linejoin=round><use href="#o-arrow"/></svg></span>
+    </a>
+    <a class="rolecard" href="#guardian">
+      <span class="ico"><svg width=21 height=21 viewBox="0 0 24 24" fill=none stroke=currentColor stroke-width=1.7 stroke-linecap=round stroke-linejoin=round><use href="#o-people"/></svg></span>
+      <strong>Guardian</strong>
+      <em>Approve or refuse your ward's requests, see where they are, raise an emergency.</em>
+      <span class="go">Guardian guide <svg width=13 height=13 viewBox="0 0 24 24" fill=none stroke=currentColor stroke-width=2 stroke-linecap=round stroke-linejoin=round><use href="#o-arrow"/></svg></span>
+    </a>
+    <a class="rolecard" href="#warden">
+      <span class="ico"><svg width=21 height=21 viewBox="0 0 24 24" fill=none stroke=currentColor stroke-width=1.7 stroke-linecap=round stroke-linejoin=round><use href="#o-shield"/></svg></span>
+      <strong>Warden</strong>
+      <em>Clear requests for your site, activate passes, handle escalations and emergencies.</em>
+      <span class="go">Warden guide <svg width=13 height=13 viewBox="0 0 24 24" fill=none stroke=currentColor stroke-width=2 stroke-linecap=round stroke-linejoin=round><use href="#o-arrow"/></svg></span>
+    </a>
+  </div>
+
+  <div class="tablewrap">
+    <table>
+      <thead><tr><th>What you can do</th><th>Student</th><th>Guardian</th><th>Warden</th></tr></thead>
+      <tbody>
+        <tr><td>Raise an outpass request</td><td class="yes">Yes</td><td class="no">—</td><td class="no">—</td></tr>
+        <tr><td>Cancel before it is used</td><td class="yes">Yes</td><td class="no">—</td><td class="yes">Via override</td></tr>
+        <tr><td>Clear a request for guardian approval</td><td class="no">—</td><td class="no">—</td><td class="yes">Yes</td></tr>
+        <tr><td>Approve or refuse</td><td class="no">—</td><td class="yes">Yes</td><td class="yes">On the guardian's behalf</td></tr>
+        <tr><td>Activate an approved pass</td><td class="no">—</td><td class="no">—</td><td class="yes">Yes</td></tr>
+        <tr><td>See gate scans and late returns</td><td class="yes">Own only</td><td class="yes">Own wards</td><td class="yes">Whole site</td></tr>
+        <tr><td>See a student's live location</td><td class="yes">Own device</td><td class="yes">If the student opts in</td><td class="no">—</td></tr>
+        <tr><td>Raise an emergency alert</td><td class="no">—</td><td class="yes">Yes</td><td class="no">Resolves them</td></tr>
+        <tr><td>Send a campus announcement</td><td class="no">—</td><td class="no">—</td><td class="yes">Yes</td></tr>
+        <tr><td>Export passes as CSV</td><td class="no">—</td><td class="no">—</td><td class="yes">Yes</td></tr>
+        <tr><td>Edit your own profile record</td><td class="no">Request only</td><td class="no">Request only</td><td class="no">—</td></tr>
+        <tr><td>Approve profile change requests</td><td class="no">—</td><td class="no">—</td><td class="yes">Yes</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<!-- ══════════════════════════ GETTING STARTED ══════════════════════════ -->
+<section id="getting-started" class="reveal">
+  <span class="kicker">Getting started</span>
+  <h2>Signing in for the first time</h2>
+  <p class="lede">
+    There is no sign-up screen. Accounts are created by the hostel office, and the office issues your
+    first password. Everything below happens once.
+  </p>
+
+  <div class="shot"><figure class="shotfig"><div class="device sm"><div class="viewport"><div class="screen"><div class="sysbar"><b>9:38</b><span class="ic"><svg width=15 height=15 viewBox="0 0 24 24" fill=none stroke=currentColor stroke-width=1.7 stroke-linecap=round stroke-linejoin=round><use href="#o-wifi"/></svg><svg width=22 height=12 viewBox="0 0 34 16" fill=none stroke=currentColor stroke-width=1.4><rect x=1 y=1 width=26 height=14 rx=4 opacity=".45"/><rect x=3.5 y=3.5 width=19 height=9 rx=2 fill=currentColor stroke=none/><path d="M30 5.5v5" stroke-linecap=round opacity=".45"/></svg></span></div><div class="loginwrap"><div class="loginbrand"><span class="lb"><svg width=34 height=34><use href="#mark"/></svg></span><b>Iverto<i style="color:var(--primary);font-style:normal">.ai</i></b><span>Sign in to continue</span></div><div class="field"><span class="lbl">Email address</span><div class="input"><span class="ii"><svg width=18 height=18 viewBox="0 0 24 24" fill=none stroke=currentColor stroke-width=1.7 stroke-linecap=round stroke-linejoin=round><use href="#o-person"/></svg></span>Shanebraiden48@gmail.com</div></div><div class="field"><span class="lbl">Password</span><div class="input"><span class="ii"><svg width=18 height=18 viewBox="0 0 24 24" fill=none stroke=currentColor stroke-width=1.7 stroke-linecap=round stroke-linejoin=round><use href="#o-lock"/></svg></span>&bull;&bull;&bull;&bull;&bull;&bull;&bull;&bull;<span style="margin-left:auto;color:var(--faint)"><svg width=18 height=18 viewBox="0 0 24 24" fill=none stroke=currentColor stroke-width=1.7 stroke-linecap=round stroke-linejoin=round><use href="#o-info"/></svg></span></div></div><div style="text-align:right;font-size:13px;font-weight:500;color:var(--primary)">Forgot password?</div><div class="btn primary">Continue</div><div class="anote info"><span class="ni"><svg width=16 height=16 viewBox="0 0 24 24" fill=none stroke=currentColor stroke-width=1.7 stroke-linecap=round stroke-linejoin=round><use href="#o-info"/></svg></span><span class="nt">Accounts are created by the hostel office. There is no sign-up.</span></div></div><div class="powered"><svg width=12 height=12><use href="#mark"/></svg> Powered by Iverto.ai</div><div class="homebar"><i></i></div></div></div></div><figcaption>Sign in</figcaption></figure><div class="shotnotes"><h4>On this screen</h4><ul class="plain"><li>Your <b>email address</b> — the one on your campus record.</li><li>Your <b>password</b>, with an eye icon to check what you typed.</li><li><b>Forgot password</b> — emails a reset link to the address on record.</li><li>An <b>Institution ID</b> field appears only if your address exists at more than one institution.</li></ul></div></div>
+
+  <h3 id="gs-signin"><svg width=19 height=19 viewBox="0 0 24 24" fill=none stroke=currentColor stroke-width=1.7 stroke-linecap=round stroke-linejoin=round><use href="#o-key"/></svg> Sign in</h3>
+  <ol class="steps">
+    <li><b>Open the app</b><p>If you have signed in before, the app restores your session and goes straight to your dashboard.</p></li>
+    <li><b>Enter your email address</b><p>The address on your campus record. The app remembers it for next time.</p></li>
+    <li><b>Enter your password</b><p>Tap the eye icon to check what you typed. Forgotten it? <b>Forgot password</b> emails a reset link to the address on record.</p></li>
+    <li><b>Tap Continue</b><p>The server decides your role and the app opens the matching dashboard. You never pick student, guardian or warden yourself.</p></li>
+  </ol>
+
+  <div class="note warn">
+    <span class="ni"><svg width=17 height=17 viewBox="0 0 24 24" fill=none stroke=currentColor stroke-width=1.8 stroke-linecap=round stroke-linejoin=round><use href="#o-warn"/></svg></span>
+    <p><b>Asked for an Institution ID?</b> That field only appears when the same email or number exists at
+    more than one institution. Enter the ID the campus office gave you and sign in again.</p>
+  </div>
+
+  <h3 id="gs-password"><svg width=19 height=19 viewBox="0 0 24 24" fill=none stroke=currentColor stroke-width=1.7 stroke-linecap=round stroke-linejoin=round><use href="#o-lock"/></svg> Set your own password</h3>
+  <p>
+    If you are still on the password the office issued, the app takes you straight to <b>Change
+    password</b> and will not go anywhere else until you have set one. There is no back button — the
+    only way out is a new password or signing out.
+  </p>
+  <ul class="plain">
+    <li>At least <b>8 characters</b>, checked before anything is sent.</li>
+    <li>Type it twice; the second field has to match.</li>
+    <li>Afterwards you land on whatever your account needs next — linking, or your dashboard.</li>
+  </ul>
+
+  <h3 id="gs-link"><svg width=19 height=19 viewBox="0 0 24 24" fill=none stroke=currentColor stroke-width=1.7 stroke-linecap=round stroke-linejoin=round><use href="#o-arrow"/></svg> Connect your account to your campus record</h3>
+  <p>A brand-new account is not yet attached to a student record. The app shows a <b>One more step</b> screen:</p>
+  <div class="grid g2">
+    <div class="card">
+      <h4>Students — roll number</h4>
+      <p style="color:var(--muted);font-size:14.2px;margin:0">
+        The roll number on your ID card, exactly as the office has it. That links your account to your
+        record — room, department, year, site and guardians all come with it.
+      </p>
+    </div>
+    <div class="card">
+      <h4>Guardians — mobile number</h4>
+      <p style="color:var(--muted);font-size:14.2px;margin:0">
+        The mobile number the campus holds for you. One entry links <b>every</b> ward that number appears
+        against, so a parent with two children on campus gets both in a single step.
+      </p>
+    </div>
+  </div>
+  <div class="note tip">
+    <span class="ni"><svg width=17 height=17 viewBox="0 0 24 24" fill=none stroke=currentColor stroke-width=1.8 stroke-linecap=round stroke-linejoin=round><use href="#o-info"/></svg></span>
+    <p><b>"Not on the roster"</b> means the office has not added it yet, or it was typed differently.
+    <b>"Already connected to another account"</b> means somebody has claimed it — your warden can sort
+    that out. Wardens skip this screen entirely.</p>
+  </div>
+
+  <h3 id="gs-session">Staying signed in</h3>
+  <ul class="plain">
+    <li>Your session is held in the phone's secure keystore and restored each time you open the app.</li>
+    <li>It refreshes quietly in the background, so a long session never interrupts you.</li>
+    <li>Signed out unexpectedly? The sign-in screen says why — <b>your session timed out</b>, or <b>the server ended it</b> (signed in elsewhere, or an administrator closed it).</li>
+    <li><b>Profile → Sign out</b> also switches push notifications off for that device.</li>
+  </ul>
+</section>
+
+<!-- ══════════════════════════ JOURNEY ══════════════════════════ -->
+<section id="journey" class="reveal">
+  <span class="kicker">The flow</span>
+  <h2>The approval chain</h2>
+  <p class="lede">
+    Every pass follows the same path. Knowing where a request sits tells you who is holding it up — and
+    the status pill says exactly that, in words.
+  </p>
+
+  <div class="grid g3">
+    <div class="card">
+      <h4>1 · Warden first</h4>
+      <p style="color:var(--muted);font-size:14px;margin:0">A new request sits at <span class="pill p-pending">With warden</span> until the site warden clears it. Nothing reaches the guardian before that.</p>
+    </div>
+    <div class="card">
+      <h4>2 · Guardian second</h4>
+      <p style="color:var(--muted);font-size:14px;margin:0">Once cleared it moves to <span class="pill p-pending">Awaiting guardian</span>. They approve, refuse, or ask to speak to the warden first.</p>
+    </div>
+    <div class="card">
+      <h4>3 · Then the gate</h4>
+      <p style="color:var(--muted);font-size:14px;margin:0">The warden activates the approved pass. The student is scanned out, scanned back in, and it closes as <span class="pill p-approved">Completed</span>.</p>
+    </div>
+  </div>
+
+  <p>Requests that leave the chain do so in one of five ways:</p>
+  <ul class="plain">
+    <li><b>Rejected by warden</b> — turned down before the guardian ever sees it.</li>
+    <li><b>Rejected by guardian</b> — turned down with a reason the student is shown.</li>
+    <li><b>Escalated</b> — the guardian did not answer in time, so the warden is asked to step in.</li>
+    <li><b>Cancelled</b> — pulled back by the student before the pass went live.</li>
+    <li><b>Expired</b> — the window passed without the pass being used.</li>
+  </ul>
+
+  <div class="note info">
+    <span class="ni"><svg width=17 height=17 viewBox="0 0 24 24" fill=none stroke=currentColor stroke-width=1.8 stroke-linecap=round stroke-linejoin=round><use href="#o-info"/></svg></span>
+    <p><b>There is no QR code pass.</b> The app does not draw a scannable code. The gate looks the student
+    up and records the scan against the pass, which is what puts <b>Scanned out</b> and <b>Scanned in</b>
+    on the record.</p>
+  </div>
+</section>
+
+<!-- ══════════════════════════ STUDENT ══════════════════════════ -->
+<section id="student" class="reveal">
+  <span class="kicker">Student guide</span>
+  <h2>Your home screen</h2>
+  <p class="lede">Four tabs — <b>Home</b>, <b>Request</b>, <b>History</b>, <b>Profile</b> — and everything about where you stand is on the first one.</p>
+
+  <div class="card">
+    <ul class="flist">
+      <li>
+        <span class="fi"><svg width=17 height=17 viewBox="0 0 24 24" fill=none stroke=currentColor stroke-width=1.7 stroke-linecap=round stroke-linejoin=round><use href="#o-pin"/></svg></span>
+        <div><b>Where the gate last saw you</b><em>A strip at the top reads <b>On campus</b> or <b>Currently out</b>, with your site's curfew window beside it.</em></div>
+      </li>
+      <li>
+        <span class="fi"><svg width=17 height=17 viewBox="0 0 24 24" fill=none stroke=currentColor stroke-width=1.7 stroke-linecap=round stroke-linejoin=round><use href="#o-doc"/></svg></span>
+        <div><b>Latest request</b><em>Your request in flight, with its status pill and a line saying what is holding it up. Tap it for the full timeline.</em></div>
+      </li>
+      <li>
+        <span class="fi"><svg width=17 height=17 viewBox="0 0 24 24" fill=none stroke=currentColor stroke-width=1.7 stroke-linecap=round stroke-linejoin=round><use href="#o-grid"/></svg></span>
+        <div><b>Approved · Pending · Rejected</b><em>Three counters across your whole history, not just what is on screen.</em></div>
+      </li>
+      <li>
+        <span class="fi"><svg width=17 height=17 viewBox="0 0 24 24" fill=none stroke=currentColor stroke-width=1.7 stroke-linecap=round stroke-linejoin=round><use href="#o-clock"/></svg></span>
+        <div><b>Late returns on record</b><em>The warden reviews these when clearing your next pass, so it is worth seeing before you ask again.</em></div>
+      </li>
+    </ul>
+  </div>
+
+  <h3 id="student-request"><svg width=19 height=19 viewBox="0 0 24 24" fill=none stroke=currentColor stroke-width=1.7 stroke-linecap=round stroke-linejoin=round><use href="#o-add"/></svg> Raising an outpass request</h3>
+  <div class="shot"><figure class="shotfig"><div class="device sm"><div class="viewport"><div class="screen"><div class="sysbar"><b>9:41</b><span class="ic"><svg width=15 height=15 viewBox="0 0 24 24" fill=none stroke=currentColor stroke-width=1.7 stroke-linecap=round stroke-linejoin=round><use href="#o-wifi"/></svg><svg width=22 height=12 viewBox="0 0 34 16" fill=none stroke=currentColor stroke-width=1.4><rect x=1 y=1 width=26 height=14 rx=4 opacity=".45"/><rect x=3.5 y=3.5 width=19 height=9 rx=2 fill=currentColor stroke=none/><path d="M30 5.5v5" stroke-linecap=round opacity=".45"/></svg></span></div><div class="topbar"><span class="tt"><b>New outpass</b><span>Fill in your trip details</span></span></div><div class="body tight"><div class="acard"><div class="row"><span class="ri"><svg width=16 height=16 viewBox="0 0 24 24" fill=none stroke=currentColor stroke-width=1.7 stroke-linecap=round stroke-linejoin=round><use href="#o-person"/></svg></span><span class="rl">Requested by</span><span class="rv">Shane Braiden</span></div><div class="row"><span class="ri"><svg width=16 height=16 viewBox="0 0 24 24" fill=none stroke=currentColor stroke-width=1.7 stroke-linecap=round stroke-linejoin=round><use href="#o-id"/></svg></span><span class="rl">Roll no.</span><span class="rv">21CS1043</span></div></div><div><div class="lbl" style="margin-bottom:12px">Category</div><div class="chips"><span class="chip on">Home visit</span><span class="chip">Medical</span><span class="chip">Local</span></div><div class="hint" style="margin-top:10px">Maximum 48h for this category.</div></div><div><div class="lbl" style="margin-bottom:12px">Leaving</div><div class="pickers"><div class="picker"><svg width=18 height=18 viewBox="0 0 24 24" fill=none stroke=currentColor stroke-width=1.7 stroke-linecap=round stroke-linejoin=round><use href="#o-cal"/></svg><span class="pt"><small>DATE</small><b>Thu, 12 Mar</b></span><span class="cv"><svg width=16 height=16 viewBox="0 0 24 24" fill=none stroke=currentColor stroke-width=2 stroke-linecap=round stroke-linejoin=round><use href="#o-cdown"/></svg></span></div><div class="picker"><svg width=18 height=18 viewBox="0 0 24 24" fill=none stroke=currentColor stroke-width=1.7 stroke-linecap=round stroke-linejoin=round><use href="#o-clock"/></svg><span class="pt"><small>TIME</small><b>09:00 AM</b></span><span class="cv"><svg width=16 height=16 viewBox="0 0 24 24" fill=none stroke=currentColor stroke-width=2 stroke-linecap=round stroke-linejoin=round><use href="#o-cdown"/></svg></span></div></div></div><div class="field"><span class="lbl">Destination</span><div class="input"><span class="ii"><svg width=18 height=18 viewBox="0 0 24 24" fill=none stroke=currentColor stroke-width=1.7 stroke-linecap=round stroke-linejoin=round><use href="#o-pin"/></svg></span>Chennai</div></div><div class="field"><span class="lbl">Reason</span><div class="input">Sister's wedding at home.</div></div><div style="display:flex;align-items:center;gap:12px;padding:16px;border-radius:18px;border:1.5px dashed var(--border-strong);background:var(--glass)"><span style="color:var(--primary);display:flex"><svg width=20 height=20 viewBox="0 0 24 24" fill=none stroke=currentColor stroke-width=1.7 stroke-linecap=round stroke-linejoin=round><use href="#o-down"/></svg></span><span style="flex:1;min-width:0"><b style="display:block;font-size:13px;font-weight:500">Attach supporting document</b><span style="display:block;font-size:13px;color:var(--faint)">Optional &middot; PDF or image, max 5 MB</span></span></div><div class="btn primary"><svg width=18 height=18 viewBox="0 0 24 24" fill=none stroke=currentColor stroke-width=1.7 stroke-linecap=round stroke-linejoin=round><use href="#o-send"/></svg> Submit request</div></div><div class="tabs"><span class="t"><span class="gl"><svg width=22 height=22 viewBox="0 0 24 24" fill=none stroke=currentColor stroke-width=1.7 stroke-linecap=round stroke-linejoin=round><use href="#o-home"/></svg></span><span class="lb">Home</span></span><span class="t on"><span class="disc"></span><span class="gl"><svg width=22 height=22 viewBox="0 0 24 24" fill=none stroke=currentColor stroke-width=1.7 stroke-linecap=round stroke-linejoin=round><use href="#o-add"/></svg></span><span class="lb">Request</span></span><span class="t"><span class="gl"><svg width=22 height=22 viewBox="0 0 24 24" fill=none stroke=currentColor stroke-width=1.7 stroke-linecap=round stroke-linejoin=round><use href="#o-albums"/></svg></span><span class="lb">History</span></span><span class="t"><span class="gl"><svg width=22 height=22 viewBox="0 0 24 24" fill=none stroke=currentColor stroke-width=1.7 stroke-linecap=round stroke-linejoin=round><use href="#o-person"/></svg></span><span class="lb">Profile</span></span></div><div class="homebar"><i></i></div></div></div></div><figcaption>Student &middot; New outpass</figcaption></figure><div class="shotnotes"><h4>On this screen</h4><ul class="plain"><li>Your name and roll number, filled in from your record.</li><li><b>Category</b> chips, each with its own rules underneath.</li><li><b>Leaving</b> and <b>Returning</b> date and time pickers.</li><li><b>Destination</b>, <b>Reason</b> and an emergency contact.</li><li>An optional — sometimes required — <b>supporting document</b>.</li></ul></div></div>
+
+  <ol class="steps">
+    <li><b>Check the summary</b><p>Name, roll number, room and site come from your record. If any of it is wrong, fix it with <a href="#account-profile">a profile change request</a> first.</p></li>
+    <li><b>Pick a category</b><p>The chips come from your campus. Each carries its own rules, shown underneath: a maximum duration, and whether a supporting document is required.</p></li>
+    <li><b>Set when you are leaving</b><p>Tap the <b>Date</b> and <b>Time</b> boxes under <b>Leaving</b>. They default to right now.</p></li>
+    <li><b>Set when you are coming back</b><p>Defaults to four hours later. The app prints how long you will be away, and turns it red if the return is before the departure or the trip is longer than the category allows.</p></li>
+    <li><b>Destination and reason</b><p>The reason is what your guardian reads before deciding, so it is worth a full sentence.</p></li>
+    <li><b>Emergency contact</b><p>A number you can actually be reached on. Yours is pre-filled.</p></li>
+    <li><b>Attach a document if needed</b><p>PDF or image, up to 5 MB. Optional for most categories — a category marked <b>Required</b> will not submit without one.</p></li>
+    <li><b>Submit</b><p>Goes to your warden, and notifies your guardian at once. You land back on Home with the new request at the top.</p></li>
+  </ol>
+
+  <div class="note tip">
+    <span class="ni"><svg width=17 height=17 viewBox="0 0 24 24" fill=none stroke=currentColor stroke-width=1.8 stroke-linecap=round stroke-linejoin=round><use href="#o-info"/></svg></span>
+    <p><b>Submit button greyed out?</b> A field is empty, the return is at or before the departure, the trip
+    is over the category maximum, or a required document is missing. The screen says which — look for the
+    red note.</p>
+  </div>
+
+  <h3 id="student-history"><svg width=19 height=19 viewBox="0 0 24 24" fill=none stroke=currentColor stroke-width=1.7 stroke-linecap=round stroke-linejoin=round><use href="#o-albums"/></svg> History and tracking</h3>
+  <div class="shot two"><figure class="shotfig"><div class="device sm"><div class="viewport"><div class="screen"><div class="sysbar"><b>8:20</b><span class="ic"><svg width=15 height=15 viewBox="0 0 24 24" fill=none stroke=currentColor stroke-width=1.7 stroke-linecap=round stroke-linejoin=round><use href="#o-wifi"/></svg><svg width=22 height=12 viewBox="0 0 34 16" fill=none stroke=currentColor stroke-width=1.4><rect x=1 y=1 width=26 height=14 rx=4 opacity=".45"/><rect x=3.5 y=3.5 width=19 height=9 rx=2 fill=currentColor stroke=none/><path d="M30 5.5v5" stroke-linecap=round opacity=".45"/></svg></span></div><div class="topbar"><span class="tt"><b>My requests</b><span>18 in total</span></span><span class="iconbtn"><svg width=18 height=18 viewBox="0 0 24 24" fill=none stroke=currentColor stroke-width=1.7 stroke-linecap=round stroke-linejoin=round><use href="#o-search"/></svg></span></div><div class="body tight"><div class="filterbar"><span class="chip on">All</span><span class="chip">Pending</span><span class="chip">Approved</span><span class="chip">Active</span></div><div class="opcard"><div class="ophead"><div class="opmain"><div class="opid"><span class="caption brand">#A7F3K2</span><span class="cattag">HOME VISIT</span></div><span class="opreason">Sister's wedding at home.</span></div><span class="apill pending"><span class="dot"></span>Awaiting guardian</span></div><div class="opdiv"></div><div class="opmeta"><svg width=14 height=14 viewBox="0 0 24 24" fill=none stroke=currentColor stroke-width=1.7 stroke-linecap=round stroke-linejoin=round><use href="#o-cal"/></svg>12 Mar, 09:00 AM</div><div class="opmeta"><svg width=14 height=14 viewBox="0 0 24 24" fill=none stroke=currentColor stroke-width=1.7 stroke-linecap=round stroke-linejoin=round><use href="#o-pin"/></svg>Chennai</div></div><div class="opcard"><div class="ophead"><div class="opmain"><div class="opid"><span class="caption brand">#K92M1D</span><span class="cattag">MEDICAL</span></div><span class="opreason">Dentist appointment.</span></div><span class="apill approved"><span class="dot"></span>Completed</span></div><div class="opdiv"></div><div class="opmeta"><svg width=14 height=14 viewBox="0 0 24 24" fill=none stroke=currentColor stroke-width=1.7 stroke-linecap=round stroke-linejoin=round><use href="#o-cal"/></svg>28 Feb, 02:00 PM</div><div class="opmeta"><svg width=14 height=14 viewBox="0 0 24 24" fill=none stroke=currentColor stroke-width=1.7 stroke-linecap=round stroke-linejoin=round><use href="#o-pin"/></svg>City Clinic</div></div><div class="opcard"><div class="ophead"><div class="opmain"><div class="opid"><span class="caption brand">#B41X7P</span><span class="cattag">LOCAL</span></div><span class="opreason">Stationery run before exams.</span></div><span class="apill approved"><span class="dot"></span>Completed</span></div><div class="opdiv"></div><div class="opmeta"><svg width=14 height=14 viewBox="0 0 24 24" fill=none stroke=currentColor stroke-width=1.7 stroke-linecap=round stroke-linejoin=round><use href="#o-cal"/></svg>19 Feb, 04:30 PM</div><div class="opmeta"><svg width=14 height=14 viewBox="0 0 24 24" fill=none stroke=currentColor stroke-width=1.7 stroke-linecap=round stroke-linejoin=round><use href="#o-pin"/></svg>Anna Nagar</div></div><div class="loadmore">Load more</div></div><div class="tabs"><span class="t"><span class="gl"><svg width=22 height=22 viewBox="0 0 24 24" fill=none stroke=currentColor stroke-width=1.7 stroke-linecap=round stroke-linejoin=round><use href="#o-home"/></svg></span><span class="lb">Home</span></span><span class="t"><span class="gl"><svg width=22 height=22 viewBox="0 0 24 24" fill=none stroke=currentColor stroke-width=1.7 stroke-linecap=round stroke-linejoin=round><use href="#o-add"/></svg></span><span class="lb">Request</span></span><span class="t on"><span class="disc"></span><span class="gl"><svg width=22 height=22 viewBox="0 0 24 24" fill=none stroke=currentColor stroke-width=1.7 stroke-linecap=round stroke-linejoin=round><use href="#o-albums"/></svg></span><span class="lb">History</span></span><span class="t"><span class="gl"><svg width=22 height=22 viewBox="0 0 24 24" fill=none stroke=currentColor stroke-width=1.7 stroke-linecap=round stroke-linejoin=round><use href="#o-person"/></svg></span><span class="lb">Profile</span></span></div><div class="homebar"><i></i></div></div></div></div><figcaption>Student &middot; History</figcaption></figure><figure class="shotfig"><div class="device sm"><div class="viewport"><div class="screen"><div class="sysbar"><b>8:22</b><span class="ic"><svg width=15 height=15 viewBox="0 0 24 24" fill=none stroke=currentColor stroke-width=1.7 stroke-linecap=round stroke-linejoin=round><use href="#o-wifi"/></svg><svg width=22 height=12 viewBox="0 0 34 16" fill=none stroke=currentColor stroke-width=1.4><rect x=1 y=1 width=26 height=14 rx=4 opacity=".45"/><rect x=3.5 y=3.5 width=19 height=9 rx=2 fill=currentColor stroke=none/><path d="M30 5.5v5" stroke-linecap=round opacity=".45"/></svg></span></div><div class="topbar"><span class="iconbtn"><svg width=18 height=18 viewBox="0 0 24 24" fill=none stroke=currentColor stroke-width=1.9 stroke-linecap=round stroke-linejoin=round><use href="#o-back"/></svg></span><span class="tt"><b>#A7F3K2</b><span>home_visit</span></span></div><div class="body tight"><div class="acard"><div class="whorow"><span class="avatar" style="width:44px;height:44px"><svg width=21 height=21 viewBox="0 0 24 24" fill=none stroke=currentColor stroke-width=1.7 stroke-linecap=round stroke-linejoin=round><use href="#o-school"/></svg></span><span class="who"><b>Shane Braiden</b><span>21CS1043 &middot; B-214</span></span><span class="apill pending"><span class="dot"></span>Awaiting guardian</span></div></div><div class="acard"><div class="row"><span class="ri"><svg width=16 height=16 viewBox="0 0 24 24" fill=none stroke=currentColor stroke-width=1.7 stroke-linecap=round stroke-linejoin=round><use href="#o-tagp"/></svg></span><span class="rl">Category</span><span class="rv">Home visit</span></div><div class="row"><span class="ri"><svg width=16 height=16 viewBox="0 0 24 24" fill=none stroke=currentColor stroke-width=1.7 stroke-linecap=round stroke-linejoin=round><use href="#o-pin"/></svg></span><span class="rl">Destination</span><span class="rv">Chennai</span></div><div class="row"><span class="ri"><svg width=16 height=16 viewBox="0 0 24 24" fill=none stroke=currentColor stroke-width=1.7 stroke-linecap=round stroke-linejoin=round><use href="#o-out"/></svg></span><span class="rl">Leaving</span><span class="rv">12 Mar, 09:00 AM</span></div></div><div><div class="sechead"><b>Timeline</b></div><div class="tl"><div class="tlrow"><span class="rail"><span class="si done"><svg width=15 height=15 viewBox="0 0 24 24" fill=none stroke=currentColor stroke-width=2.4 stroke-linecap=round stroke-linejoin=round><use href="#o-tick"/></svg></span><span class="sl"></span></span><span class="sc"><b>Submitted</b><span>You &middot; 6m ago</span></span></div><div class="tlrow"><span class="rail"><span class="si done"><svg width=15 height=15 viewBox="0 0 24 24" fill=none stroke=currentColor stroke-width=2.4 stroke-linecap=round stroke-linejoin=round><use href="#o-tick"/></svg></span><span class="sl"></span></span><span class="sc"><b>Warden cleared</b><span>R. Kannan &middot; 5m ago</span></span></div><div class="tlrow"><span class="rail"><span class="si current"><svg width=10 height=10 viewBox="0 0 24 24"><circle cx=12 cy=12 r=9 fill=currentColor/></svg></span><span class="sl"></span></span><span class="sc"><b>Guardian decision</b><span>In progress</span></span></div><div class="tlrow"><span class="rail"><span class="si pending"><svg width=11 height=11 viewBox="0 0 24 24" fill=none stroke=currentColor stroke-width=3><circle cx=12 cy=12 r=8/></svg></span></span><span class="sc"><b>Pass activation</b><span>Not started</span></span></div></div></div><div class="btn danger"><svg width=18 height=18 viewBox="0 0 24 24" fill=none stroke=currentColor stroke-width=2 stroke-linecap=round stroke-linejoin=round><use href="#o-x"/></svg> Cancel request</div><div class="powered"><svg width=12 height=12><use href="#mark"/></svg> Powered by Iverto.ai</div></div><div class="homebar"><i></i></div></div></div></div><figcaption>Student &middot; Pass detail</figcaption></figure><div class="shotnotes"><h4>The list, and one pass</h4><ul class="plain"><li>Chips filter by state; the magnifying glass searches reason, destination and category.</li><li>Each row carries the pass ID, category, reason, dates and destination.</li><li>Open one for the full record and the <b>timeline</b> — one row per stage, marked done, current or pending.</li><li><b>Cancel request</b> sits at the bottom while the request can still be pulled back.</li></ul></div></div>
+
+  <p>
+    <b>History</b> holds every request you have raised. Filter with the chips — All, Pending, Approved,
+    Active, Rejected, Expired, Cancelled — or tap the magnifying glass to search by reason, destination
+    or category.
+  </p>
+  <p>Tap any request to open it. The detail screen shows:</p>
+  <ul class="plain">
+    <li>The <b>pass ID</b> and status pill.</li>
+    <li>Category, destination, leaving and returning times, emergency contact, when you raised it.</li>
+    <li><b>Scanned out</b> and <b>Scanned in</b> times, once the gate has recorded them.</li>
+    <li>Any note the warden or your guardian left with their decision.</li>
+    <li>A <b>timeline</b> of the chain — one row per stage, marked done, current, pending or rejected.</li>
+  </ul>
+  <h4>Cancelling</h4>
+  <p>
+    <b>Cancel request</b> appears while the request can still be pulled back — a draft, with the warden,
+    cleared by the warden, awaiting your guardian, or approved but not yet activated. Once a pass is
+    active it cannot be cancelled from the app, and a cancellation cannot be undone.
+  </p>
+
+  <h3 id="student-profile"><svg width=19 height=19 viewBox="0 0 24 24" fill=none stroke=currentColor stroke-width=1.7 stroke-linecap=round stroke-linejoin=round><use href="#o-person"/></svg> Profile and location sharing</h3>
+  <p>
+    Your <b>Profile</b> lists roll number, room, site, phone, email and home address. It is read-only —
+    see <a href="#account-profile">requesting a change</a>. Underneath sits one control that is yours
+    alone: <b>Location sharing</b>. When it is on —
+  </p>
+  <ul class="plain">
+    <li><b>Only the guardians on your record</b> can see it — not other students, not the hostel at large, and not the warden.</li>
+    <li>Your position is sent <b>at most once a minute</b>, and <b>only while the app is open</b>. Nothing goes in the background.</li>
+    <li>What your guardian sees is whether you are inside or outside the campus boundary, and how old the reading is.</li>
+    <li>Turn it off and nothing further is sent. What was already sent stays on your record.</li>
+  </ul>
+  <div class="note ok">
+    <span class="ni"><svg width=17 height=17 viewBox="0 0 24 24" fill=none stroke=currentColor stroke-width=1.8 stroke-linecap=round stroke-linejoin=round><use href="#o-shield"/></svg></span>
+    <p>Location sharing is <b>off until you turn it on</b>, and leaving it off does not affect your passes —
+    your guardian still sees the gate scans either way.</p>
+  </div>
+</section>
+
+<!-- ══════════════════════════ GUARDIAN ══════════════════════════ -->
+<section id="guardian" class="reveal">
+  <span class="kicker">Guardian guide</span>
+  <h2>Approvals</h2>
+  <p class="lede">
+    The <b>Approvals</b> tab is the front door: everything waiting on your decision, with the buttons on
+    the card. The tab badge counts requests across <i>all</i> your wards, so a second child's request
+    never goes unseen.
+  </p>
+
+  <div class="shot"><figure class="shotfig"><div class="device sm"><div class="viewport"><div class="screen"><div class="sysbar"><b>9:45</b><span class="ic"><svg width=15 height=15 viewBox="0 0 24 24" fill=none stroke=currentColor stroke-width=1.7 stroke-linecap=round stroke-linejoin=round><use href="#o-wifi"/></svg><svg width=22 height=12 viewBox="0 0 34 16" fill=none stroke=currentColor stroke-width=1.4><rect x=1 y=1 width=26 height=14 rx=4 opacity=".45"/><rect x=3.5 y=3.5 width=19 height=9 rx=2 fill=currentColor stroke=none/><path d="M30 5.5v5" stroke-linecap=round opacity=".45"/></svg></span></div><div class="apphead"><div class="brandstrip"><svg width=18 height=18 style="color:#B9000E"><use href="#mark"/></svg><span>Iverto<i>.ai</i></span></div><div class="headrow"><span class="avatar" style="width:46px;height:46px"><svg width=22 height=22 viewBox="0 0 24 24" fill=none stroke=currentColor stroke-width=1.7 stroke-linecap=round stroke-linejoin=round><use href="#o-people"/></svg></span><span class="who"><span class="greet">Signed in as</span><span class="name">Father</span><span class="metarow"><span class="m">Guardian of</span><span class="metachip">Shane Braiden <svg width=13 height=13 viewBox="0 0 24 24" fill=none stroke=currentColor stroke-width=2.2 stroke-linecap=round stroke-linejoin=round><use href="#o-cdown"/></svg></span></span></span><span class="bell"><svg width=20 height=20 viewBox="0 0 24 24" fill=none stroke=currentColor stroke-width=1.7 stroke-linecap=round stroke-linejoin=round><use href="#o-bell"/></svg><span class="bdg">1</span></span></div></div><div class="body"><div class="anote warning"><span class="ni"><svg width=16 height=16 viewBox="0 0 24 24" fill=none stroke=currentColor stroke-width=1.7 stroke-linecap=round stroke-linejoin=round><use href="#o-warn"/></svg></span><span class="nt">1 request needs your approval. Shane Braiden can't leave campus until you respond.</span></div><div><div class="sechead"><b>Awaiting your decision</b></div><div class="acard"><div class="whorow"><span class="avatar" style="width:42px;height:42px"><svg width=20 height=20 viewBox="0 0 24 24" fill=none stroke=currentColor stroke-width=1.7 stroke-linecap=round stroke-linejoin=round><use href="#o-school"/></svg></span><span class="who"><b>Shane Braiden</b><span>21CS1043 &middot; asked 4m ago</span></span><span class="apill pending"><span class="dot"></span>Awaiting guardian</span></div><div class="reasonbox"><span class="caption brand">#A7F3K2 &middot; HOME VISIT</span><b>Sister's wedding at home.</b></div><div class="lines"><span class="line"><span class="li"><svg width=14 height=14 viewBox="0 0 24 24" fill=none stroke=currentColor stroke-width=1.7 stroke-linecap=round stroke-linejoin=round><use href="#o-out"/></svg></span>Leaves 12 Mar, 09:00 AM</span><span class="line"><span class="li"><svg width=14 height=14 viewBox="0 0 24 24" fill=none stroke=currentColor stroke-width=1.7 stroke-linecap=round stroke-linejoin=round><use href="#o-in"/></svg></span>Returns 13 Mar, 07:00 PM</span><span class="line"><span class="li"><svg width=14 height=14 viewBox="0 0 24 24" fill=none stroke=currentColor stroke-width=1.7 stroke-linecap=round stroke-linejoin=round><use href="#o-pin"/></svg></span>Chennai</span></div><div class="btnrow" style="margin-top:12px"><span class="btn danger"><svg width=18 height=18 viewBox="0 0 24 24" fill=none stroke=currentColor stroke-width=2 stroke-linecap=round stroke-linejoin=round><use href="#o-x"/></svg> Reject</span><span class="btn success"><svg width=18 height=18 viewBox="0 0 24 24" fill=none stroke=currentColor stroke-width=2 stroke-linecap=round stroke-linejoin=round><use href="#o-tick"/></svg> Approve</span></div><div class="linkrow"><span style="color:var(--primary)">View full details</span><i>&middot;</i><span style="color:var(--primary)">Talk to the warden first</span></div></div></div><div class="powered"><svg width=12 height=12><use href="#mark"/></svg> Powered by Iverto.ai</div></div><div class="tabs"><span class="t on"><span class="disc"></span><span class="gl"><svg width=22 height=22 viewBox="0 0 24 24" fill=none stroke=currentColor stroke-width=1.7 stroke-linecap=round stroke-linejoin=round><use href="#o-done2"/></svg><span class="tb">1</span></span><span class="lb">Approvals</span></span><span class="t"><span class="gl"><svg width=22 height=22 viewBox="0 0 24 24" fill=none stroke=currentColor stroke-width=1.7 stroke-linecap=round stroke-linejoin=round><use href="#o-albums"/></svg></span><span class="lb">History</span></span><span class="t"><span class="gl"><svg width=22 height=22 viewBox="0 0 24 24" fill=none stroke=currentColor stroke-width=1.7 stroke-linecap=round stroke-linejoin=round><use href="#o-school"/></svg></span><span class="lb">Ward</span></span><span class="t"><span class="gl"><svg width=22 height=22 viewBox="0 0 24 24" fill=none stroke=currentColor stroke-width=1.7 stroke-linecap=round stroke-linejoin=round><use href="#o-person"/></svg></span><span class="lb">Profile</span></span></div><div class="homebar"><i></i></div></div></div></div><figcaption>Guardian &middot; Approvals</figcaption></figure><div class="shotnotes"><h4>On this screen</h4><ul class="plain"><li>A note counting what is waiting on you.</li><li>The student, how long ago they asked, and the <b>full reason</b> — never truncated.</li><li>Leaving and returning times, destination and their contact number.</li><li><b>Reject</b> and <b>Approve</b> right on the card, plus <i>Talk to the warden first</i>.</li></ul></div></div>
+
+  <h4>More than one child on campus?</h4>
+  <p>
+    You see one ward at a time. The only sign of that is a small caret next to the name in the header —
+    <b>tap the name to switch</b>, and the queue re-points at that child. When a sibling has something
+    waiting, a note tells you and points at the switch. A guardian with one ward gets no caret at all.
+  </p>
+
+  <h3 id="guardian-decide"><svg width=19 height=19 viewBox="0 0 24 24" fill=none stroke=currentColor stroke-width=1.7 stroke-linecap=round stroke-linejoin=round><use href="#o-done2"/></svg> Making a decision</h3>
+  <p>
+    Each card carries the student's name and roll number, how long ago they asked, the pass ID and
+    category, the <b>full reason</b> — never truncated — and the leaving and returning times.
+  </p>
+  <div class="grid g3">
+    <div class="card">
+      <h4 style="color:var(--success)">Approve</h4>
+      <p style="color:var(--muted);font-size:14px;margin:0">Records it at once. The student and the warden are both told, and the pass moves on to be activated.</p>
+    </div>
+    <div class="card">
+      <h4 style="color:var(--danger)">Reject</h4>
+      <p style="color:var(--muted);font-size:14px;margin:0">Asks for a reason. What you type is shown to the student, so it is worth a sentence rather than a word.</p>
+    </div>
+    <div class="card">
+      <h4 style="color:var(--primary)">Talk to the warden first</h4>
+      <p style="color:var(--muted);font-size:14px;margin:0"><b>Not a decision.</b> It alerts the warden that you want to discuss this before deciding, and they will call you. The request stays open.</p>
+    </div>
+  </div>
+
+  <div class="note info">
+    <span class="ni"><svg width=17 height=17 viewBox="0 0 24 24" fill=none stroke=currentColor stroke-width=1.8 stroke-linecap=round stroke-linejoin=round><use href="#o-people"/></svg></span>
+    <p><b>Two guardians on one student?</b> The first response counts. Tap a button after the other guardian
+    has answered — or after you replied over WhatsApp — and the app says <b>Already decided</b> and
+    refreshes rather than showing an error. Repeating the <i>same</i> decision is always harmless.</p>
+  </div>
+
+  <h3 id="guardian-ward"><svg width=19 height=19 viewBox="0 0 24 24" fill=none stroke=currentColor stroke-width=1.7 stroke-linecap=round stroke-linejoin=round><use href="#o-school"/></svg> Your ward</h3>
+  <div class="shot"><figure class="shotfig"><div class="device sm"><div class="viewport"><div class="screen"><div class="sysbar"><b>9:50</b><span class="ic"><svg width=15 height=15 viewBox="0 0 24 24" fill=none stroke=currentColor stroke-width=1.7 stroke-linecap=round stroke-linejoin=round><use href="#o-wifi"/></svg><svg width=22 height=12 viewBox="0 0 34 16" fill=none stroke=currentColor stroke-width=1.4><rect x=1 y=1 width=26 height=14 rx=4 opacity=".45"/><rect x=3.5 y=3.5 width=19 height=9 rx=2 fill=currentColor stroke=none/><path d="M30 5.5v5" stroke-linecap=round opacity=".45"/></svg></span></div><div class="topbar"><span class="tt"><b>My ward</b><span>Computer Science &middot; Year 3</span></span></div><div class="body tight"><div class="acard"><div class="whorow"><span class="avatar" style="width:44px;height:44px"><svg width=21 height=21 viewBox="0 0 24 24" fill=none stroke=currentColor stroke-width=1.7 stroke-linecap=round stroke-linejoin=round><use href="#o-school"/></svg></span><span class="who"><b>Shane Braiden</b><span>21CS1043 &middot; B-214</span></span><span class="apill active"><span class="dot"></span>IN</span></div></div><div class="acard"><div class="curfew" style="background:var(--success-bg);margin:-4px -4px 12px"><span class="cd" style="background:var(--success)"></span><span class="cl" style="color:var(--success)">On campus</span><span class="cr">Scanned in 19:40</span></div><div class="opmeta"><svg width=14 height=14 viewBox="0 0 24 24" fill=none stroke=currentColor stroke-width=1.7 stroke-linecap=round stroke-linejoin=round><use href="#o-in"/></svg> Main gate &middot; 12 minutes ago</div><div class="opmeta"><svg width=14 height=14 viewBox="0 0 24 24" fill=none stroke=currentColor stroke-width=1.7 stroke-linecap=round stroke-linejoin=round><use href="#o-pin"/></svg> Inside campus &middot; fix 40s old</div></div><div class="statrow"><div class="statcard"><span class="icontile" style="width:32px;height:32px;background:var(--info-bg);color:var(--info)"><svg width=17 height=17 viewBox="0 0 24 24" fill=none stroke=currentColor stroke-width=1.7 stroke-linecap=round stroke-linejoin=round><use href="#o-doc"/></svg></span><span class="sv" style="color:var(--info)">7</span><span class="sl">Passes this term</span></div><div class="statcard"><span class="icontile" style="width:32px;height:32px;background:var(--warning-bg);color:var(--warning)"><svg width=17 height=17 viewBox="0 0 24 24" fill=none stroke=currentColor stroke-width=1.7 stroke-linecap=round stroke-linejoin=round><use href="#o-clock"/></svg></span><span class="sv" style="color:var(--warning)">1</span><span class="sl">Late returns</span></div></div><div><div class="sechead"><b>Hostel details</b></div><div class="acard"><div class="row"><span class="ri"><svg width=16 height=16 viewBox="0 0 24 24" fill=none stroke=currentColor stroke-width=1.7 stroke-linecap=round stroke-linejoin=round><use href="#o-bed"/></svg></span><span class="rl">Room</span><span class="rv">B-214</span></div><div class="row"><span class="ri"><svg width=16 height=16 viewBox="0 0 24 24" fill=none stroke=currentColor stroke-width=1.7 stroke-linecap=round stroke-linejoin=round><use href="#o-shield"/></svg></span><span class="rl">Warden</span><span class="rv">R. Kannan</span></div><div class="row"><span class="ri"><svg width=16 height=16 viewBox="0 0 24 24" fill=none stroke=currentColor stroke-width=1.7 stroke-linecap=round stroke-linejoin=round><use href="#o-call"/></svg></span><span class="rl">Warden contact</span><span class="rv">+91 98765 43210</span></div></div></div><div class="acard flush" style="padding:4px 0"><div class="ltile"><span class="icontile" style="width:36px;height:36px"><svg width=17 height=17 viewBox="0 0 24 24" fill=none stroke=currentColor stroke-width=1.7 stroke-linecap=round stroke-linejoin=round><use href="#o-clock"/></svg></span><span class="lt"><b>Late entry log</b><span>1 late return on record</span></span><svg width=16 height=16 viewBox="0 0 24 24" fill=none stroke=currentColor stroke-width=1.7 stroke-linecap=round stroke-linejoin=round><use href="#o-cfwd"/></svg></div><div class="ldiv"></div><div class="ltile"><span class="icontile" style="width:36px;height:36px"><svg width=17 height=17 viewBox="0 0 24 24" fill=none stroke=currentColor stroke-width=1.7 stroke-linecap=round stroke-linejoin=round><use href="#o-call"/></svg></span><span class="lt"><b>Call warden</b><span>+91 98765 43210</span></span><svg width=16 height=16 viewBox="0 0 24 24" fill=none stroke=currentColor stroke-width=1.7 stroke-linecap=round stroke-linejoin=round><use href="#o-cfwd"/></svg></div><div class="ldiv"></div><div class="ltile"><span class="icontile" style="width:36px;height:36px;background:var(--danger-bg);color:var(--danger)"><svg width=17 height=17 viewBox="0 0 24 24" fill=none stroke=currentColor stroke-width=1.7 stroke-linecap=round stroke-linejoin=round><use href="#o-warn"/></svg></span><span class="lt"><b>Report an emergency</b><span>Alerts every warden on this site</span></span><svg width=16 height=16 viewBox="0 0 24 24" fill=none stroke=currentColor stroke-width=1.7 stroke-linecap=round stroke-linejoin=round><use href="#o-cfwd"/></svg></div></div></div><div class="tabs"><span class="t"><span class="gl"><svg width=22 height=22 viewBox="0 0 24 24" fill=none stroke=currentColor stroke-width=1.7 stroke-linecap=round stroke-linejoin=round><use href="#o-done2"/></svg></span><span class="lb">Approvals</span></span><span class="t"><span class="gl"><svg width=22 height=22 viewBox="0 0 24 24" fill=none stroke=currentColor stroke-width=1.7 stroke-linecap=round stroke-linejoin=round><use href="#o-albums"/></svg></span><span class="lb">History</span></span><span class="t on"><span class="disc"></span><span class="gl"><svg width=22 height=22 viewBox="0 0 24 24" fill=none stroke=currentColor stroke-width=1.7 stroke-linecap=round stroke-linejoin=round><use href="#o-school"/></svg></span><span class="lb">Ward</span></span><span class="t"><span class="gl"><svg width=22 height=22 viewBox="0 0 24 24" fill=none stroke=currentColor stroke-width=1.7 stroke-linecap=round stroke-linejoin=round><use href="#o-person"/></svg></span><span class="lb">Profile</span></span></div><div class="homebar"><i></i></div></div></div></div><figcaption>Guardian &middot; Ward</figcaption></figure><div class="shotnotes"><h4>On this screen</h4><ul class="plain"><li>One card reconciling the last <b>gate scan</b> with the live location fix, when there is one.</li><li><b>Passes this term</b> and <b>Late returns</b> — the second is a link to the full log.</li><li><b>Hostel details</b>: room, block, site and the warden responsible.</li><li><b>Call warden</b>, <b>Message student</b> and <b>Report an emergency</b>.</li></ul></div></div>
+
+  <p>The <b>Ward</b> tab is everything about one child in one place.</p>
+  <div class="card">
+    <ul class="flist">
+      <li>
+        <span class="fi"><svg width=17 height=17 viewBox="0 0 24 24" fill=none stroke=currentColor stroke-width=1.7 stroke-linecap=round stroke-linejoin=round><use href="#o-pin"/></svg></span>
+        <div><b>Where they are</b><em>One card reconciles two sources: the last gate scan (in or out, which gate, when) and — if your ward has switched on location sharing — a live fix saying whether they are inside the campus boundary and how fresh the reading is.</em></div>
+      </li>
+      <li>
+        <span class="fi"><svg width=17 height=17 viewBox="0 0 24 24" fill=none stroke=currentColor stroke-width=1.7 stroke-linecap=round stroke-linejoin=round><use href="#o-grid"/></svg></span>
+        <div><b>Passes this term · Late returns</b><em>Two counters. The second is a link — tap it for the full late-entry log: what time the pass expected them, when the gate actually scanned them in, the gap, the reason, and what the office did.</em></div>
+      </li>
+      <li>
+        <span class="fi"><svg width=17 height=17 viewBox="0 0 24 24" fill=none stroke=currentColor stroke-width=1.7 stroke-linecap=round stroke-linejoin=round><use href="#o-people"/></svg></span>
+        <div><b>Guardians on record</b><em>Everyone the campus lists against this student, with relationship, phone number, and which one is you.</em></div>
+      </li>
+      <li>
+        <span class="fi"><svg width=17 height=17 viewBox="0 0 24 24" fill=none stroke=currentColor stroke-width=1.7 stroke-linecap=round stroke-linejoin=round><use href="#o-shield"/></svg></span>
+        <div><b>Hostel details</b><em>Room, block, site, and the name and phone number of the warden responsible — plus <b>Call warden</b> and <b>Message student</b>.</em></div>
+      </li>
+    </ul>
+  </div>
+
+  <h3 id="guardian-emergency"><svg width=19 height=19 viewBox="0 0 24 24" fill=none stroke=currentColor stroke-width=1.7 stroke-linecap=round stroke-linejoin=round><use href="#o-warn"/></svg> Raising an emergency alert</h3>
+  <p>
+    <b>Ward → Report an emergency</b> puts an alert in front of <b>every warden on your ward's site</b>,
+    immediately, with a push notification.
+  </p>
+  <ol class="steps">
+    <li><b>Pick a category</b><p>Medical, Family, Safety or Other.</p></li>
+    <li><b>Say what has happened</b><p>Your own words go straight onto the warden's dashboard, unclipped. This is what they act on.</p></li>
+    <li><b>Give a callback number</b><p>Shown beside the alert so a warden can reach you without hunting for your record.</p></li>
+    <li><b>Tap Alert the warden</b><p>It sits at the top of every warden's overview until one of them marks it resolved.</p></li>
+  </ol>
+  <div class="note warn">
+    <span class="ni"><svg width=17 height=17 viewBox="0 0 24 24" fill=none stroke=currentColor stroke-width=1.8 stroke-linecap=round stroke-linejoin=round><use href="#o-clock"/></svg></span>
+    <p>One alert per 30 seconds. If you need to add something, wait a moment — or use <b>Call warden</b> on
+    the same screen.</p>
+  </div>
+</section>
+
+<!-- ══════════════════════════ WARDEN ══════════════════════════ -->
+<section id="warden" class="reveal">
+  <span class="kicker">Warden guide</span>
+  <h2>Overview</h2>
+  <p class="lede">
+    The warden's <b>Overview</b> tab is a live picture of the sites assigned to you: what is waiting, who
+    is out, and anything that has gone wrong.
+  </p>
+  <div class="shot"><figure class="shotfig"><div class="device sm"><div class="viewport"><div class="screen"><div class="sysbar"><b>9:30</b><span class="ic"><svg width=15 height=15 viewBox="0 0 24 24" fill=none stroke=currentColor stroke-width=1.7 stroke-linecap=round stroke-linejoin=round><use href="#o-wifi"/></svg><svg width=22 height=12 viewBox="0 0 34 16" fill=none stroke=currentColor stroke-width=1.4><rect x=1 y=1 width=26 height=14 rx=4 opacity=".45"/><rect x=3.5 y=3.5 width=19 height=9 rx=2 fill=currentColor stroke=none/><path d="M30 5.5v5" stroke-linecap=round opacity=".45"/></svg></span></div><div class="apphead"><div class="brandstrip"><svg width=18 height=18 style="color:#B9000E"><use href="#mark"/></svg><span>Iverto<i>.ai</i></span></div><div class="headrow"><span class="avatar" style="width:46px;height:46px"><svg width=22 height=22 viewBox="0 0 24 24" fill=none stroke=currentColor stroke-width=1.7 stroke-linecap=round stroke-linejoin=round><use href="#o-shield"/></svg></span><span class="who"><span class="greet">Signed in as</span><span class="name">R. Kannan</span><span class="metarow"><span class="m">Warden &middot; Block B</span></span></span><span class="bell"><svg width=20 height=20 viewBox="0 0 24 24" fill=none stroke=currentColor stroke-width=1.7 stroke-linecap=round stroke-linejoin=round><use href="#o-bell"/></svg><span class="bdg">4</span></span></div></div><div class="body tight"><div class="alert"><span style="color:var(--danger);display:flex;flex-shrink:0;margin-top:2px"><svg width=18 height=18 viewBox="0 0 24 24" fill=none stroke=currentColor stroke-width=1.7 stroke-linecap=round stroke-linejoin=round><use href="#o-warn"/></svg></span><span class="am"><b>MEDICAL &middot; Nithya S.</b><span>Fever since last night, please check on her.</span><span style="color:var(--faint)">Call back on +91 90000 11111 &middot; 6m ago</span></span><span class="ar">Resolve</span></div><div class="statrow"><div class="statcard"><span class="icontile" style="width:32px;height:32px;background:var(--warning-bg);color:var(--warning)"><svg width=17 height=17 viewBox="0 0 24 24" fill=none stroke=currentColor stroke-width=1.7 stroke-linecap=round stroke-linejoin=round><use href="#o-clock"/></svg></span><span class="sv" style="color:var(--warning)">7</span><span class="sl">Pending</span></div><div class="statcard"><span class="icontile" style="width:32px;height:32px;background:var(--success-bg);color:var(--success)"><svg width=17 height=17 viewBox="0 0 24 24" fill=none stroke=currentColor stroke-width=1.7 stroke-linecap=round stroke-linejoin=round><use href="#o-done2"/></svg></span><span class="sv" style="color:var(--success)">14</span><span class="sl">Approved today</span></div></div><div class="statrow"><div class="statcard"><span class="icontile" style="width:32px;height:32px;background:var(--info-bg);color:var(--info)"><svg width=17 height=17 viewBox="0 0 24 24" fill=none stroke=currentColor stroke-width=1.7 stroke-linecap=round stroke-linejoin=round><use href="#o-walk"/></svg></span><span class="sv" style="color:var(--info)">23</span><span class="sl">Currently out</span></div><div class="statcard"><span class="icontile" style="width:32px;height:32px;background:var(--danger-bg);color:var(--danger)"><svg width=17 height=17 viewBox="0 0 24 24" fill=none stroke=currentColor stroke-width=1.7 stroke-linecap=round stroke-linejoin=round><use href="#o-warn"/></svg></span><span class="sv" style="color:var(--danger)">1</span><span class="sl">Overdue</span></div></div><div><div class="sechead"><b>Quick tools</b></div><div class="tools"><span class="tool"><span class="icontile" style="width:34px;height:34px"><svg width=18 height=18 viewBox="0 0 24 24" fill=none stroke=currentColor stroke-width=1.7 stroke-linecap=round stroke-linejoin=round><use href="#o-docs"/></svg></span>Passes</span><span class="tool"><span class="icontile" style="width:34px;height:34px"><svg width=18 height=18 viewBox="0 0 24 24" fill=none stroke=currentColor stroke-width=1.7 stroke-linecap=round stroke-linejoin=round><use href="#o-edit"/></svg></span>Profiles</span><span class="tool"><span class="icontile" style="width:34px;height:34px"><svg width=18 height=18 viewBox="0 0 24 24" fill=none stroke=currentColor stroke-width=1.7 stroke-linecap=round stroke-linejoin=round><use href="#o-mega"/></svg></span>Announce</span></div></div><div><div class="sechead"><b>Recent activity</b></div><div class="acard"><div class="actrow"><span class="ai"><svg width=16 height=16 viewBox="0 0 24 24" fill=none stroke=currentColor stroke-width=1.7 stroke-linecap=round stroke-linejoin=round><use href="#o-out"/></svg></span><span class="at"><b>Gate scan &middot; out</b><span>Shane Braiden &middot; 3m ago</span></span></div><div class="actrow"><span class="ai"><svg width=16 height=16 viewBox="0 0 24 24" fill=none stroke=currentColor stroke-width=1.7 stroke-linecap=round stroke-linejoin=round><use href="#o-done2"/></svg></span><span class="at"><b>Guardian approved</b><span>#A7F3K2 &middot; 5m ago</span></span></div><div class="actrow"><span class="ai"><svg width=16 height=16 viewBox="0 0 24 24" fill=none stroke=currentColor stroke-width=1.7 stroke-linecap=round stroke-linejoin=round><use href="#o-doc"/></svg></span><span class="at"><b>Pass submitted</b><span>Meera R. &middot; 11m ago</span></span></div></div></div></div><div class="tabs"><span class="t on"><span class="disc"></span><span class="gl"><svg width=22 height=22 viewBox="0 0 24 24" fill=none stroke=currentColor stroke-width=1.7 stroke-linecap=round stroke-linejoin=round><use href="#o-grid"/></svg></span><span class="lb">Overview</span></span><span class="t"><span class="gl"><svg width=22 height=22 viewBox="0 0 24 24" fill=none stroke=currentColor stroke-width=1.7 stroke-linecap=round stroke-linejoin=round><use href="#o-docs"/></svg><span class="tb">7</span></span><span class="lb">Passes</span></span><span class="t"><span class="gl"><svg width=22 height=22 viewBox="0 0 24 24" fill=none stroke=currentColor stroke-width=1.7 stroke-linecap=round stroke-linejoin=round><use href="#o-edit"/></svg><span class="tb">3</span></span><span class="lb">Profiles</span></span><span class="t"><span class="gl"><svg width=22 height=22 viewBox="0 0 24 24" fill=none stroke=currentColor stroke-width=1.7 stroke-linecap=round stroke-linejoin=round><use href="#o-person"/></svg></span><span class="lb">Profile</span></span></div><div class="homebar"><i></i></div></div></div></div><figcaption>Warden &middot; Overview</figcaption></figure><div class="shotnotes"><h4>On this screen</h4><ul class="plain"><li>Open <b>emergency alerts</b> above everything else, each with <b>Resolve</b>.</li><li>Four counters: <b>Pending</b>, <b>Approved today</b>, <b>Currently out</b>, <b>Overdue</b>.</li><li><b>Quick tools</b> — Passes, Profiles, Announce, Inbox.</li><li>A running <b>activity feed</b> of scans, decisions and overrides.</li></ul></div></div>
+
+  <ul class="plain">
+    <li><b>Open emergency alerts</b>, above everything else — category, student, the guardian's own message and a callback number, each with a <b>Resolve</b> action.</li>
+    <li><b>Four counters</b>: <span class="pill p-pending">Pending</span> <span class="pill p-approved">Approved today</span> <span class="pill p-active">Currently out</span> <span class="pill p-rejected">Overdue</span> — across your assigned sites, not just the page in front of you.</li>
+    <li><b>Quick tools</b>: Passes, Profile edits, Announce, Inbox.</li>
+    <li><b>Recent activity</b>: gate scans, decisions, cancellations, overrides, announcements and profile edits, each with how long ago.</li>
+  </ul>
+
+  <h3 id="warden-passes"><svg width=19 height=19 viewBox="0 0 24 24" fill=none stroke=currentColor stroke-width=1.7 stroke-linecap=round stroke-linejoin=round><use href="#o-docs"/></svg> The pass queue</h3>
+  <div class="shot"><figure class="shotfig"><div class="device sm"><div class="viewport"><div class="screen"><div class="sysbar"><b>9:32</b><span class="ic"><svg width=15 height=15 viewBox="0 0 24 24" fill=none stroke=currentColor stroke-width=1.7 stroke-linecap=round stroke-linejoin=round><use href="#o-wifi"/></svg><svg width=22 height=12 viewBox="0 0 34 16" fill=none stroke=currentColor stroke-width=1.4><rect x=1 y=1 width=26 height=14 rx=4 opacity=".45"/><rect x=3.5 y=3.5 width=19 height=9 rx=2 fill=currentColor stroke=none/><path d="M30 5.5v5" stroke-linecap=round opacity=".45"/></svg></span></div><div class="topbar"><span class="tt"><b>Passes</b><span>Block B &middot; 214 this term</span></span><span class="iconbtn"><svg width=18 height=18 viewBox="0 0 24 24" fill=none stroke=currentColor stroke-width=1.7 stroke-linecap=round stroke-linejoin=round><use href="#o-down"/></svg></span></div><div class="body tight"><div class="filterbar"><span class="chip on">All</span><span class="chip">Pending</span><span class="chip">Approved</span><span class="chip">Active</span></div><div class="opcard"><div class="ophead"><div class="opmain"><div class="opid"><span class="caption brand">#A7F3K2</span><span class="cattag">HOME VISIT</span></div><span class="opreason">Shane Braiden &middot; 21CS1043</span><span style="display:block;font-size:13px;color:var(--muted)">Sister's wedding at home.</span></div><span class="apill pending"><span class="dot"></span>With warden</span></div><div class="opdiv"></div><div class="opmeta"><svg width=14 height=14 viewBox="0 0 24 24" fill=none stroke=currentColor stroke-width=1.7 stroke-linecap=round stroke-linejoin=round><use href="#o-cal"/></svg>12 Mar, 09:00 AM</div><div class="opmeta"><svg width=14 height=14 viewBox="0 0 24 24" fill=none stroke=currentColor stroke-width=1.7 stroke-linecap=round stroke-linejoin=round><use href="#o-pin"/></svg>Chennai</div></div><div class="opcard"><div class="ophead"><div class="opmain"><div class="opid"><span class="caption brand">#T30Q8L</span><span class="cattag">MEDICAL</span></div><span class="opreason">Meera R. &middot; 21EC1120</span><span style="display:block;font-size:13px;color:var(--muted)">Physiotherapy session.</span></div><span class="apill active"><span class="dot"></span>Out</span></div><div class="opdiv"></div><div class="opmeta"><svg width=14 height=14 viewBox="0 0 24 24" fill=none stroke=currentColor stroke-width=1.7 stroke-linecap=round stroke-linejoin=round><use href="#o-cal"/></svg>12 Mar, 11:00 AM</div><div class="opmeta"><svg width=14 height=14 viewBox="0 0 24 24" fill=none stroke=currentColor stroke-width=1.7 stroke-linecap=round stroke-linejoin=round><use href="#o-pin"/></svg>Apollo</div></div><div class="opcard"><div class="ophead"><div class="opmain"><div class="opid"><span class="caption brand">#W55Z2C</span><span class="cattag">LOCAL</span></div><span class="opreason">Nithya S. &middot; 22ME1077</span><span style="display:block;font-size:13px;color:var(--muted)">Bank work.</span></div><span class="apill approved"><span class="dot"></span>Approved</span></div><div class="opdiv"></div><div class="opmeta"><svg width=14 height=14 viewBox="0 0 24 24" fill=none stroke=currentColor stroke-width=1.7 stroke-linecap=round stroke-linejoin=round><use href="#o-cal"/></svg>11 Mar, 03:00 PM</div><div class="opmeta"><svg width=14 height=14 viewBox="0 0 24 24" fill=none stroke=currentColor stroke-width=1.7 stroke-linecap=round stroke-linejoin=round><use href="#o-pin"/></svg>T. Nagar</div></div><div class="loadmore">Load more</div></div><div class="tabs"><span class="t"><span class="gl"><svg width=22 height=22 viewBox="0 0 24 24" fill=none stroke=currentColor stroke-width=1.7 stroke-linecap=round stroke-linejoin=round><use href="#o-grid"/></svg></span><span class="lb">Overview</span></span><span class="t on"><span class="disc"></span><span class="gl"><svg width=22 height=22 viewBox="0 0 24 24" fill=none stroke=currentColor stroke-width=1.7 stroke-linecap=round stroke-linejoin=round><use href="#o-docs"/></svg><span class="tb">7</span></span><span class="lb">Passes</span></span><span class="t"><span class="gl"><svg width=22 height=22 viewBox="0 0 24 24" fill=none stroke=currentColor stroke-width=1.7 stroke-linecap=round stroke-linejoin=round><use href="#o-edit"/></svg><span class="tb">3</span></span><span class="lb">Profiles</span></span><span class="t"><span class="gl"><svg width=22 height=22 viewBox="0 0 24 24" fill=none stroke=currentColor stroke-width=1.7 stroke-linecap=round stroke-linejoin=round><use href="#o-person"/></svg></span><span class="lb">Profile</span></span></div><div class="homebar"><i></i></div></div></div></div><figcaption>Warden &middot; Passes</figcaption></figure><div class="shotnotes"><h4>On this screen</h4><ul class="plain"><li>Every pass across your sites, newest first, with the student named on each row.</li><li>Chips filter by state; the search box covers roll number, pass ID, name, reason and destination.</li><li>The <b>download</b> icon exports exactly what the filter shows, as CSV.</li></ul></div></div>
+
+  <ul class="plain">
+    <li><b>Chips</b> filter by state: All, Pending, Approved, Active, Rejected, Expired, Cancelled.</li>
+    <li><b>Search</b> covers roll number, pass ID, student name, reason and destination — one box for every way you might look for a pass.</li>
+    <li>Filtering and searching happen server-side, so a long history is never downloaded just to be narrowed.</li>
+  </ul>
+
+  <h3 id="warden-decide"><svg width=19 height=19 viewBox="0 0 24 24" fill=none stroke=currentColor stroke-width=1.7 stroke-linecap=round stroke-linejoin=round><use href="#o-done2"/></svg> Clearing, activating and rejecting</h3>
+  <p>
+    Tap a request to open it. You get the same detail every role sees, plus the actions that are yours.
+    <b>An action only appears when it is actually this request's next step.</b>
+  </p>
+  <div class="tablewrap">
+    <table>
+      <thead><tr><th>Action</th><th>Appears when</th><th>What it does</th></tr></thead>
+      <tbody>
+        <tr>
+          <td><b>Clear for guardian approval</b></td>
+          <td>Status is <span class="pill p-pending">With warden</span> or <span class="pill p-pending">Escalated</span></td>
+          <td>Records your approval and starts the guardian flow. They are notified at once.</td>
+        </tr>
+        <tr>
+          <td><b>Activate pass</b></td>
+          <td>Status is <span class="pill p-approved">Approved</span></td>
+          <td>Makes the pass live so the gate can let the student out. Status becomes <span class="pill p-active">Active</span>.</td>
+        </tr>
+        <tr>
+          <td><b>They agreed / They refused</b></td>
+          <td>Status is <span class="pill p-pending">Escalated</span> or <span class="pill p-pending">Contacting guardian</span></td>
+          <td>Logs a guardian's answer that came in over the phone rather than in the app.</td>
+        </tr>
+        <tr>
+          <td><b>Override status</b></td>
+          <td>Always</td>
+          <td>Forces the pass into a chosen state, bypassing the chain. Requires a note, and is written to the audit log.</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="note warn">
+    <span class="ni"><svg width=17 height=17 viewBox="0 0 24 24" fill=none stroke=currentColor stroke-width=1.8 stroke-linecap=round stroke-linejoin=round><use href="#o-warn"/></svg></span>
+    <p><b>How do I reject a request?</b> Use <b>Override status</b> and pick <b>Reject</b>, then give the
+    reason. The note is what the student sees, and the override is recorded against your account. The
+    same sheet offers <i>Approve on the guardian's behalf</i>, <i>Mark active</i>, <i>Mark completed</i>,
+    <i>Cancel</i> and <i>Mark expired</i>.</p>
+  </div>
+
+  <h4>Escalated requests</h4>
+  <p>
+    A request is <span class="pill p-pending">Escalated</span> when the guardian never responded in the
+    app. Call them, ask for a decision, then tap <b>They agreed</b> or <b>They refused</b> — it is logged
+    against the pass as the guardian's decision, noted as having come in out of band.
+  </p>
+
+  <h3 id="warden-tools"><svg width=19 height=19 viewBox="0 0 24 24" fill=none stroke=currentColor stroke-width=1.7 stroke-linecap=round stroke-linejoin=round><use href="#o-mega"/></svg> Profile edits, announcements and export</h3>
+  <h4>Profile change requests</h4>
+  <p>
+    Students and guardians cannot edit their own records, so every correction arrives here. The
+    <b>Profiles</b> tab badges how many are pending; each shows the field, current value, requested value,
+    reason and any attached proof. <b>Approve</b> writes it to the record and notifies the requester.
+  </p>
+  <h4>Announcements</h4>
+  <p>
+    <b>Overview → Announce</b> sends a titled message to <b>Everyone</b>, <b>Students</b>,
+    <b>Guardians</b> or <b>Wardens</b> across your sites — in-app inbox and push.
+  </p>
+  <h4>Exporting passes</h4>
+  <p>
+    The download icon in the <b>Passes</b> title bar exports whatever the chips and search box currently
+    show, as CSV, into your phone's share sheet. Capped at 5,000 rows, so narrow the filter first for a
+    big range.
+  </p>
+
+  <div class="note info">
+    <span class="ni"><svg width=17 height=17 viewBox="0 0 24 24" fill=none stroke=currentColor stroke-width=1.8 stroke-linecap=round stroke-linejoin=round><use href="#o-shield"/></svg></span>
+    <p><b>Warden vs. administrator.</b> A warden works a single site's queue. Organisation-wide settings —
+    student groups, app branding and changing anybody's role — belong to the administrator and do not
+    appear in the warden's app at all.</p>
+  </div>
+</section>
+
+<!-- ══════════════════════════ STATUSES ══════════════════════════ -->
+<section id="statuses" class="reveal">
+  <span class="kicker">Reference</span>
+  <h2>What each status means</h2>
+  <p class="lede">The colour tells you the bucket; the label tells you exactly where it is stuck and who is holding it.</p>
+  <div class="tablewrap">
+    <table>
+      <thead><tr><th>Pill</th><th>What it means</th><th>Who acts next</th></tr></thead>
+      <tbody>
+        <tr><td><span class="pill p-pending">Draft</span></td><td>Not submitted yet.</td><td>Student</td></tr>
+        <tr><td><span class="pill p-pending">With warden</span></td><td>Waiting for the warden to review it.</td><td>Warden</td></tr>
+        <tr><td><span class="pill p-pending">Warden cleared</span></td><td>Cleared — the guardian is next.</td><td>Guardian</td></tr>
+        <tr><td><span class="pill p-pending">Awaiting guardian</span></td><td>Waiting for the guardian to respond.</td><td>Guardian</td></tr>
+        <tr><td><span class="pill p-pending">Escalated</span></td><td>The guardian did not respond in time — the warden was alerted.</td><td>Warden</td></tr>
+        <tr><td><span class="pill p-pending">Contacting guardian</span></td><td>The office is contacting the guardian directly.</td><td>Warden</td></tr>
+        <tr><td><span class="pill p-approved">Approved</span></td><td>The guardian approved it. The gate can let them out.</td><td>Warden activates</td></tr>
+        <tr><td><span class="pill p-active">Active</span></td><td>The pass is live right now.</td><td>The gate</td></tr>
+        <tr><td><span class="pill p-active">Out</span></td><td>Scanned out at the gate.</td><td>The gate, on return</td></tr>
+        <tr><td><span class="pill p-approved">Completed</span></td><td>Returned and closed.</td><td>Nobody — done</td></tr>
+        <tr><td><span class="pill p-rejected">Rejected by warden</span></td><td>The warden turned it down.</td><td>Nobody — closed</td></tr>
+        <tr><td><span class="pill p-rejected">Rejected by guardian</span></td><td>The guardian turned it down.</td><td>Nobody — closed</td></tr>
+        <tr><td><span class="pill p-rejected">Guardian unreachable</span></td><td>The guardian could not be reached.</td><td>Warden</td></tr>
+        <tr><td><span class="pill p-expired">Expired</span></td><td>The window passed without the pass being used.</td><td>Nobody — closed</td></tr>
+        <tr><td><span class="pill p-cancelled">Cancelled</span></td><td>Cancelled before it was used.</td><td>Nobody — closed</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <div class="note tip">
+    <span class="ni"><svg width=17 height=17 viewBox="0 0 24 24" fill=none stroke=currentColor stroke-width=1.8 stroke-linecap=round stroke-linejoin=round><use href="#o-search"/></svg></span>
+    <p><b>The filter chips group these.</b> <b>Pending</b> covers everything still moving through approval,
+    <b>Approved</b> covers approved and completed, <b>Active</b> covers live and scanned out, and
+    <b>Rejected</b> covers all three refusals — which is why one chip shows several different labels.</p>
+  </div>
+</section>
+
+<!-- ══════════════════════════ NOTIFICATIONS ══════════════════════════ -->
+<section id="notifications" class="reveal">
+  <span class="kicker">Everyone</span>
+  <h2>Notifications</h2>
+  <p class="lede">
+    The bell in every dashboard header opens your inbox, badged with what you have not read. Tapping a
+    notification takes you straight to the pass it is about — whether you tap it in the inbox or on your
+    lock screen.
+  </p>
+  <div class="grid g3">
+    <div class="card">
+      <h4>Students</h4>
+      <ul class="plain" style="margin-bottom:0">
+        <li>Warden cleared or turned down your pass</li>
+        <li>Guardian approved or refused it</li>
+        <li>Your pass is active</li>
+        <li>Scanned out / back on campus</li>
+        <li>Profile change decided</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h4>Guardians</h4>
+      <ul class="plain" style="margin-bottom:0">
+        <li><b>Approval needed</b> — waiting on you</li>
+        <li>The warden's decision</li>
+        <li>Your ward scanned out or back in</li>
+        <li>A late return was recorded</li>
+        <li>Pass activated, expired or cancelled</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h4>Wardens</h4>
+      <ul class="plain" style="margin-bottom:0">
+        <li><b>New pass request</b> for review</li>
+        <li>A guardian has responded</li>
+        <li>A guardian wants to speak to you</li>
+        <li>A request has escalated</li>
+        <li><b>Emergency alert</b> from a guardian</li>
+      </ul>
+    </div>
+  </div>
+  <div class="note info">
+    <span class="ni"><svg width=17 height=17 viewBox="0 0 24 24" fill=none stroke=currentColor stroke-width=1.8 stroke-linecap=round stroke-linejoin=round><use href="#o-bell"/></svg></span>
+    <p><b>Profile → Notifications</b> has separate switches for <b>Push</b>, <b>Email</b> and <b>SMS</b>.
+    Turning push off stops the alert, not the record — the in-app inbox still fills.</p>
+  </div>
+</section>
+
+<!-- ══════════════════════════ ACCOUNT ══════════════════════════ -->
+<section id="account" class="reveal">
+  <span class="kicker">Everyone</span>
+  <h2>Account &amp; settings</h2>
+  <p class="lede">The <b>Profile</b> tab looks much the same for all three roles: who you are, your details, then settings.</p>
+
+  <h3 id="account-profile"><svg width=19 height=19 viewBox="0 0 24 24" fill=none stroke=currentColor stroke-width=1.7 stroke-linecap=round stroke-linejoin=round><use href="#o-edit"/></svg> Requesting a change to your details</h3>
+  <p>
+    Students and guardians cannot edit their own record — a wrong phone number or room is corrected by
+    the office, so the roster stays the single source of truth. What you can do is ask.
+  </p>
+  <ol class="steps">
+    <li><b>Profile → Request an update</b><p>Lists only the fields you may change, each showing what is currently on record.</p></li>
+    <li><b>Tick the fields</b><p>Type the new value beside the current one. Several at once is fine.</p></li>
+    <li><b>Say why</b><p>And attach proof if you have any — PDF or image up to 5 MB.</p></li>
+    <li><b>Submit</b><p>The state of your request shows on your profile, so you never file the same one twice.</p></li>
+  </ol>
+  <div class="note warn">
+    <span class="ni"><svg width=17 height=17 viewBox="0 0 24 24" fill=none stroke=currentColor stroke-width=1.8 stroke-linecap=round stroke-linejoin=round><use href="#o-warn"/></svg></span>
+    <p><b>One open request at a time.</b> If you already have one pending, the screen shows it instead of a
+    blank form.</p>
+  </div>
+
+  <h3 id="account-settings">The rest of the settings</h3>
+  <ul class="plain">
+    <li><b>Notifications</b> — push, email and SMS switches.</li>
+    <li><b>Change password</b> — at least 8 characters, typed twice.</li>
+    <li><b>Language</b> — whichever languages your campus has enabled.</li>
+    <li><b>Help &amp; support</b> — your campus's support email or phone number.</li>
+    <li><b>Terms &amp; privacy</b> — the legal documents for your institution.</li>
+    <li><b>Sign out</b> — ends the session and stops push on this device.</li>
+  </ul>
+</section>
+
+<!-- ══════════════════════════ FAQ ══════════════════════════ -->
+<section id="faq" class="reveal">
+  <span class="kicker">Everyone</span>
+  <h2>Frequently asked questions</h2>
+  <p class="lede">Short answers to the things people ask most.</p>
+
+  <details class="faq"><summary><span class="q">?</span>I do not have an account. How do I sign up?</summary>
+    <div class="ans"><p>You cannot — and that is deliberate. Accounts are created by the hostel office and come with a first password. If sign-in says your account was not found, contact the office rather than trying another address.</p></div></details>
+
+  <details class="faq"><summary><span class="q">?</span>Sign-in is asking for an Institution ID.</summary>
+    <div class="ans"><p>Your email or number exists at more than one institution, so the app cannot tell which account you mean. Enter the ID the campus office gave you. The field only appears when it is actually needed.</p></div></details>
+
+  <details class="faq"><summary><span class="q">?</span>I have forgotten my password.</summary>
+    <div class="ans"><p>Tap <b>Forgot password</b> and enter your email address. A reset link goes to the address on your campus record. If that address is out of date, only the office can change it.</p></div></details>
+
+  <details class="faq"><summary><span class="q">?</span>The app signed me out on its own.</summary>
+    <div class="ans"><p>The sign-in screen says which of the two happened. <b>Your session timed out</b> is routine. <b>This device was signed out by the server</b> usually means the account signed in somewhere else, or an administrator ended the session.</p></div></details>
+
+  <details class="faq"><summary><span class="q">?</span>My room number or phone number is wrong. Can I fix it?</summary>
+    <div class="ans"><p>Not directly. <b>Profile → Request an update</b>, tick the field, type the correct value and say why. A warden or administrator applies it, and you are notified when they do.</p></div></details>
+
+  <details class="faq"><summary><span class="q">?</span>Why will my request not submit?</summary>
+    <div class="ans"><p>One of four things, and the form says which in red: a required field is empty; the return time is at or before the departure; the trip is longer than that category's maximum; or the category requires a supporting document and none is attached.</p></div></details>
+
+  <details class="faq"><summary><span class="q">?</span>Can I cancel a request after submitting it?</summary>
+    <div class="ans"><p>Yes — while it is a draft, with the warden, cleared by the warden, awaiting your guardian, or approved but not yet activated. Once the pass is active it cannot be cancelled from the app, and a cancellation cannot be undone.</p></div></details>
+
+  <details class="faq"><summary><span class="q">?</span>Both of my parents got the request. Who decides?</summary>
+    <div class="ans"><p>Whoever answers first. If the other guardian has already decided, the app says <b>Already decided</b> and refreshes instead of showing an error. Sending the <i>same</i> decision twice is always harmless.</p></div></details>
+
+  <details class="faq"><summary><span class="q">?</span>What does "Talk to the warden first" actually do?</summary>
+    <div class="ans"><p>It is not an approval or a refusal. It alerts the warden that you want to discuss the request before deciding, and they will call you. The request stays open and still needs your answer afterwards.</p></div></details>
+
+  <details class="faq"><summary><span class="q">?</span>I have two children on campus. Where is the second one?</summary>
+    <div class="ans"><p>Behind the ward switcher — tap your child's name in the header. When a sibling has something waiting, the dashboard says so, and the tab badge always counts every ward on your account.</p></div></details>
+
+  <details class="faq"><summary><span class="q">?</span>Why can I not see where my ward is?</summary>
+    <div class="ans"><p>Live location is opt-in and belongs to the student: they turn it on from <b>Profile → Location sharing</b>, and it only reports while their app is open. Some campuses have not enabled it. Either way you still see gate scans.</p></div></details>
+
+  <details class="faq"><summary><span class="q">?</span>Who can see a student's location?</summary>
+    <div class="ans"><p>Only the guardians listed on that student's record, and only while the student has sharing switched on. Not other students, not the wider hostel, and not the warden. Position is sent at most once a minute and never in the background.</p></div></details>
+
+  <details class="faq"><summary><span class="q">?</span>Warden: how do I reject a request?</summary>
+    <div class="ans"><p><b>Override status → Reject</b>, then write the reason. The note goes to the student, and the override is recorded in the audit log against your account.</p></div></details>
+
+  <details class="faq"><summary><span class="q">?</span>Warden: what does "Activate pass" mean?</summary>
+    <div class="ans"><p>An approved pass is not yet a live pass. Activating it flips the status to <b>Active</b>, which is what tells the gate the student may leave. It only appears once the guardian has approved.</p></div></details>
+
+  <details class="faq"><summary><span class="q">?</span>Warden: a request says "Escalated". What now?</summary>
+    <div class="ans"><p>The guardian never answered in the app. Call them, ask for a decision, then tap <b>They agreed</b> or <b>They refused</b>. It is logged as the guardian's decision, noted as having come in out of band.</p></div></details>
+
+  <details class="faq"><summary><span class="q">?</span>Is there a QR code to show at the gate?</summary>
+    <div class="ans"><p>No. The app does not draw a scannable pass. The gate looks the student up and records the scan against the pass, which is what puts <b>Scanned out</b> and <b>Scanned in</b> on the record.</p></div></details>
+
+  <details class="faq"><summary><span class="q">?</span>Can I stop the notifications?</summary>
+    <div class="ans"><p><b>Profile → Notifications</b> has separate switches for push, email and SMS. Turning push off stops alerts on your device; the in-app inbox still records everything.</p></div></details>
+
+  <details class="faq"><summary><span class="q">?</span>Which phones does the app run on?</summary>
+    <div class="ans"><p>Android 7.0 and newer, and iPhones on iOS 15.1 and newer. It works on tablets too.</p></div></details>
+
+  <details class="faq"><summary><span class="q">?</span>Why does my app show a different name and icon?</summary>
+    <div class="ans"><p>Institutions can brand the app for a hostel block or group, so students and guardians in that group see their own name, colour and mark. Everything in this manual works identically underneath.</p></div></details>
+</section>
+
+<!-- ══════════════════════════ SUPPORT ══════════════════════════ -->
+<section id="support" class="reveal">
+  <span class="kicker">Help</span>
+  <h2>Still stuck?</h2>
+  <p class="lede">Take the fastest route for what you need.</p>
+  <div class="grid g3">
+    <div class="card">
+      <h4>Something about your record</h4>
+      <p style="color:var(--muted);font-size:14px;margin:0">Wrong roll number, room, guardian or phone number, or an account that will not link — the <b>hostel office</b> owns the roster.</p>
+    </div>
+    <div class="card">
+      <h4>Something about a pass</h4>
+      <p style="color:var(--muted);font-size:14px;margin:0">A request stuck at a stage, a decision to discuss, a late return you disagree with — your <b>site warden</b>. Their number is on the guardian's Ward screen.</p>
+    </div>
+    <div class="card">
+      <h4>Something about the app</h4>
+      <p style="color:var(--muted);font-size:14px;margin:0">Crashes, missing screens or a button that does nothing — <b>Profile → Help &amp; support</b> opens the contact your campus configured.</p>
+    </div>
+  </div>
+</section>
+
+</div><!-- /.content -->
+</div><!-- /.layout -->
+</main>
+
+<footer>
+  <div class="foot">
+    <div>
+      <a class="lockup" href="#top">
+        <span class="mk"><svg width="22" height="22"><use href="#mark"/></svg></span>
+        <span><b>Iverto<i>.ai</i></b><small>User Manual</small></span>
+      </a>
+      <p>Campus outpass and gate-pass management for hostels — students, guardians and wardens.</p>
+    </div>
+    <nav class="footlinks" aria-label="Footer">
+      <a href="#top">Walkthrough</a>
+      <a href="#getting-started">Getting started</a>
+      <a href="#student">Student</a>
+      <a href="#guardian">Guardian</a>
+      <a href="#warden">Warden</a>
+      <a href="#statuses">Statuses</a>
+      <a href="#faq">FAQ</a>
+    </nav>
+  </div>
+  <div class="copy">© 2026 Iverto.ai · App version 1.1.0 · Accounts are provisioned by your campus office.</div>
+</footer>
+
+<script>
+(function () {
+  var root = document.documentElement;
+  root.classList.add('js');
+
+  var reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  /* ── Mobile nav ─────────────────────────────────────────────────────── */
+  var btn = document.getElementById('navbtn');
+  var nav = document.getElementById('navlinks');
+  if (btn && nav) {
+    btn.addEventListener('click', function () {
+      var open = nav.classList.toggle('open');
+      btn.setAttribute('aria-expanded', String(open));
+      btn.setAttribute('aria-label', open ? 'Close navigation' : 'Open navigation');
+    });
+    nav.addEventListener('click', function (e) {
+      if (e.target.tagName === 'A') {
+        nav.classList.remove('open');
+        btn.setAttribute('aria-expanded', 'false');
+      }
+    });
+  }
+
+  /* ── Scroll reveal ──────────────────────────────────────────────────── */
+  var reveals = [].slice.call(document.querySelectorAll('.reveal'));
+  if (reduce || !('IntersectionObserver' in window)) {
+    reveals.forEach(function (el) { el.classList.add('in'); });
+  } else {
+    var ro = new IntersectionObserver(function (entries) {
+      entries.forEach(function (en) {
+        if (en.isIntersecting) { en.target.classList.add('in'); ro.unobserve(en.target); }
+      });
+    }, { rootMargin: '0px 0px -12% 0px', threshold: 0.04 });
+    reveals.forEach(function (el) { ro.observe(el); });
+  }
+
+  /* ── Scroll spy ─────────────────────────────────────────────────────── */
+  var links = [].slice.call(document.querySelectorAll('.toc a[href^="#"], .navlinks a[href^="#"]'));
+  var targets = links
+    .map(function (a) { return document.getElementById(a.getAttribute('href').slice(1)); })
+    .filter(Boolean);
+  if ('IntersectionObserver' in window && targets.length) {
+    var visible = Object.create(null);
+    var so = new IntersectionObserver(function (entries) {
+      entries.forEach(function (en) { visible[en.target.id] = en.isIntersecting; });
+      var best = null;
+      for (var i = 0; i < targets.length; i++) {
+        if (visible[targets[i].id]) { best = targets[i].id; break; }
+      }
+      links.forEach(function (a) {
+        a.classList.toggle('on', a.getAttribute('href') === '#' + best);
+      });
+    }, { rootMargin: '-76px 0px -60% 0px', threshold: 0 });
+    targets.forEach(function (t) { so.observe(t); });
+  }
+
+  /* ── The walkthrough ────────────────────────────────────────────────────
+     Every visual change lives in CSS keyed off .anim[data-step]; this only
+     advances the step and marks which column is in play. Steps:
+       1 student taps Submit · 2 it lands on the guardian's phone
+       3 guardian taps Approve · 4 it lands on the warden's phone
+       5 warden taps Activate · 6 all three screens catch up
+     When it finishes the classes come off, so the card rests in the state a
+     reader arriving with JS or motion disabled sees from the start.        */
+  var stage = document.getElementById('stage');
+  var replay = document.getElementById('replay');
+  var label = document.getElementById('replaylabel');
+  if (!stage || !replay) return;
+
+  var SEQ = [
+    { step: 1, on: ['c1'], hold: 1500 },
+    { step: 2, on: ['c2'], hold: 2500 },
+    { step: 3, on: ['c2'], hold: 1600 },
+    { step: 4, on: ['c3'], hold: 2500 },
+    { step: 5, on: ['c3'], hold: 1900 },
+    { step: 6, on: ['c1', 'c2', 'c3'], hold: 3200 }
+  ];
+  var timer = null, playing = false;
+
+  function clearOn() {
+    ['c1', 'c2', 'c3'].forEach(function (c) {
+      var el = stage.querySelector('.' + c);
+      if (el) el.classList.remove('on');
+    });
+  }
+
+  function stop() {
+    clearTimeout(timer);
+    timer = null;
+    playing = false;
+    stage.classList.remove('anim');
+    stage.setAttribute('data-step', '0');
+    clearOn();
+    replay.disabled = false;
+    label.textContent = 'Replay the walkthrough';
+  }
+
+  function run(i) {
+    if (i >= SEQ.length) { timer = setTimeout(stop, 900); return; }
+    var f = SEQ[i];
+    stage.setAttribute('data-step', String(f.step));
+    clearOn();
+    f.on.forEach(function (c) {
+      var col = stage.querySelector('.' + c);
+      if (col) col.classList.add('on');
+    });
+    timer = setTimeout(function () { run(i + 1); }, f.hold);
+  }
+
+  function play() {
+    if (reduce || playing) return;
+    playing = true;
+    replay.disabled = true;
+    label.textContent = 'Playing…';
+    stage.classList.add('anim');
+    stage.setAttribute('data-step', '0');
+    clearOn();
+    timer = setTimeout(function () { run(0); }, 420);
+  }
+
+  replay.addEventListener('click', play);
+
+  if (reduce) {
+    label.textContent = 'Walkthrough (motion off)';
+    replay.disabled = true;
+  } else if ('IntersectionObserver' in window) {
+    /* Play once, the first time the card is properly on screen. */
+    var once = new IntersectionObserver(function (entries) {
+      if (entries[0].isIntersecting) { once.disconnect(); play(); }
+    }, { threshold: 0.5 });
+    once.observe(stage);
+  }
+})();
+</script>
+</body>
+</html>

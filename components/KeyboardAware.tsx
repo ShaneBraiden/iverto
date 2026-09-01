@@ -9,10 +9,13 @@
  *   iOS      `automaticallyAdjustKeyboardInsets` grows the scroll view's own
  *            bottom inset by the keyboard height. No `KeyboardAvoidingView`,
  *            which would add the same offset a second time.
- *   Android  the window itself resizes (`softwareKeyboardLayoutMode: "resize"`
- *            in app.json, `adjustResize` in the manifest), so the scroll view
- *            is already shorter — but nothing scrolls the focused field into
- *            the part that is left.
+ *   Android  nothing, as of Android 15. Up to Android 14 the window itself
+ *            resized (`softwareKeyboardLayoutMode: "resize"` in app.json,
+ *            `adjustResize` in the manifest) and the scroll view came back
+ *            shorter. An app that draws edge-to-edge — which every app
+ *            targeting Android 16 does, with no opt-out — gets `adjustResize`
+ *            ignored: the window keeps its full height and the keyboard is
+ *            drawn on top of it.
  *
  * So on top of the platform mechanism this module measures: when the keyboard
  * opens, or the cursor moves to another field, it works out how far the field
@@ -20,10 +23,16 @@
  * far. The measurement is a no-op when the field is already visible, which is
  * what makes it safe to run on both platforms.
  *
- * `insideModal` is the one case neither platform handles. A `Modal` is its own
- * window: Android's `adjustResize` does not reach it and iOS does not inset it,
- * so the keyboard simply covers the bottom of a bottom sheet. There the
- * keyboard height is applied by hand — see `components/Sheet.tsx`.
+ * Nothing below asks which Android version it is on. The keyboard's top edge
+ * (`endCoordinates.screenY`) and the scroll frame's own bottom are both
+ * measured, and the viewport ends at whichever is higher. On Android 14 the
+ * window shrank, so the frame's bottom is already above the keyboard and wins;
+ * on Android 15+ it did not, so the keyboard's top edge wins. One expression,
+ * correct on both.
+ *
+ * `insideModal` marks the case iOS does not handle either. A `Modal` is its own
+ * window, so `automaticallyAdjustKeyboardInsets` does not reach it — see
+ * `components/Sheet.tsx`.
  */
 import React from 'react';
 import {
@@ -173,11 +182,39 @@ export function KeyboardAwareScroll({
   const frameRef = React.useRef<View>(null);
   /** Live scroll offset, so a correction can be applied on top of it. */
   const offsetY = React.useRef(0);
-  const keyboardHeight = React.useRef(0);
+  /**
+   * Top edge of the keyboard in window coordinates — the same space
+   * `measureInWindow` reports in, so the two are directly comparable.
+   * `Infinity` while the keyboard is down, which makes it lose every
+   * `Math.min` below without needing a special case.
+   */
+  const keyboardTop = React.useRef(Number.POSITIVE_INFINITY);
 
-  /* Inside a modal the window does not shrink, so the content needs enough
-     padding underneath to be scrollable past the keyboard at all. */
-  const [modalInset, setModalInset] = React.useState(0);
+  /**
+   * True when the platform is already making room for the keyboard, so this
+   * module must not make it a second time. That is iOS on a plain screen, and
+   * only there: `automaticallyAdjustKeyboardInsets` is set for exactly that
+   * case below, and no version of Android does this for an edge-to-edge app.
+   */
+  const nativeInsetHandled = isIOS && !insideModal;
+
+  /**
+   * How much of the scroll frame the keyboard covers. Padding the content by
+   * this much is what makes it possible to scroll a field out from under the
+   * keyboard at all — without it there is nowhere for the last field to go.
+   * Measured rather than assumed, so a window that *did* shrink contributes
+   * nothing and the padding is never applied twice.
+   */
+  const [keyboardInset, setKeyboardInset] = React.useState(0);
+
+  const syncInset = React.useCallback(() => {
+    if (nativeInsetHandled) return;
+    const frame = frameRef.current;
+    if (!frame) return;
+    frame.measureInWindow((_x, frameTop, _w, frameHeight) => {
+      setKeyboardInset(Math.max(0, frameTop + frameHeight - keyboardTop.current));
+    });
+  }, [nativeInsetHandled]);
 
   const ensureVisible = React.useCallback(() => {
     const input = TextInput.State.currentlyFocusedInput() as Measurable | null;
@@ -187,10 +224,13 @@ export function KeyboardAwareScroll({
 
     frame.measureInWindow((_fx, frameTop, _fw, frameHeight) => {
       input.measureInWindow((_ix, inputTop, _iw, inputHeight) => {
-        /* On Android the window itself resized, so `frameHeight` already
-           excludes the keyboard. In a modal it did not, so take it off here. */
-        const viewportBottom =
-          frameTop + frameHeight - (insideModal ? keyboardHeight.current : 0);
+        /* The visible region ends at the bottom of the frame, or at the top of
+           the keyboard, whichever comes first. See the note at the top of the
+           file: this is what makes the same code right on an Android that
+           resized its window and one that did not. */
+        const viewportBottom = nativeInsetHandled
+          ? frameTop + frameHeight
+          : Math.min(frameTop + frameHeight, keyboardTop.current);
 
         const below = inputTop + inputHeight + FIELD_GAP - viewportBottom;
         if (below > 1) {
@@ -205,7 +245,7 @@ export function KeyboardAwareScroll({
         }
       });
     });
-  }, [insideModal]);
+  }, [nativeInsetHandled]);
 
   React.useEffect(() => {
     const showEvent = isIOS ? 'keyboardWillShow' : 'keyboardDidShow';
@@ -213,22 +253,28 @@ export function KeyboardAwareScroll({
 
     let settle: ReturnType<typeof setTimeout> | undefined;
 
-    const show = Keyboard.addListener(showEvent, (event: KeyboardEvent) => {
-      keyboardHeight.current = event.endCoordinates?.height ?? 0;
-      if (insideModal) setModalInset(keyboardHeight.current);
+    /* Room first, then the scroll into it — a scroll cannot reach past padding
+       that has not been applied yet. */
+    const settleKeyboard = () => {
+      syncInset();
+      ensureVisible();
+    };
 
-      /* Measured twice on purpose. `keyboardDidShow` fires when the keyboard
-         is up, but Android's window resize reaches this layout a frame or two
-         later, and a measurement taken before it lands is against the old,
-         full-height frame — it finds no overlap and does nothing. The second
-         pass catches that; it is a no-op whenever the first one was enough. */
-      requestAnimationFrame(ensureVisible);
-      settle = setTimeout(ensureVisible, 150);
+    const show = Keyboard.addListener(showEvent, (event: KeyboardEvent) => {
+      keyboardTop.current = event.endCoordinates?.screenY ?? Number.POSITIVE_INFINITY;
+
+      /* Measured twice on purpose. `keyboardDidShow` fires when the keyboard is
+         up, but on an Android that still resizes its window that resize reaches
+         this layout a frame or two later, and a measurement taken before it
+         lands is against the old, full-height frame. The second pass catches
+         that; it is a no-op whenever the first one was enough. */
+      requestAnimationFrame(settleKeyboard);
+      settle = setTimeout(settleKeyboard, 150);
     });
 
     const hide = Keyboard.addListener(hideEvent, () => {
-      keyboardHeight.current = 0;
-      if (insideModal) setModalInset(0);
+      keyboardTop.current = Number.POSITIVE_INFINITY;
+      setKeyboardInset(0);
     });
 
     return () => {
@@ -236,7 +282,7 @@ export function KeyboardAwareScroll({
       hide.remove();
       if (settle) clearTimeout(settle);
     };
-  }, [ensureVisible, insideModal]);
+  }, [ensureVisible, syncInset]);
 
   const onScroll = React.useCallback((event: NativeSyntheticEvent<NativeScrollEvent>) => {
     offsetY.current = event.nativeEvent.contentOffset.y;
@@ -271,7 +317,7 @@ export function KeyboardAwareScroll({
           automaticallyAdjustKeyboardInsets={isIOS && !insideModal}
           contentInsetAdjustmentBehavior="automatic"
           contentContainerStyle={[
-            { paddingBottom: extraBottomSpace + modalInset },
+            { paddingBottom: extraBottomSpace + keyboardInset },
             contentContainerStyle,
           ]}
         >
