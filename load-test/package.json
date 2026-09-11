@@ -1,0 +1,20 @@
+{
+  "name": "iverto-load-test",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Load / stress test suite for the Iverto Outpass backend (k6).",
+  "scripts": {
+    "verify": "node scripts/verify-accounts.mjs",
+    "cleanup": "node scripts/cleanup.mjs",
+    "cleanup:dry": "node scripts/cleanup.mjs --dry-run",
+    "smoke": "k6 run k6/smoke.js",
+    "load": "k6 run --summary-export results/load-summary.json k6/load.js",
+    "stress": "k6 run --summary-export results/stress-summary.json --out json=results/stress-raw.json k6/stress.js",
+    "spike": "k6 run --summary-export results/spike-summary.json k6/spike.js",
+    "soak": "k6 run --summary-export results/soak-summary.json --out json=results/soak-raw.json k6/soak.js",
+    "sockets": "k6 run --summary-export results/socket-summary.json k6/socket.js",
+    "login-storm": "k6 run --summary-export results/login-storm-summary.json k6/login-storm.js"
+  },
+  "engines": { "node": ">=18" }
+}

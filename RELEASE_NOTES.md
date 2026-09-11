@@ -1,3 +1,39 @@
+# Iverto.ai 1.1.1 — maintenance rebuild
+
+No functional changes. The same code as 1.1.0, rebuilt with a new version so Play
+accepts the upload.
+
+| | |
+|---|---|
+| **Version** | 1.1.1 (versionCode 5) |
+| **Platform** | Android |
+| **Minimum Android** | 7.0 (API 24), targets API 36 |
+| **Runtime** | Expo SDK 54, React Native 0.81.5, React 19.1 |
+
+## What changed
+
+- **`version` 1.1.0 → 1.1.1, Android `versionCode` 4 → 5, iOS `buildNumber` 2 → 3.**
+  Play requires a higher `versionCode` on every upload; the rest track it.
+- Nothing else — no dependency, source, permission or configuration change. The `android/`
+  project was regenerated from `app.json` with `expo prebuild --clean` and rebuilt.
+
+## Artifacts
+
+| Artifact | Target | Size |
+|---|---|---|
+| `app-release.aab` | Google Play | 28.29 MB |
+
+Signed with the Iverto.ai upload key — SHA-1 `89:A5:E7:60:75:A3:1A:DE:5D:FF:AA:B0:68:50:2C:6C:5C:D3:82:16`,
+the same key as 1.1.0, so this is an in-place update of the existing Play listing. All 18
+arm64 native libraries are 16 KB page-aligned. Upload
+`android/app/build/outputs/mapping/release/mapping.txt` with the bundle for crash
+de-obfuscation; native debug symbols are already embedded in it.
+
+Split APKs were not built this cycle. Run `./gradlew assembleRelease` from `android/` if
+direct-install APKs are needed — see [README.md](./README.md).
+
+---
+
 # Iverto.ai 1.1.0 — Android 16
 
 A platform release. Nothing about what the app does has changed; what changed is the
