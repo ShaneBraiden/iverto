@@ -15,6 +15,7 @@ import Ionicons from '@expo/vector-icons/Ionicons';
 import { router, useLocalSearchParams } from 'expo-router';
 import { Screen, TopBar } from '@/components/Screen';
 import {
+  Card,
   Chip,
   EmptyState,
   ErrorState,
@@ -25,9 +26,9 @@ import {
 } from '@/components/ui';
 import { SkeletonList } from '@/components/Skeleton';
 import { Stagger } from '@/components/motion';
-import { OutpassCard } from '@/components/OutpassCard';
+import { OutpassCard, type OutpassVariant } from '@/components/OutpassCard';
 import { useLivePermissions } from '@/components/AppContext';
-import { blur, colors, spacing, type } from '@/theme';
+import { blur, colors, radius, spacing, type } from '@/theme';
 import { PAGE_SIZE } from '@/constants/config';
 import { useAdmin } from '@/components/AdminContext';
 import { admin as adminApi, permissions as permissionApi } from '@/lib/api/endpoints';
@@ -48,6 +49,11 @@ export default function AdminRequests() {
   const [chip, setChip] = useState<StatusChip>('all');
   const [query, setQuery] = useState('');
   const [needle, setNeedle] = useState('');
+  /* Cards read better one pass at a time; a warden checking who is still out
+     is reading twenty at once and wants them in rows. Neither is the right
+     default for both jobs, so the choice is theirs. It is a tab screen and
+     stays mounted, so the choice holds for the session. */
+  const [view, setView] = useState<OutpassVariant>('card');
 
   /* This is a tab screen and stays mounted once visited, so a tile tap on the
      overview arrives at a screen that is already up with a chip of its own —
@@ -155,11 +161,17 @@ export default function AdminRequests() {
           <ErrorState error={list.error} onRetry={list.refetch} />
         ) : (
           <>
-            <Text style={[type.small, { color: colors.textMuted }]}>
-              {rows.length}
-              {list.hasMore ? '+' : ''} result{rows.length === 1 ? '' : 's'}
-              {needle ? ` for “${needle}”` : ''}
-            </Text>
+            <View style={styles.resultRow}>
+              <Text
+                style={[type.small, { color: colors.textMuted, flex: 1 }]}
+                numberOfLines={1}
+              >
+                {rows.length}
+                {list.hasMore ? '+' : ''} result{rows.length === 1 ? '' : 's'}
+                {needle ? ` for “${needle}”` : ''}
+              </Text>
+              <ViewToggle value={view} onChange={setView} />
+            </View>
             {rows.length === 0 ? (
               <EmptyState
                 icon="documents-outline"
@@ -170,6 +182,24 @@ export default function AdminRequests() {
                     : `Nothing matches the ${chip} filter.`
                 }
               />
+            ) : view === 'list' ? (
+              /* One card holding every row, not a card per row: the surface is
+                 what makes a stack of rows read as a single list. */
+              <Card padded={false}>
+                <Stagger>
+                  {rows.map((p, i) => (
+                    <OutpassCard
+                      key={p.id}
+                      item={p}
+                      role="admin"
+                      showRequester
+                      categories={categories.data}
+                      variant="list"
+                      divider={i > 0}
+                    />
+                  ))}
+                </Stagger>
+              </Card>
             ) : (
               <View style={{ gap: spacing.md }}>
                 <Stagger>
@@ -199,6 +229,47 @@ export default function AdminRequests() {
   );
 }
 
+/**
+ * Cards or rows, as a two-position segmented control.
+ *
+ * Icons only: the pair is the label. It sits on the results line rather than in
+ * the filter bar above, because it changes how the results are drawn and not
+ * which results there are — the chips and the search box decide that.
+ */
+function ViewToggle({
+  value,
+  onChange,
+}: {
+  value: OutpassVariant;
+  onChange: (next: OutpassVariant) => void;
+}) {
+  const modes = [
+    { key: 'list' as const, icon: 'list-outline' as const, label: 'Show as list' },
+    { key: 'card' as const, icon: 'albums-outline' as const, label: 'Show as cards' },
+  ];
+
+  return (
+    <View style={styles.toggle}>
+      {modes.map((m) => {
+        const on = value === m.key;
+        return (
+          <Pressable
+            key={m.key}
+            onPress={() => onChange(m.key)}
+            accessibilityRole="button"
+            accessibilityLabel={m.label}
+            accessibilityState={{ selected: on }}
+            hitSlop={6}
+            style={[styles.toggleBtn, on && styles.toggleBtnOn]}
+          >
+            <Ionicons name={m.icon} size={16} color={on ? colors.primary : colors.textMuted} />
+          </Pressable>
+        );
+      })}
+    </View>
+  );
+}
+
 const styles = StyleSheet.create({
   bar: {
     paddingTop: spacing.md,
@@ -206,4 +277,24 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: colors.border,
   },
+  resultRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.md },
+  toggle: {
+    flexDirection: 'row',
+    gap: 2,
+    padding: 2,
+    borderRadius: radius.pill,
+    backgroundColor: colors.neutralBg,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  toggleBtn: {
+    paddingHorizontal: spacing.md,
+    paddingVertical: 5,
+    borderRadius: radius.pill,
+    /* Carried by both states so the selected half does not grow by two pixels
+       and shove the other one sideways as you switch. */
+    borderWidth: 1,
+    borderColor: 'transparent',
+  },
+  toggleBtnOn: { backgroundColor: colors.surface, borderColor: colors.primarySoft },
 });

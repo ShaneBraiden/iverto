@@ -1,3 +1,61 @@
+# Iverto.ai 1.1.2 — list view for the warden's pass queue
+
+One UI addition on **All passes**, plus the version bump Play requires.
+
+| | |
+|---|---|
+| **Version** | 1.1.2 (versionCode 6) |
+| **Platform** | Android |
+| **Minimum Android** | 7.0 (API 24), targets API 36 |
+| **Runtime** | Expo SDK 54, React Native 0.81.5, React 19.1 |
+
+## What changed
+
+- **All passes can be shown as a list or as cards.** A two-position toggle sits on the
+  results line; the list draws each pass as one row — status dot, student and roll
+  number, the window, the pass id, and an overdue line when the return time has passed —
+  so roughly three times as many fit on screen as in card view. Cards remain the default,
+  the toggle holds for the session, and both views tap through to the same pass detail.
+  Search, the status chips, CSV export and the site filter are untouched.
+- **`version` 1.1.1 → 1.1.2, Android `versionCode` 5 → 6, iOS `buildNumber` 3 → 4.**
+  Play requires a higher `versionCode` on every upload; the rest track it.
+- No dependency, permission or configuration change — the diff is
+  `app/admin/requests.tsx` and `components/OutpassCard.tsx`.
+
+## Artifacts
+
+| Artifact | Target | Size |
+|---|---|---|
+| `app-release.aab` | Google Play | 28.29 MB |
+
+Signed with the Iverto.ai upload key — SHA-1 `89:A5:E7:60:75:A3:1A:DE:5D:FF:AA:B0:68:50:2C:6C:5C:D3:82:16`,
+the same key as 1.1.0 and 1.1.1, so this is an in-place update of the existing Play listing.
+
+## Verified before upload
+
+Checked against the built bundle, not against `app.json`:
+
+- **Version** — merged manifest reads `versionCode="6"`, `versionName="1.1.2"`.
+- **16 KB pages** — all 18 arm64 libraries 16 KB aligned (`npm run check:16kb`).
+- **Target API** — merged manifest `targetSdkVersion="36"`, `minSdkVersion="24"`.
+- **Permissions** — `SYSTEM_ALERT_WINDOW`, `READ_EXTERNAL_STORAGE` and
+  `WRITE_EXTERNAL_STORAGE` are absent from the merged manifest entirely.
+- **ABIs** — `arm64-v8a` and `armeabi-v7a` only, 36 native libraries, no x86.
+- **API host** — the Hermes bundle carries `https://api.iverto.ai/hostel` and no dev host.
+  (React Native's own `http://localhost:8081` dev-server fallback is present in every
+  release bundle and is unreachable when `__DEV__` is false.)
+- **Signing** — `keytool -printcert -jarfile` reports the upload key above, not the debug key.
+- `tsc --noEmit` clean.
+
+Upload `android/app/build/outputs/mapping/release/mapping.txt` with the bundle for crash
+de-obfuscation; native debug symbols are already embedded in it. Both artifacts are staged
+in `dist/` as `iverto-ai-1.1.2-vc6.aab` and `iverto-ai-1.1.2-vc6-mapping.txt`.
+
+Split APKs were not built this cycle. Run `./gradlew assembleRelease` from `android/` if
+direct-install APKs are needed — see [README.md](./README.md).
+
+---
+
 # Iverto.ai 1.1.1 — maintenance rebuild
 
 No functional changes. The same code as 1.1.0, rebuilt with a new version so Play

@@ -499,6 +499,7 @@ Then re-run `npx expo prebuild --platform android` so `android/app/build.gradle`
 | App installs but shows a red screen | Release build with no bundle — you ran `assembleDebug` without Metro. Use `assembleRelease`. |
 | `INSTALL_FAILED_UPDATE_INCOMPATIBLE` | Signature mismatch. `adb uninstall com.iverto.ai`, then reinstall. |
 | Stale assets after an icon change | `./gradlew clean` then rebuild; icons are copied at prebuild time, so re-run prebuild too. |
+| `add_subdirectory given source … codegen/jni … is not an existing directory` | You ran `clean` and `bundleRelease` in one invocation. Each library’s `clean` deletes its codegen output under `node_modules` while CMake is still configuring the native clean against it. Run them as two invocations, or delete `android/build`, `android/app/build` and `android/app/.cxx` by hand and then `bundleRelease`. |
 | `app-release.apk` not found | Expected — the build emits per-architecture APKs. Use `app-arm64-v8a-release.apk`. |
 | APK is ~158 MB | You built `assembleDebug`. Debug builds are never representative — use `assembleRelease`. |
 | Release APK suddenly ~58 MB | `x86`/`x86_64` are back. Something reset `reactNativeArchitectures` or dropped `abiFilters` — usually `prebuild --clean`. |
