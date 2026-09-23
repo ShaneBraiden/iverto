@@ -1,3 +1,148 @@
+# Iverto.ai 1.2.0 — Hostel v2 data-plane migration
+
+The app's data calls move from `/v1/mobile/**` to the Hostel v2 contract
+(`/hostel/v2/tenants/{tenantId}/**`), against the handoff package in
+`Dev/mobile-v2-handoff/`. Auth and onboarding deliberately did not move — see
+below.
+
+| | |
+|---|---|
+| **Version** | 1.2.0 (versionCode 7) |
+| **Platform** | Android |
+| **Minimum Android** | 7.0 (API 24), targets API 36 |
+| **Runtime** | Expo SDK 54, React Native 0.81.5, React 19.1 |
+
+## What changed
+
+- **Every tenant-data endpoint now speaks Hostel v2**: `me`, app config,
+  categories, curfew, student/guardian/warden/admin permissions, guardian
+  decisions, warden decisions/activation/escalation, profile requests,
+  notifications, push device registration, uploads, and groups/branding/roster.
+  `lib/api/endpoints.ts` adapts each response back to the exact shape screens
+  already read — the v2 `page{ nextCursor, hasMore }` envelope, RFC 7807
+  `ProblemDetails` errors, and opaque `fileId` uploads are all normalized at
+  that one boundary, so no screen had to change for it.
+- **Optimistic concurrency**: guardian/warden decisions, manual overrides,
+  emergency resolution, and profile-request review now send the resource's
+  `version` as `If-Match`; a stale one is a 409 `PERMISSION_VERSION_CONFLICT`
+  instead of a silent overwrite. Mutating calls also carry a generated
+  `Idempotency-Key`.
+- **Uploads are quarantine-scanned.** `POST /uploads` now returns a `fileId`
+  and a `scanState`; `pickAndUpload` (`lib/attachments.ts`) polls a `pending`
+  result for a few seconds, and the three screens that attach files (outpass
+  request, profile-request proof, group icon) disable submission on an
+  `infected`/`failed` scan rather than letting it through.
+- **Push device registration** now sends a full device record
+  (`installationId`, `platform`, `token`, `appVersion`, `locale`) and gets
+  back a server-assigned `deviceId`; sign-out unregisters by that id instead
+  of by the raw provider token, which v2 never echoes back.
+
+### Deliberately still on `/v1/mobile/**`
+
+Server v1 is retained unmodified through this migration (per the handoff's
+own release runbook), so none of this blocks on the gaps below — each is
+called out in `lib/api/endpoints.ts`'s header comment, next to the code:
+
+- **`auth.login`, `auth.forgotPassword`, `auth.changePassword`,
+  `onboarding.*`.** Their v2 equivalents need UI this app doesn't have yet —
+  a tenant-code entry step ahead of login, a two-step password recovery with
+  a code, a current-password field, and cryptographic invitation links
+  replacing phone/roll-number onboarding. Swapping the wire call without that
+  UI would strand a real user outside a shell they can't get back into, so
+  this waits for a product decision rather than a guess. (`auth.refresh` did
+  move — it's a background call with no UI of its own.)
+- **`location.*`, `warden.endPass`.** Not in the v2 contract at all; nothing
+  to move them to yet.
+- **`admin.exportPermissions`, `admin.exportProfileRequests`, `admin.reports`.**
+  v2 turns a synchronous CSV download into an async report job (`POST
+  /report-jobs` + poll), which needs a progress UI these screens don't have.
+- **`admin.setRole`.** Unused by any screen today; v2 keys off a
+  `membershipId` this app never fetches, so left alone rather than guessed at.
+
+### The v2 backend is not live yet
+
+`EXPO_PUBLIC_API_URL` / `app.json`'s `extra.apiUrl` are unchanged
+(`https://api.iverto.ai/hostel`) — v2 paths are additive (`/v2/tenants/...`
+alongside the existing `/v1/mobile/...`), so no host or env change was
+needed or made. But per the handoff package's own caveat, the v2 surface
+has not been deployed anywhere yet. **This build will not work against
+today's production host for anything migrated above** until that side is
+deployed and health-checked — expect 404s on every `/v2/**` call until then.
+Do not distribute this build to real users before that's confirmed; it's
+signed and staged in `dist/` for internal/QA use in the meantime.
+
+Two more real gaps worth flagging, not blocking, found while wiring this up:
+
+- `admin.roles()` now combines two v2 calls (`GET /roles` + `GET
+  /memberships`) into the shape the roles sheet already renders — the
+  handoff's role guide doesn't detail the membership object enough to map
+  every field with full confidence, so treat `staff[]` there as best-effort
+  until checked against a live backend.
+- The upload `purpose` enum genuinely disagrees between the handoff's prose
+  doc (`permission` / `profile-request` / `branding`) and its OpenAPI bundle
+  (`student_photo` / `guardian_id` / `receipt` / `branding` / `general` /
+  `group-icon` / `org-logo`). `permission` and `profile-request` uploads are
+  sent as `general` for now — `group-icon` is the one value both sources
+  agree on. Flagged with a `TODO(v2)` at `v2UploadPurpose` in
+  `lib/api/endpoints.ts`.
+
+## Artifacts
+
+| Artifact | Target | Size |
+|---|---|---|
+| `iverto-ai-1.2.0-vc7.aab` | Google Play | 28.29 MB |
+| `iverto-ai-1.2.0-vc7-arm64-v8a.apk` | Current 64-bit devices | 24.42 MB |
+| `iverto-ai-1.2.0-vc7-armeabi-v7a.apk` | Older 32-bit devices | 19.64 MB |
+| `iverto-ai-1.2.0-vc7-universal.apk` | Installs anywhere | 35.60 MB |
+
+Signed with the Iverto.ai upload key — SHA-1 `89:A5:E7:60:75:A3:1A:DE:5D:FF:AA:B0:68:50:2C:6C:5C:D3:82:16`,
+the same key as every release back to 1.1.0, so this is an in-place update of the existing Play listing.
+
+## Verified before upload
+
+Checked against the built bundle, not against `app.json`:
+
+- **Version** — merged manifest reads `versionCode="7"`, `versionName="1.2.0"`.
+- **16 KB pages** — all 18 arm64 libraries 16 KB aligned in both the AAB and
+  the arm64 APK (`node scripts/check-16kb.mjs`).
+- **Target API** — merged manifest `targetSdkVersion="36"`, `minSdkVersion="24"`.
+- **Permissions** — `SYSTEM_ALERT_WINDOW`, `READ_EXTERNAL_STORAGE` and
+  `WRITE_EXTERNAL_STORAGE` are absent from the merged manifest entirely.
+- **ABIs** — `arm64-v8a` and `armeabi-v7a` only, 36 native libraries total, no x86.
+- **API host** — the Hermes bundle carries `https://api.iverto.ai/hostel` and no dev host.
+  (React Native's own `http://localhost:8081` dev-server fallback is present in every
+  release bundle and is unreachable when `__DEV__` is false.)
+- **v2 wiring present** — the Hermes bundle contains `/tenants/`,
+  `/me/permissions`, `/guardian-permissions`, `warden-decision`,
+  `/me/push-devices`, `Idempotency-Key`, and `If-Match`.
+- **Signing** — `jarsigner -verify` reports `jar verified`; the certificate
+  SHA-1 matches the upload key above, not the debug key.
+- `tsc --noEmit` clean.
+
+Upload `android/app/build/outputs/mapping/release/mapping.txt` with the bundle for crash
+de-obfuscation; native debug symbols are already embedded in it. All five artifacts are
+staged in `dist/` as `iverto-ai-1.2.0-vc7.*`.
+
+**Size note**: the split APKs (`assembleRelease`) are 3.3–4.8 MB larger per
+architecture than the 1.1.2 cycle's documented numbers (20.96 / 16.30 / 30.80
+MB), despite no dependency or native-module change in this diff — it touches
+only `lib/api/**`, `types/index.ts`, `lib/push.ts`, `lib/auth.tsx`,
+`lib/attachments.ts`, `app.json`, and three screens' upload handling, no
+native code, and no `package.json` change. The AAB, which is what Play
+actually serves, is within 5 KB of 1.1.2's — **not** larger, so whatever
+moved is specific to how `assembleRelease` splits/packages locally, not a
+real regression in what ships. Worth a `./gradlew clean` rebuild to confirm
+before reading anything into the APK delta; not chased further here since
+it's outside this migration's scope and every artifact is still well under
+the 40 MB budget.
+
+## Not deployed
+
+Nothing in this release has been submitted to Play or installed on a
+production device. See "The v2 backend is not live yet" above.
+
+---
+
 # Iverto.ai 1.1.2 — list view for the warden's pass queue
 
 One UI addition on **All passes**, plus the version bump Play requires.

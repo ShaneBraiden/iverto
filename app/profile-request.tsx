@@ -35,9 +35,15 @@ import { colors, radius, spacing, type } from '@/theme';
 import { DEFAULT_FIELD_ICON, FIELD_ICONS } from '@/constants/config';
 import { profileRequests as profileRequestApi } from '@/lib/api/endpoints';
 import { errorCode, errorMessage, useMutation, useQuery } from '@/lib/api/useQuery';
-import { AttachmentError, pickAndUpload, type PickedFile } from '@/lib/attachments';
+import {
+  AttachmentError,
+  canAttachUpload,
+  pickAndUpload,
+  uploadRejected,
+  type PickedFile,
+} from '@/lib/attachments';
 import { timeAgo } from '@/lib/datetime';
-import type { EditableField } from '@/types';
+import type { EditableField, UploadScanState } from '@/types';
 
 type IconName = React.ComponentProps<typeof Ionicons>['name'];
 
@@ -62,6 +68,7 @@ export default function ProfileRequestScreen() {
   const [reason, setReason] = useState('');
 
   const [attachmentKey, setAttachmentKey] = useState<string | null>(null);
+  const [attachmentScanState, setAttachmentScanState] = useState<UploadScanState | null>(null);
   const [attachment, setAttachment] = useState<PickedFile | null>(null);
   const [attachError, setAttachError] = useState<string | null>(null);
   const [attaching, setAttaching] = useState(false);
@@ -95,6 +102,7 @@ export default function ProfileRequestScreen() {
     if (attachment) {
       setAttachment(null);
       setAttachmentKey(null);
+      setAttachmentScanState(null);
       setAttachError(null);
       return;
     }
@@ -103,8 +111,16 @@ export default function ProfileRequestScreen() {
     try {
       const picked = await pickAndUpload('profile-request');
       if (picked) {
-        setAttachmentKey(picked.upload.key);
+        setAttachmentKey(picked.upload.fileId);
+        setAttachmentScanState(picked.upload.scanState);
         setAttachment(picked.file);
+        if (uploadRejected(picked.upload)) {
+          setAttachError(
+            picked.upload.scanState === 'infected'
+              ? "That file didn't pass the security scan. Pick a different one."
+              : "That file couldn't be scanned. Pick a different one."
+          );
+        }
       }
     } catch (err) {
       setAttachError(
@@ -355,7 +371,14 @@ export default function ProfileRequestScreen() {
                 }
                 icon="paper-plane-outline"
                 loading={submit.pending}
-                disabled={changed.length === 0 || reason.trim().length === 0 || submit.pending}
+                disabled={
+                  changed.length === 0 ||
+                  reason.trim().length === 0 ||
+                  submit.pending ||
+                  (!!attachmentKey &&
+                    attachmentScanState !== null &&
+                    !canAttachUpload({ scanState: attachmentScanState }))
+                }
                 onPress={() => submit.mutate()}
               />
             </>

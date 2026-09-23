@@ -4,14 +4,19 @@
  * Base URL comes from `EXPO_PUBLIC_API_URL` (a `.env` file, or the shell that
  * runs `expo start`), falling back to `extra.apiUrl` in `app.json` so a release
  * build has a host even with no env set. Every path in this app is written
- * from the version segment onwards (`/v1/mobile/...`) exactly as the API doc
- * writes it, and the base carries the service prefix (`/hostel` for production,
- * `/devhostel` for the dev deployment):
+ * from the version segment onwards (`/v1/mobile/...` or, for Hostel v2,
+ * `/v2/tenants/{tenantId}/...`) exactly as the API doc writes it, and the base
+ * carries the service prefix (`/hostel` for production, `/devhostel` for the
+ * dev deployment):
  *
  *     https://api.iverto.ai/hostel  +  /v1/mobile/permissions
+ *     https://api.iverto.ai/hostel  +  /v2/tenants/t_1/me/permissions
  *
  * so a path can be copied out of the doc and pasted into `endpoints.ts`
- * unchanged.
+ * unchanged. See the `V1`/`V2` constants in `endpoints.ts` for which surface
+ * each route is on — `Dev/mobile-v2-handoff/` has the v2 contract and the
+ * migration matrix, and not everything has moved yet (see that module's own
+ * header comment).
  */
 import Constants from 'expo-constants';
 
@@ -38,6 +43,8 @@ export type ApiErrorCode =
   | 'PERMISSION_NOT_ACTIVE'
   | 'PROFILE_REQUEST_PENDING'
   | 'PROFILE_REQUEST_ALREADY_REVIEWED'
+  /** `/hostel/v2/**` — a stale `If-Match` version lost a race with another writer. */
+  | 'PERMISSION_VERSION_CONFLICT'
   | 'NETWORK'
   | 'TIMEOUT'
   | 'UNKNOWN';
@@ -55,12 +62,32 @@ export type ApiErrorCode =
 const TIMEOUT_MS = 30_000;
 
 /** The envelope every `/v1/mobile/**` route returns on failure. */
-type ErrorEnvelope = {
+type ErrorEnvelopeV1 = {
   statusCode?: number;
   error?: string;
   message?: string | string[];
   details?: Record<string, string[]>;
 };
+
+/**
+ * RFC 7807 `ProblemDetails` — what every `/hostel/v2/**` route returns on
+ * failure instead of the v1 envelope above. `code` replaces `error`, `detail`
+ * replaces `message`, and `fieldErrors` replaces `details` (as an array of
+ * `{field, message, code}` rather than a field → messages map).
+ */
+type ProblemDetails = {
+  type?: string;
+  title?: string;
+  status?: number;
+  code?: string;
+  detail?: string;
+  instance?: string;
+  requestId?: string;
+  retryable?: boolean;
+  fieldErrors?: { field: string; message: string; code?: string }[];
+};
+
+type ErrorEnvelope = ErrorEnvelopeV1 & ProblemDetails;
 
 /** Thrown for any non-2xx response, so screens can show the server's message. */
 export class ApiError extends Error {
@@ -69,13 +96,19 @@ export class ApiError extends Error {
   /** Present only on validation failures — field name → messages. */
   details?: Record<string, string[]>;
   body: unknown;
+  /** `/hostel/v2/**` only — the server's own correlation id for this failure. */
+  requestId?: string;
+  /** `/hostel/v2/**` only — whether the caller may safely retry as-is. */
+  retryable?: boolean;
 
   constructor(
     status: number,
     message: string,
     code: ApiErrorCode = 'UNKNOWN',
     details?: Record<string, string[]>,
-    body?: unknown
+    body?: unknown,
+    requestId?: string,
+    retryable?: boolean
   ) {
     super(message);
     this.name = 'ApiError';
@@ -83,6 +116,8 @@ export class ApiError extends Error {
     this.code = code;
     this.details = details;
     this.body = body;
+    this.requestId = requestId;
+    this.retryable = retryable;
   }
 
   /** The first validation message for a field, if the server flagged one. */
@@ -107,6 +142,29 @@ export function setAuthToken(token: string | null) {
 
 export function getAuthToken() {
   return authToken;
+}
+
+/**
+ * The signed-in account's tenant, for `/hostel/v2/tenants/{tenantId}/**`
+ * paths. Set alongside the auth token (`lib/auth.tsx`) from `AuthUser.tenantId`
+ * — v1 login already hands that back, so no separate tenant lookup is needed.
+ */
+let tenantId: string | null = null;
+
+export function setTenantId(id: string | null) {
+  tenantId = id;
+}
+
+export function getTenantId() {
+  return tenantId;
+}
+
+/** Throws rather than building a request against `/tenants/undefined/...`. */
+export function requireTenantId(): string {
+  if (!tenantId) {
+    throw new ApiError(0, 'No tenant on the current session.', 'UNKNOWN');
+  }
+  return tenantId;
 }
 
 /**
@@ -154,6 +212,21 @@ function refreshOnce() {
 
 export type Query = Record<string, string | number | boolean | undefined | null>;
 
+/**
+ * A v4 UUID for the `Idempotency-Key` header `/hostel/v2/**` mutations expect.
+ * Not cryptographically strong — nothing here needs that, only unpredictable
+ * enough that two independent requests never collide. React Native's Hermes
+ * has no built-in `crypto.randomUUID`, so this is rolled by hand rather than
+ * pulling in a dependency for one line of math.
+ */
+export function idempotencyKey(): string {
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
+    const r = (Math.random() * 16) | 0;
+    const v = c === 'x' ? r : (r & 0x3) | 0x8;
+    return v.toString(16);
+  });
+}
+
 type RequestOptions = {
   method?: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
   /** Serialised as JSON unless it is already a FormData. */
@@ -163,6 +236,19 @@ type RequestOptions = {
   signal?: AbortSignal;
   /** `text/csv` exports come back as a string rather than JSON. */
   accept?: string;
+  /**
+   * `/hostel/v2/**` mutations: a client-generated key so a retried request is
+   * safe to send twice. Pass `true` to have one generated per call, a string
+   * to reuse a specific key (a manual "retry with the same key" control), or
+   * leave it unset on a v1 route, which ignores the header.
+   */
+  idempotencyKey?: boolean | string;
+  /**
+   * `/hostel/v2/**` mutations with optimistic concurrency: the resource
+   * `version` this write is conditional on. Sent as `If-Match`; a stale value
+   * comes back as a 409 `PERMISSION_VERSION_CONFLICT`.
+   */
+  ifMatch?: string;
   /**
    * Set internally when a request is replayed after a token refresh, so a
    * second 401 ends the session instead of refreshing round and round.
@@ -198,13 +284,29 @@ function buildUrl(path: string, query?: Query) {
   return pairs.length ? `${url}?${pairs.join('&')}` : url;
 }
 
-/** NestJS validation pipes send `message` as an array; flatten it to one line. */
+/**
+ * `/hostel/v2/**` sends `detail`; `/v1/mobile/**` sends `message`, which
+ * NestJS validation pipes may send as an array — flattened to one line.
+ */
 function readMessage(payload: ErrorEnvelope | null, status: number) {
+  if (typeof payload?.detail === 'string' && payload.detail) return payload.detail;
   const raw = payload?.message;
   if (Array.isArray(raw) && raw.length) return raw.join('\n');
   if (typeof raw === 'string' && raw) return raw;
   if (payload?.error) return payload.error;
+  if (payload?.title) return payload.title;
   return `Request failed (${status})`;
+}
+
+/** `ProblemDetails.fieldErrors` (an array) → the v1 `details` shape (field → messages). */
+function readFieldErrors(payload: ErrorEnvelope | null): Record<string, string[]> | undefined {
+  if (payload?.details) return payload.details;
+  if (!Array.isArray(payload?.fieldErrors)) return undefined;
+  const out: Record<string, string[]> = {};
+  for (const { field, message } of payload.fieldErrors) {
+    (out[field] ??= []).push(message);
+  }
+  return out;
 }
 
 export async function request<T>(path: string, options: RequestOptions = {}): Promise<T> {
@@ -218,6 +320,8 @@ export async function request<T>(path: string, options: RequestOptions = {}): Pr
     query,
     signal,
     accept = 'application/json',
+    idempotencyKey: idemOption,
+    ifMatch,
     retried,
     anonymous,
   } = options;
@@ -232,6 +336,8 @@ export async function request<T>(path: string, options: RequestOptions = {}): Pr
      what matters is whether *this* request was authenticated. */
   const sentWithToken = anonymous ? null : authToken;
   if (sentWithToken) headers.Authorization = `Bearer ${sentWithToken}`;
+  if (idemOption) headers['Idempotency-Key'] = idemOption === true ? idempotencyKey() : idemOption;
+  if (ifMatch) headers['If-Match'] = ifMatch;
 
   /* One controller for two reasons to give up: the caller unmounting (its own
      `signal`) and the deadline below. `fetch` only takes one signal, so the
@@ -315,20 +421,28 @@ function toApiError(status: number, text: string) {
   return new ApiError(
     status,
     readMessage(payload, status),
-    (payload?.error as ApiErrorCode) ?? 'UNKNOWN',
-    payload?.details,
-    payload
+    ((payload?.code || payload?.error) as ApiErrorCode) ?? 'UNKNOWN',
+    readFieldErrors(payload),
+    payload,
+    payload?.requestId,
+    payload?.retryable
   );
 }
+
+/** Extra transport concerns a v2 mutation can opt into — see `RequestOptions`. */
+type MutationOptions = { idempotencyKey?: boolean | string; ifMatch?: string };
 
 export const api = {
   get: <T>(path: string, query?: Query, signal?: AbortSignal) =>
     request<T>(path, { method: 'GET', query, signal }),
-  post: <T>(path: string, body?: unknown, query?: Query) =>
-    request<T>(path, { method: 'POST', body, query }),
-  put: <T>(path: string, body?: unknown) => request<T>(path, { method: 'PUT', body }),
-  patch: <T>(path: string, body?: unknown) => request<T>(path, { method: 'PATCH', body }),
-  del: <T>(path: string, body?: unknown) => request<T>(path, { method: 'DELETE', body }),
+  post: <T>(path: string, body?: unknown, query?: Query, opts?: MutationOptions) =>
+    request<T>(path, { method: 'POST', body, query, ...opts }),
+  put: <T>(path: string, body?: unknown, opts?: MutationOptions) =>
+    request<T>(path, { method: 'PUT', body, ...opts }),
+  patch: <T>(path: string, body?: unknown, opts?: MutationOptions) =>
+    request<T>(path, { method: 'PATCH', body, ...opts }),
+  del: <T>(path: string, body?: unknown, opts?: MutationOptions) =>
+    request<T>(path, { method: 'DELETE', body, ...opts }),
   csv: (path: string, query?: Query) =>
     request<string>(path, { method: 'GET', query, accept: 'text/csv' }),
   /** For the public §1 auth routes — see `anonymous` in `RequestOptions`. */

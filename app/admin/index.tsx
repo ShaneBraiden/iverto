@@ -112,10 +112,13 @@ export default function AdminHome() {
   useRefetchOnFocus(refreshAll);
   useLivePermissions(refreshAll);
 
-  const resolve = useMutation((id: string) => adminApi.resolveEmergency(id, 'resolved'), {
-    onSuccess: refreshAll,
-    onError: (err) => Alert.alert("Couldn't resolve that", errorMessage(err)),
-  });
+  const resolve = useMutation(
+    (id: string, version?: string) => adminApi.resolveEmergency(id, 'resolved', undefined, version),
+    {
+      onSuccess: refreshAll,
+      onError: (err) => Alert.alert("Couldn't resolve that", errorMessage(err)),
+    }
+  );
 
   const tiles = stats ? statTiles(stats) : [];
   const rows = activity.data ?? [];
@@ -200,7 +203,7 @@ export default function AdminHome() {
                     onPress={() =>
                       Alert.alert('Resolve this alert?', a.message, [
                         { text: 'Cancel', style: 'cancel' },
-                        { text: 'Resolve', onPress: () => resolve.mutate(a.id) },
+                        { text: 'Resolve', onPress: () => resolve.mutate(a.id, a.version) },
                       ])
                     }
                   >

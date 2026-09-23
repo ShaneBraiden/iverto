@@ -103,18 +103,21 @@ export default function OutpassDetail() {
   };
 
   /* Guardian */
-  const approve = useMutation(() => parentApi.decide(id!, 'approve'), {
+  const approve = useMutation(() => parentApi.decide(id!, 'approve', undefined, item?.version), {
     onSuccess: () => done('The student and the warden have been told.'),
     onError,
   });
-  const reject = useMutation((reason: string) => parentApi.decide(id!, 'reject', reason), {
-    onSuccess: () => done('The student has been told, along with your reason.'),
-    onError,
-  });
+  const reject = useMutation(
+    (reason: string) => parentApi.decide(id!, 'reject', reason, item?.version),
+    {
+      onSuccess: () => done('The student has been told, along with your reason.'),
+      onError,
+    }
+  );
   /* The note is what the warden's alert is written from, so it is always sent —
      see CONTACT_WARDEN_NOTE. */
   const contactWarden = useMutation(
-    () => parentApi.decide(id!, 'contact_warden', CONTACT_WARDEN_NOTE),
+    () => parentApi.decide(id!, 'contact_warden', CONTACT_WARDEN_NOTE, item?.version),
     {
       onSuccess: () => done('The warden has been alerted and will call you.'),
       onError,
@@ -128,11 +131,14 @@ export default function OutpassDetail() {
   });
 
   /* Warden / admin */
-  const wardenApprove = useMutation(() => wardenApi.decide(id!, 'approve'), {
-    onSuccess: () => done('Cleared. The guardian has been asked to approve.'),
-    onError,
-  });
-  const activate = useMutation(() => wardenApi.activate(id!), {
+  const wardenApprove = useMutation(
+    () => wardenApi.decide(id!, 'approve', undefined, item?.version),
+    {
+      onSuccess: () => done('Cleared. The guardian has been asked to approve.'),
+      onError,
+    }
+  );
+  const activate = useMutation(() => wardenApi.activate(id!, item?.version), {
     onSuccess: () => done('The pass is now active.'),
     onError,
   });
@@ -176,11 +182,17 @@ export default function OutpassDetail() {
      rings them, and this is where that answer gets recorded against the pass. */
   const resolveEscalated = useMutation(
     (response: 'approve' | 'reject') =>
-      wardenApi.resolveEscalated(id!, response, 'Guardian responded out of band.'),
+      wardenApi.resolveEscalated(
+        id!,
+        response,
+        'Guardian responded out of band.',
+        item?.version
+      ),
     { onSuccess: () => done("The guardian's answer is on the record."), onError }
   );
   const override = useMutation(
-    (status: PermissionStatus, reason: string) => adminApi.override(id!, status, reason),
+    (status: PermissionStatus, reason: string) =>
+      adminApi.override(id!, status, reason, item?.version),
     { onSuccess: () => done('The override is on the audit log.'), onError }
   );
 

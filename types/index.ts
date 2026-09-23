@@ -1,9 +1,14 @@
 /**
- * Domain types — the exact shapes documented in `mobile-api-documentation.md`.
+ * Domain types — the exact shapes documented in `mobile-api-documentation.md`,
+ * now mixed with the Hostel v2 contract in `Dev/mobile-v2-handoff/`.
  *
- * Field names here match the wire format character for character. Nothing is
- * renamed on the way in, so a response can be handed to a screen unchanged and
- * a screen's props can be read straight against the API doc.
+ * Field names here match the wire format character for character for
+ * everything still on `/v1/mobile/**`. For routes migrated to
+ * `/hostel/v2/**`, `lib/api/endpoints.ts` adapts the v2 response back into
+ * these same shapes at the call site (pagination envelope, upload
+ * references) so a screen never has to know which surface answered it —
+ * except where a field is new and v2-only (`Permission.version`, `scanState`
+ * on an upload), which is called out on the field itself.
  */
 
 /* ------------------------------------------------------------------- Roles */
@@ -165,6 +170,14 @@ export type Permission = {
   createdAt: string;
   updatedAt: string;
   student?: PermissionStudent;
+
+  /**
+   * Optimistic-concurrency token — `/hostel/v2/**` only. Sent back as
+   * `If-Match` on a guardian or warden decision; a stale value is a 409
+   * `PERMISSION_VERSION_CONFLICT`, not a silent overwrite. Absent on a
+   * permission read from a `/v1/mobile/**` route, which has no such precondition.
+   */
+  version?: string;
 
   /* --- Closing a live pass, and the clock that runs while it is open --- */
 
@@ -467,6 +480,8 @@ export type EmergencyAlert = {
   status: 'open' | 'acknowledged' | 'resolved' | string;
   createdAt: string;
   student?: PermissionStudent;
+  /** Optimistic-concurrency token — `/hostel/v2/**` only. See `Permission.version`. */
+  version?: string;
 };
 
 /* -------------------------------------------------- Profile edit requests */
@@ -493,6 +508,8 @@ export type ProfileRequest = {
   reviewNote: string | null;
   createdAt: string;
   updatedAt: string;
+  /** Optimistic-concurrency token — `/hostel/v2/**` only. See `Permission.version`. */
+  version?: string;
   /** On the admin queue and the single-request read. */
   subject?: {
     id: string;
@@ -715,11 +732,47 @@ export type AppConfig = {
 
 /* -------------------------------------------------------------- Uploads */
 
+/**
+ * Quarantine state of an uploaded file — `/hostel/v2/**` only. Only `clean`
+ * and `not-required` may be attached to a submission; see `canAttachUpload` in
+ * `lib/attachments.ts`. `/v1/mobile/**` uploads have no scan step and are
+ * usable the moment the POST returns.
+ */
+export type UploadScanState = 'not-required' | 'pending' | 'clean' | 'infected' | 'failed';
+
+/**
+ * What `POST /uploads` returns.
+ *
+ * `fileId` is the opaque reference to send back on whatever needs it
+ * (`supportingDocKeys`, `attachmentKey`, `iconKey` in a v1 body); the server
+ * never hands back a parseable storage key. `filename` is the name the picker
+ * gave the file — the v2 upload response does not echo it back, so the caller
+ * carries it forward from the pick step.
+ */
 export type UploadResult = {
-  key: string;
-  bucket: string;
+  fileId: string;
   filename: string;
   contentType: string;
   size: number;
-  url: string;
+  /** `not-required` on a `/v1/mobile/**` upload, which has no scan step. */
+  scanState: UploadScanState;
+  createdAt?: string;
+};
+
+/** Body of `POST /me/push-devices` — `/hostel/v2/**` only. */
+export type PushDeviceRegistration = {
+  installationId: string;
+  platform: 'android' | 'ios';
+  token: string;
+  appVersion: string;
+  locale: string;
+};
+
+/** What registering a push device returns — the token itself is write-only. */
+export type PushDeviceView = {
+  deviceId: string;
+  installationId: string;
+  active: boolean;
+  appVersion: string;
+  lastSeenAt: string;
 };

@@ -53,11 +53,18 @@ import { colors, font, radius, spacing, type } from '@/theme';
 import { DEFAULT_APP_NAME, iconPresets, ROSTER_PAGE_SIZE, SHAPES } from '@/constants/config';
 import { admin as adminApi } from '@/lib/api/endpoints';
 import { errorMessage, fromPage, usePagedQuery, useMutation, useQuery } from '@/lib/api/useQuery';
-import { AttachmentError, pickAndUpload, type PickedFile } from '@/lib/attachments';
+import {
+  AttachmentError,
+  canAttachUpload,
+  pickAndUpload,
+  uploadRejected,
+  type PickedFile,
+} from '@/lib/attachments';
 import { timeAgo } from '@/lib/datetime';
 import { useAuth } from '@/lib/auth';
 import { useSignedUrl } from '@/lib/useSignedUrl';
 import { AppIcon } from '@/components/AppIcon';
+import type { UploadScanState } from '@/types';
 
 /** The server caps these; enforcing them here keeps the preview honest. */
 const MAX_APP_NAME = 14;
@@ -102,6 +109,8 @@ export default function BrandingEditor() {
   const [selected, setSelected] = useState<string[]>([]);
   const [icon, setIcon] = useState<PickedFile | null>(null);
   const [iconKey, setIconKey] = useState<string | null>(null);
+  /** Only set for a freshly-picked icon — the group's own saved `iconKey` was scanned long ago. */
+  const [iconScanState, setIconScanState] = useState<UploadScanState | null>(null);
   const [iconError, setIconError] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
 
@@ -163,6 +172,7 @@ export default function BrandingEditor() {
     if (icon || iconKey) {
       setIcon(null);
       setIconKey(null);
+      setIconScanState(null);
       return;
     }
     setUploading(true);
@@ -177,8 +187,16 @@ export default function BrandingEditor() {
         'image/heic',
       ]);
       if (picked) {
-        setIconKey(picked.upload.key);
+        setIconKey(picked.upload.fileId);
+        setIconScanState(picked.upload.scanState);
         setIcon(picked.file);
+        if (uploadRejected(picked.upload)) {
+          setIconError(
+            picked.upload.scanState === 'infected'
+              ? "That image didn't pass the security scan. Pick a different one."
+              : "That image couldn't be scanned. Pick a different one."
+          );
+        }
       }
     } catch (err) {
       setIconError(
@@ -492,7 +510,11 @@ export default function BrandingEditor() {
             icon="checkmark"
             full={false}
             loading={apply.pending}
-            disabled={selected.length === 0 || apply.pending}
+            disabled={
+              selected.length === 0 ||
+              apply.pending ||
+              (iconScanState !== null && !canAttachUpload({ scanState: iconScanState }))
+            }
             style={{ flex: 1.4 }}
             onPress={() => apply.mutate()}
           />

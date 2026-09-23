@@ -25,7 +25,14 @@ import { colors, radius, spacing, type } from '@/theme';
 import { permissions as permissionApi } from '@/lib/api/endpoints';
 import { errorMessage, useMutation, useQuery } from '@/lib/api/useQuery';
 import { useAuth } from '@/lib/auth';
-import { AttachmentError, pickAndUpload, type PickedFile } from '@/lib/attachments';
+import {
+  AttachmentError,
+  canAttachUpload,
+  pickAndUpload,
+  uploadRejected,
+  type PickedFile,
+} from '@/lib/attachments';
+import type { UploadScanState } from '@/types';
 import { combine, formatDate, formatMinutes, formatTime, toISO } from '@/lib/datetime';
 
 /** Which picker sheet is open, if any. */
@@ -57,6 +64,7 @@ export default function NewRequest() {
   const [contact, setContact] = useState(me?.phone ?? '');
 
   const [docKey, setDocKey] = useState<string | null>(null);
+  const [docScanState, setDocScanState] = useState<UploadScanState | null>(null);
   const [attachment, setAttachment] = useState<PickedFile | null>(null);
   const [attachError, setAttachError] = useState<string | null>(null);
   const [attaching, setAttaching] = useState(false);
@@ -72,6 +80,9 @@ export default function NewRequest() {
   const tooLong =
     !!category?.maxDurationHours && durationMins > category.maxDurationHours * 60;
   const docMissing = !!category?.requiresSupportingDoc && !docKey;
+  /* Still quarantine-scanning past `pickAndUpload`'s own poll window, or
+     rejected outright — either way, not yet safe to submit with. */
+  const docBlocked = !!docKey && docScanState !== null && !canAttachUpload({ scanState: docScanState });
 
   const submit = useMutation(
     () =>
@@ -91,6 +102,7 @@ export default function NewRequest() {
     if (attachment) {
       setAttachment(null);
       setDocKey(null);
+      setDocScanState(null);
       setAttachError(null);
       return;
     }
@@ -99,8 +111,16 @@ export default function NewRequest() {
     try {
       const picked = await pickAndUpload('permission');
       if (picked) {
-        setDocKey(picked.upload.key);
+        setDocKey(picked.upload.fileId);
+        setDocScanState(picked.upload.scanState);
         setAttachment(picked.file);
+        if (uploadRejected(picked.upload)) {
+          setAttachError(
+            picked.upload.scanState === 'infected'
+              ? "That file didn't pass the security scan. Pick a different one."
+              : "That file couldn't be scanned. Pick a different one."
+          );
+        }
       }
     } catch (err) {
       setAttachError(
@@ -120,7 +140,8 @@ export default function NewRequest() {
     contact.trim().length > 0 &&
     !rangeInvalid &&
     !tooLong &&
-    !docMissing;
+    !docMissing &&
+    !docBlocked;
 
   return (
     <View style={{ flex: 1 }}>
@@ -289,6 +310,13 @@ export default function NewRequest() {
           </Pressable>
           {attachError ? (
             <Note icon="alert-circle-outline" tone="danger" text={attachError} />
+          ) : null}
+          {docScanState === 'pending' && !attaching ? (
+            <Note
+              icon="shield-checkmark-outline"
+              tone="warning"
+              text="Still scanning that file — this can take a moment longer. Try attaching again shortly."
+            />
           ) : null}
           {docMissing && !attaching ? (
             <Note

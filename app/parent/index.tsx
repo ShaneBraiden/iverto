@@ -89,21 +89,28 @@ export default function ParentHome() {
     Alert.alert("Couldn't record that", errorMessage(err));
   };
 
-  const approve = useMutation((id: string) => parentApi.decide(id, 'approve'), {
-    onSuccess: () => decided('The student and the warden have been told.'),
-    onError: onDecisionError,
-  });
+  const approve = useMutation(
+    (id: string, version?: string) => parentApi.decide(id, 'approve', undefined, version),
+    {
+      onSuccess: () => decided('The student and the warden have been told.'),
+      onError: onDecisionError,
+    }
+  );
 
-  const reject = useMutation((id: string, note: string) => parentApi.decide(id, 'reject', note), {
-    onSuccess: () => decided('The student has been told, along with your reason.'),
-    onError: onDecisionError,
-  });
+  const reject = useMutation(
+    (id: string, note: string, version?: string) => parentApi.decide(id, 'reject', note, version),
+    {
+      onSuccess: () => decided('The student has been told, along with your reason.'),
+      onError: onDecisionError,
+    }
+  );
 
   /* Not a decision — it pulls the warden in when a guardian would rather talk
      to somebody than approve or refuse on the spot. The note is what the
      warden's alert is written from, so it is always sent. */
   const contactWarden = useMutation(
-    (id: string) => parentApi.decide(id, 'contact_warden', CONTACT_WARDEN_NOTE),
+    (id: string, version?: string) =>
+      parentApi.decide(id, 'contact_warden', CONTACT_WARDEN_NOTE, version),
     {
       onSuccess: () => decided('The warden has been alerted and will call you.'),
       onError: onDecisionError,
@@ -172,7 +179,7 @@ export default function ParentHome() {
                         key={p.id}
                         item={p}
                         busy={busy}
-                        onApprove={() => approve.mutate(p.id)}
+                        onApprove={() => approve.mutate(p.id, p.version)}
                         onReject={() => setRejecting(p)}
                         onContactWarden={() =>
                           Alert.alert(
@@ -180,7 +187,10 @@ export default function ParentHome() {
                             'The warden is alerted that you want to discuss this request before deciding.',
                             [
                               { text: 'Cancel', style: 'cancel' },
-                              { text: 'Alert warden', onPress: () => contactWarden.mutate(p.id) },
+                              {
+                                text: 'Alert warden',
+                                onPress: () => contactWarden.mutate(p.id, p.version),
+                              },
                             ]
                           )
                         }
@@ -210,7 +220,7 @@ export default function ParentHome() {
         onClose={() => setRejecting(null)}
         pending={reject.pending}
         error={reject.error}
-        onConfirm={(note) => rejecting && reject.mutate(rejecting.id, note)}
+        onConfirm={(note) => rejecting && reject.mutate(rejecting.id, note, rejecting.version)}
       />
     </View>
   );

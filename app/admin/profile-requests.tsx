@@ -87,12 +87,13 @@ export default function AdminProfileRequests() {
     Alert.alert("Couldn't apply", errorMessage(err));
   };
 
-  const approve = useMutation((id: string) => adminApi.approveProfileRequest(id), {
-    onSuccess: afterDecision,
-    onError: onDecisionError,
-  });
+  const approve = useMutation(
+    (id: string, version?: string) => adminApi.approveProfileRequest(id, undefined, version),
+    { onSuccess: afterDecision, onError: onDecisionError }
+  );
   const decline = useMutation(
-    (id: string, note: string) => adminApi.rejectProfileRequest(id, note),
+    (id: string, note: string, version?: string) =>
+      adminApi.rejectProfileRequest(id, note, version),
     { onSuccess: afterDecision, onError: onDecisionError }
   );
   const exportAll = useMutation(
@@ -197,7 +198,7 @@ export default function AdminProfileRequests() {
                       key={r.id}
                       request={r}
                       busy={busy}
-                      onApprove={() => approve.mutate(r.id)}
+                      onApprove={() => approve.mutate(r.id, r.version)}
                       onDecline={() => setDeclining(r)}
                       onViewAttachment={
                         r.attachmentKey ? () => openAttachment(r.attachmentKey!) : undefined
@@ -225,7 +226,7 @@ export default function AdminProfileRequests() {
         onClose={() => setDeclining(null)}
         pending={decline.pending}
         error={decline.error}
-        onConfirm={(note) => declining && decline.mutate(declining.id, note)}
+        onConfirm={(note) => declining && decline.mutate(declining.id, note, declining.version)}
       />
     </View>
   );

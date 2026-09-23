@@ -13,3 +13,5 @@ android/
 # Local API configuration — never commit real hosts or keys
 .env
 .env.local
+
+Dev/**

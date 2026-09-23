@@ -10,17 +10,62 @@
  * Firebase Admin rejects as an FCM token. See Dev/fcm-integration.md §2.
  */
 import { Platform } from 'react-native';
+import Constants from 'expo-constants';
 import * as Device from 'expo-device';
 import * as Notifications from 'expo-notifications';
+import * as SecureStore from 'expo-secure-store';
+import { idempotencyKey } from '@/lib/api/client';
 import { push as pushApi } from '@/lib/api/endpoints';
 import { eventKey, needsRewrite, notificationCopy } from '@/lib/notificationText';
 import type { Shell } from '@/types';
 
 /** Kept so sign-out can unregister the exact token it registered. */
 let currentToken: string | null = null;
+/**
+ * The server-assigned id from the last successful `POST /me/push-devices` —
+ * v2 unregisters by this, not by the provider token, which is write-only and
+ * never echoed back. In memory only, like `currentToken`: this app
+ * re-registers on every launch, so a fresh one is always obtained before it's
+ * ever needed.
+ */
+let currentDeviceId: string | null = null;
 
 export function currentPushToken() {
   return currentToken;
+}
+
+const INSTALLATION_ID_KEY = 'iverto.installationId.v1';
+
+/**
+ * A stable id for this app install, sent as `installationId` on every v2
+ * device registration so the server can tell "the same phone, a rotated FCM
+ * token" apart from "a second phone". Generated once and kept in SecureStore
+ * — it isn't a secret, but every other per-device value already lives there,
+ * and this avoids adding a storage dependency for one string.
+ */
+async function installationId(): Promise<string> {
+  try {
+    const existing = await SecureStore.getItemAsync(INSTALLATION_ID_KEY);
+    if (existing) return existing;
+  } catch {
+    /* Fall through to a fresh, unpersisted id for this launch. */
+  }
+  const fresh = idempotencyKey();
+  try {
+    await SecureStore.setItemAsync(INSTALLATION_ID_KEY, fresh);
+  } catch {
+    /* No keystore available — the id just won't survive a relaunch. */
+  }
+  return fresh;
+}
+
+/** BCP-47 tag for `locale` on registration. Hermes ships a usable `Intl`; `en-US` otherwise. */
+function deviceLocale(): string {
+  try {
+    return Intl.DateTimeFormat().resolvedOptions().locale || 'en-US';
+  } catch {
+    return 'en-US';
+  }
 }
 
 /**
@@ -124,7 +169,14 @@ export async function registerForPush(): Promise<string | null> {
   }
 
   try {
-    await pushApi.register('android', token);
+    const device = await pushApi.register({
+      installationId: await installationId(),
+      platform: 'android',
+      token,
+      appVersion: Constants.expoConfig?.version ?? '0.0.0',
+      locale: deviceLocale(),
+    });
+    currentDeviceId = device.deviceId;
   } catch (err) {
     note('register-failed', err);
     return null;
@@ -146,6 +198,7 @@ export async function registerForPush(): Promise<string | null> {
  */
 export function forgetPushToken() {
   currentToken = null;
+  currentDeviceId = null;
 }
 
 /**
@@ -153,11 +206,12 @@ export function forgetPushToken() {
  * before clearing the session, while the access token is still valid.
  */
 export async function unregisterForPush() {
-  const token = currentToken;
+  const deviceId = currentDeviceId;
   currentToken = null;
-  if (!token) return;
+  currentDeviceId = null;
+  if (!deviceId) return;
   try {
-    await pushApi.unregister(token);
+    await pushApi.unregister(deviceId);
   } catch {
     /* Signing out locally matters more than the server acknowledging it. */
   }
@@ -173,8 +227,16 @@ export function watchTokenRefresh() {
     const token = String(data);
     if (token === currentToken) return;
     currentToken = token;
-    void pushApi
-      .register('android', token)
+    void (async () => {
+      const device = await pushApi.register({
+        installationId: await installationId(),
+        platform: 'android',
+        token,
+        appVersion: Constants.expoConfig?.version ?? '0.0.0',
+        locale: deviceLocale(),
+      });
+      currentDeviceId = device.deviceId;
+    })()
       .then(() => note('registered', token))
       .catch((err) => note('register-failed', err));
   });
