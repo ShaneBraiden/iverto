@@ -153,7 +153,7 @@ export default function BrandingEditor() {
         iconLabel: (monogram || 'IV').slice(0, MAX_LABEL).toUpperCase(),
         iconKey: iconKey ?? undefined,
         memberStudentIds: selected,
-      }),
+      }, group!.version),
     {
       onSuccess: (updated) => {
         Alert.alert(

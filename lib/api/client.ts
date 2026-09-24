@@ -84,7 +84,14 @@ type ProblemDetails = {
   instance?: string;
   requestId?: string;
   retryable?: boolean;
-  fieldErrors?: { field: string; message: string; code?: string }[];
+  /**
+   * The bundle's `ProblemDetails` schema declares this as a field → messages
+   * map; the migration matrix's prose describes an array of
+   * `{ field, message, code }`. Both are accepted — see `readFieldErrors`.
+   */
+  fieldErrors?:
+    | Record<string, string[]>
+    | { field: string; message: string; code?: string }[];
 };
 
 type ErrorEnvelope = ErrorEnvelopeV1 & ProblemDetails;
@@ -159,6 +166,22 @@ export function getTenantId() {
   return tenantId;
 }
 
+/**
+ * The signed-in account's role, for the few v2 reads that answer differently
+ * per actor and have to be picked client-side (`/me` for a student is
+ * `/me/student`; the profile-request whitelist is keyed by subject type).
+ * Set alongside the tenant from `AuthUser.role`.
+ */
+let sessionRole: string | null = null;
+
+export function setSessionRole(role: string | null) {
+  sessionRole = role;
+}
+
+export function getSessionRole() {
+  return sessionRole;
+}
+
 /** Throws rather than building a request against `/tenants/undefined/...`. */
 export function requireTenantId(): string {
   if (!tenantId) {
@@ -213,18 +236,21 @@ function refreshOnce() {
 export type Query = Record<string, string | number | boolean | undefined | null>;
 
 /**
- * A v4 UUID for the `Idempotency-Key` header `/hostel/v2/**` mutations expect.
- * Not cryptographically strong — nothing here needs that, only unpredictable
- * enough that two independent requests never collide. React Native's Hermes
- * has no built-in `crypto.randomUUID`, so this is rolled by hand rather than
- * pulling in a dependency for one line of math.
+ * A UUIDv7 for the `Idempotency-Key` header. Every mutating `/hostel/v2/**`
+ * operation declares `x-idempotency: uuidv7_header`, so a v4 key is not what
+ * the contract asks for: v7 leads with a 48-bit millisecond timestamp, which is
+ * what lets the server order and expire its idempotency records.
+ *
+ * The random tail is not cryptographically strong — nothing here needs that,
+ * only unpredictable enough that two independent requests never collide.
+ * Hermes has no built-in `crypto.randomUUID`, so this is rolled by hand.
  */
 export function idempotencyKey(): string {
-  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
-    const r = (Math.random() * 16) | 0;
-    const v = c === 'x' ? r : (r & 0x3) | 0x8;
-    return v.toString(16);
-  });
+  const hex = Date.now().toString(16).padStart(12, '0').slice(-12);
+  const rand = (n: number) =>
+    Array.from({ length: n }, () => ((Math.random() * 16) | 0).toString(16)).join('');
+  const variant = (8 + ((Math.random() * 4) | 0)).toString(16);
+  return `${hex.slice(0, 8)}-${hex.slice(8)}-7${rand(3)}-${variant}${rand(3)}-${rand(12)}`;
 }
 
 type RequestOptions = {
@@ -298,12 +324,14 @@ function readMessage(payload: ErrorEnvelope | null, status: number) {
   return `Request failed (${status})`;
 }
 
-/** `ProblemDetails.fieldErrors` (an array) → the v1 `details` shape (field → messages). */
+/** `ProblemDetails.fieldErrors` → the v1 `details` shape (field → messages). */
 function readFieldErrors(payload: ErrorEnvelope | null): Record<string, string[]> | undefined {
   if (payload?.details) return payload.details;
-  if (!Array.isArray(payload?.fieldErrors)) return undefined;
+  const raw = payload?.fieldErrors;
+  if (!raw || typeof raw !== 'object') return undefined;
+  if (!Array.isArray(raw)) return raw;
   const out: Record<string, string[]> = {};
-  for (const { field, message } of payload.fieldErrors) {
+  for (const { field, message } of raw) {
     (out[field] ??= []).push(message);
   }
   return out;

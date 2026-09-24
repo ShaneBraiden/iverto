@@ -90,7 +90,9 @@ export default function OutpassDetail() {
   };
 
   const onError = (err: Error) => {
-    if (errorCode(err) === 'PERMISSION_ALREADY_DECIDED') {
+    /* v2 answers a stale `If-Match` or a contradicting decision with a 409;
+       either way the pass on screen is out of date, so refetch and say so. */
+    if (errorCode(err) === 'PERMISSION_ALREADY_DECIDED' || errorStatus(err) === 409) {
       done();
       Alert.alert('Already decided', 'Someone has already responded to this request.');
       return;
@@ -125,7 +127,7 @@ export default function OutpassDetail() {
   );
 
   /* Student */
-  const cancel = useMutation(() => permissionApi.cancel(id!), {
+  const cancel = useMutation(() => permissionApi.cancel(id!, item?.version), {
     onSuccess: () => router.back(),
     onError,
   });

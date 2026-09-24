@@ -1,3 +1,103 @@
+# Iverto.ai 1.2.2 — points at the dev deployment
+
+| | |
+|---|---|
+| **Version** | 1.2.2 (versionCode 9) |
+| **Platform** | Android |
+
+The only change from 1.2.1 is the API base URL. It is now
+`https://api.iverto.ai/devhostel` (`extra.apiUrl` in `app.json` and
+`EXPO_PUBLIC_API_URL` in `.env`), so v2 calls go to
+`https://api.iverto.ai/devhostel/v2/tenants/...` and v1 auth calls go to
+`https://api.iverto.ai/devhostel/v1/mobile/...`. The base does not include
+`/v2`, because every path in `endpoints.ts` already starts with its own
+version segment. The socket handshake path becomes `/devhostel/socket.io`.
+
+## Artifacts
+
+`dist/iverto-ai-1.2.2-vc9.aab` (28.30 MB) and
+`dist/iverto-ai-1.2.2-vc9-mapping.txt`. Signed with the upload key (SHA-1
+`89:A5:E7:60:75:A3:1A:DE:5D:FF:AA:B0:68:50:2C:6C:5C:D3:82:16`), and
+`jarsigner -verify` reports `jar verified`. The Hermes bundle contains
+`https://api.iverto.ai/devhostel` and no `/hostel` host. All 18 arm64
+libraries are 16 KB-aligned, and `tsc --noEmit` is clean.
+
+---
+
+# Iverto.ai 1.2.1 — Hostel v2 migration, corrected against the contract
+
+1.2.0 moved the data calls to `/hostel/v2/**`, but checked against
+`hostel-v2.bundle.yaml` operation by operation, most of those calls would
+have failed or rendered empty against a real v2 server. This release fixes
+them. Nothing new was moved to v2; the same routes are fixed so they match
+the contract.
+
+| | |
+|---|---|
+| **Version** | 1.2.1 (versionCode 8) |
+| **Platform** | Android |
+
+## What was wrong in 1.2.0, and is fixed here
+
+- **List envelopes.** 1.2.0 assumed every v2 list is `{ data, page }`. The
+  bundle uses four shapes: `{ items, nextCursor, hasMore }` (permissions,
+  guardian queue, notifications), `{ items, page }` (profile requests,
+  emergencies, announcements, groups), `{ data, page }` (roster, memberships,
+  activity), and a bare `{ data }` (children, guardians, late entries).
+  Most lists would have come back empty. They now read all four.
+- **Request bodies.** Guardian and warden decisions send `decision`, not
+  `response`. Manual override sends `targetStatus` + `reason`, and a
+  profile-request rejection sends `reason`. Resolving an escalation sends
+  `action: log_guardian_approval`. The contract has no way to log a guardian
+  refusal, so "They refused" is recorded as a warden rejection.
+- **Reshaped resources are adapted.** `/me` is now picked by role
+  (`/me/student`, `/me` + `/me/children`, `/me` + `/sites`). Curfew, the
+  student summary, the dashboard, roles, profile-request fields, ward
+  detail, late entries and notifications are mapped back to the shapes the
+  screens read. Fields v2 no longer supplies come back null or empty; none
+  are made up.
+- **Groups.** Branding is `PUT /groups/{id}/branding` with `If-Match` (1.2.0
+  sent a POST, which does not exist in the contract). The roster is a
+  separate `PUT /groups/{id}/members`. Icons travel as `logoFileId`.
+- **Headers.** Idempotency keys are UUIDv7, as `x-idempotency: uuidv7_header`
+  requires (1.2.0 sent v4). Student cancel now sends its required `If-Match`.
+- **Errors.** `ProblemDetails.fieldErrors` is a field → messages map in the
+  bundle. 1.2.0 only read an array, so it dropped every v2 validation message.
+  A 409 on a pass action now refetches the pass and says it changed.
+- **Token refresh is back on v1.** Login still issues a v1 session, so its
+  refresh token has to be rotated by v1. 1.2.0 sent it to `/v2/auth/refresh`.
+- **Query names.** `q` is sent as `search`, and the guardian's `childId` is
+  sent as `studentId`.
+
+## Still open (needs the backend team)
+
+- **v2 host confirmed: `https://api.iverto.ai/hostel/v2`.** Ignore the
+  handoff's `api.hostel.iverto.io`. The app gets this from `API_URL`
+  (`https://api.iverto.ai/hostel`) plus the `/v2` segment, so nothing
+  changed. Every `/v2/**` call will 404 until v2 is deployed there.
+- **Cross-version tokens.** The v2 calls carry the v1 login's access token.
+  Confirm that v2 accepts it; if not, login must move to
+  `/auth/password/login` first.
+- **MFA step-up.** Manual override, escalation resolution, profile approval,
+  emergency creation and group writes are MFA level 2 in the contract. The
+  app has no MFA flow, so expect 401/403 on those until it does.
+- **Upload `purpose`.** Permission and profile-request documents go as
+  `general` (see `v2UploadPurpose`).
+
+## Artifacts
+
+`dist/iverto-ai-1.2.1-vc8.aab` (28.30 MB) and
+`dist/iverto-ai-1.2.1-vc8-mapping.txt`. Signed with the same upload key as
+1.2.0 (SHA-1 `89:A5:E7:60:75:A3:1A:DE:5D:FF:AA:B0:68:50:2C:6C:5C:D3:82:16`).
+`jarsigner -verify` reports `jar verified`. The merged manifest reads
+`versionCode="8"`, `versionName="1.2.1"`. All 18 arm64 libraries are
+16 KB-aligned.
+
+`tsc --noEmit` is clean. This build was not run against a live v2 server,
+because none exists yet.
+
+---
+
 # Iverto.ai 1.2.0 — Hostel v2 data-plane migration
 
 The app's data calls move from `/v1/mobile/**` to the Hostel v2 contract

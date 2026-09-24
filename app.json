@@ -2,7 +2,7 @@
   "expo": {
     "name": "Iverto.ai",
     "slug": "iverto-ai",
-    "version": "1.2.0",
+    "version": "1.2.2",
     "orientation": "portrait",
     "scheme": "iverto",
     "userInterfaceStyle": "light",
@@ -24,7 +24,7 @@
     "android": {
       "package": "com.iverto.ai",
       "googleServicesFile": "./google-services.json",
-      "versionCode": 7,
+      "versionCode": 9,
       "softwareKeyboardLayoutMode": "resize",
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": true,
@@ -115,7 +115,7 @@
       "typedRoutes": false
     },
     "extra": {
-      "apiUrl": "https://api.iverto.ai/hostel"
+      "apiUrl": "https://api.iverto.ai/devhostel"
     }
   }
 }

@@ -25,6 +25,7 @@ import { router } from 'expo-router';
 import {
   ApiError,
   setAuthToken,
+  setSessionRole,
   setTenantId,
   setTokenRefresher,
   setUnauthorizedHandler,
@@ -128,6 +129,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     clearedAt.current = Date.now();
     setAuthToken(null);
     setTenantId(null);
+    setSessionRole(null);
     setUser(null);
     setLinkage(null);
     setMe(null);
@@ -196,6 +198,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
            login already hands back `user.tenantId`, so no separate v2 tenant
            lookup is needed to unlock the v2 data-plane calls below. */
         setTenantId(stored.user.tenantId);
+        setSessionRole(stored.user.role);
         setUser(stored.user);
         setLinkage(stored.linkage);
 
@@ -253,6 +256,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     setAuthToken(session.accessToken);
     setTenantId(session.user.tenantId);
+    setSessionRole(session.user.role);
     setUser(session.user);
     setLinkage(session.linkage);
 

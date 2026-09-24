@@ -567,6 +567,8 @@ export type Group = {
   memberCount: number;
   hasCustomBranding: boolean;
   updatedAt: string;
+  /** Optimistic-concurrency token — `/hostel/v2/**` only. Sent as `If-Match` on a branding write. */
+  version?: string;
 };
 
 export type GroupDetail = Group & {
