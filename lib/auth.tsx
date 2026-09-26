@@ -31,7 +31,7 @@ import {
   setUnauthorizedHandler,
   type SessionEndReason,
 } from '@/lib/api/client';
-import { auth as authApi, me as meApi } from '@/lib/api/endpoints';
+import { auth as authApi, clearReadCache, me as meApi } from '@/lib/api/endpoints';
 import {
   clearSession,
   loadSession,
@@ -127,6 +127,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const clear = useCallback(() => {
     clearedAt.current = Date.now();
+    clearReadCache();
     setAuthToken(null);
     setTenantId(null);
     setSessionRole(null);
@@ -162,6 +163,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
          enough, and the session ends with a message instead. */
       const status = err instanceof ApiError ? err.status : 0;
       if (status === 404 || status === 405 || status === 501) refreshUnsupported.current = true;
+      /* A refresh that could not be *answered* says nothing about whether the
+         session is still good: a 429 (refresh shares the 10/min per-IP login
+         limit, so a whole hostel on one Wi-Fi trips it), a busy server, or a
+         dropped connection. Ending the session there signed people out in
+         bulk exactly when the server was under load. Throw instead — the
+         request that needed the token fails with a retryable error, and the
+         session survives for the next attempt. */
+      if (err instanceof ApiError && (status === 0 || status === 429 || status >= 500)) throw err;
       return null;
     }
   }, []);
@@ -205,7 +214,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
            already dead, take a 401 on each, and land the user on the login
            screen. Renew first when the stored expiry says it has lapsed. */
         if (stored.expiresAt && stored.expiresAt <= Date.now()) {
-          await refreshAccessToken();
+          /* A transient failure (offline, 429, busy server) throws; open the
+             app on the cached session anyway and let the first call retry. */
+          await refreshAccessToken().catch(() => null);
           if (!alive) return;
         }
 
@@ -252,6 +263,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
        races it and hands the socket a token that is not there yet. */
     await saveSession(session);
 
+    clearReadCache();
     setAuthToken(session.accessToken);
     setTenantId(session.user.tenantId);
     setSessionRole(session.user.role);

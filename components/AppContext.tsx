@@ -55,6 +55,9 @@ type AppContextValue = {
 
 const AppContext = createContext<AppContextValue | null>(null);
 
+/** A resume re-fetches branding only if the copy in hand is at least this old. */
+const BRANDING_RESUME_MS = 5 * 60_000;
+
 export function AppProvider({ children }: { children: React.ReactNode }) {
   const { user } = useAuth();
   const signedIn = !!user;
@@ -82,12 +85,21 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   }, [signedIn]);
 
   /* "After login and on resume", which is what the endpoint asks for — and the
-     only way an organisation-level rebrand reaches an app that never closes. */
+     only way an organisation-level rebrand reaches an app that never closes.
+     Throttled: flicking between apps fired one `/me/branding` per switch, and
+     an organisation rebrand landing a few minutes late costs nothing (a group
+     rebrand still arrives instantly on the socket). */
   const refetchBranding = brandingQuery.refetch;
+  const brandingFetchedAt = useRef(0);
+  useEffect(() => {
+    if (brandingQuery.data) brandingFetchedAt.current = Date.now();
+  }, [brandingQuery.data]);
   useEffect(() => {
     if (!signedIn) return;
     const sub = AppState.addEventListener('change', (next) => {
-      if (next === 'active') refetchBranding();
+      if (next === 'active' && Date.now() - brandingFetchedAt.current >= BRANDING_RESUME_MS) {
+        refetchBranding();
+      }
     });
     return () => sub.remove();
   }, [signedIn, refetchBranding]);

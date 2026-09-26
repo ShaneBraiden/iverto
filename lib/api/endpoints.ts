@@ -139,6 +139,45 @@ function rows<T, U = T>(res: V2List<T> | T[] | null | undefined, map?: (row: T) 
   return toPage(res, map).data;
 }
 
+/* ------------------------------------------------------- Session read cache */
+
+/**
+ * Reads that almost never change within a session — the tenant's sites and
+ * pass categories — were being fetched again on every app open and every
+ * screen mount (`/sites` alone was one call in nine in the 26 Sep load test).
+ * They are held here for a few minutes, and concurrent callers share the one
+ * request in flight rather than each sending their own.
+ *
+ * The shared request deliberately does not take any caller's `signal`: one
+ * screen unmounting must not abort the answer another is waiting on. Cleared
+ * on sign-in and sign-out (`clearReadCache`), so the next account never sees
+ * the previous one's sites.
+ */
+const READ_CACHE_MS = 10 * 60_000;
+const readCache = new Map<string, { at: number; value: Promise<unknown> }>();
+
+function cachedRead<T>(key: string, load: () => Promise<T>): Promise<T> {
+  const k = `${requireTenantId()}:${key}`;
+  const hit = readCache.get(k);
+  if (hit && Date.now() - hit.at < READ_CACHE_MS) return hit.value as Promise<T>;
+  const value = load();
+  readCache.set(k, { at: Date.now(), value });
+  /* A failure is not worth remembering — the next caller tries again. */
+  value.catch(() => {
+    if (readCache.get(k)?.value === value) readCache.delete(k);
+  });
+  return value;
+}
+
+export function clearReadCache() {
+  readCache.clear();
+}
+
+/** `GET /sites`, through the session cache. */
+function sitesList(): Promise<Site[]> {
+  return cachedRead('sites', () => api.get<V2List<Site>>(tenant('/sites')).then((res) => rows(res)));
+}
+
 /** v1 list filters → the v2 query names (`q` → `search`, `childId` → `studentId`). */
 function v2Query(query: Record<string, unknown>): Query {
   const { q, childId, ...rest } = query;
@@ -530,9 +569,8 @@ type V2SelfStudent = StudentProfile & {
 async function studentSelf(signal?: AbortSignal): Promise<Me> {
   const s = await api.get<V2SelfStudent>(tenant('/me/student'), undefined, signal);
   const { guardians, version: _version, ...student } = s;
-  const site = await api
-    .get<V2List<Site>>(tenant('/sites'), undefined, signal)
-    .then((res) => rows(res).find((x) => x.id === s.siteId) ?? null)
+  const site = await sitesList()
+    .then((list) => list.find((x) => x.id === s.siteId) ?? null)
     .catch(() => null);
   return {
     ...student,
@@ -572,10 +610,7 @@ async function guardianSelf(signal?: AbortSignal): Promise<Me> {
 async function staffSelf(signal?: AbortSignal): Promise<Me> {
   const [self, sites] = await Promise.all([
     api.get<V2Self>(tenant('/me'), undefined, signal),
-    api
-      .get<V2List<Site>>(tenant('/sites'), undefined, signal)
-      .then((res) => rows(res))
-      .catch(() => [] as Site[]),
+    sitesList().catch(() => [] as Site[]),
   ]);
   return {
     role: (self.role === 'tenant_admin' ? 'admin' : (self.role ?? 'warden')) as Role,
@@ -760,11 +795,14 @@ export const permissions = {
     };
   },
 
-  /** Tenant-overridable — always render the chips from this, never hardcode. */
-  categories: (signal?: AbortSignal) =>
-    api
-      .get<Category[] | V2List<Category>>(tenant('/categories'), undefined, signal)
-      .then((res) => rows(res)),
+  /**
+   * Tenant-overridable — always render the chips from this, never hardcode.
+   * Held in the session read cache, so an admin's change lands within minutes.
+   */
+  categories: (_signal?: AbortSignal) =>
+    cachedRead('categories', () =>
+      api.get<Category[] | V2List<Category>>(tenant('/categories')).then((res) => rows(res))
+    ),
 };
 
 /* ------------------------------------------ 4. Guardian — wards & decisions */

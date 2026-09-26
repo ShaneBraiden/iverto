@@ -61,6 +61,63 @@ export type ApiErrorCode =
  */
 const TIMEOUT_MS = 30_000;
 
+/**
+ * Reads that hit an overloaded or restarting server are retried, a little.
+ *
+ * Only GETs, only for answers that mean "not now" rather than "no" — 429,
+ * 502/503/504, a server-flagged `retryable`, or a dropped connection — and at
+ * most twice, with jittered exponential backoff (or the server's `Retry-After`,
+ * capped). Deliberately *not* retried: a timeout or a plain 500. Both mean the
+ * server already spent up to 30 s on this request; sending it again at once is
+ * how a slow backend becomes a dead one (the 24 Sep load test's collapse).
+ */
+const MAX_READ_RETRIES = 2;
+const RETRY_BASE_MS = 1_000;
+const RETRY_AFTER_CAP_MS = 10_000;
+
+function retryDelay(attempt: number, retryAfterMs?: number) {
+  if (retryAfterMs !== undefined) return Math.min(retryAfterMs, RETRY_AFTER_CAP_MS);
+  const base = RETRY_BASE_MS * 2 ** attempt;
+  return base / 2 + Math.random() * base;
+}
+
+function isRetryableRead(err: ApiError) {
+  if (err.code === 'TIMEOUT') return false;
+  if (err.code === 'NETWORK') return true;
+  return (
+    err.status === 429 ||
+    err.status === 502 ||
+    err.status === 503 ||
+    err.status === 504 ||
+    err.retryable === true
+  );
+}
+
+/** `Retry-After` as seconds or an HTTP date → milliseconds from now. */
+function parseRetryAfter(value: string | null): number | undefined {
+  if (!value) return undefined;
+  const secs = Number(value);
+  if (Number.isFinite(secs)) return Math.max(0, secs * 1000);
+  const at = Date.parse(value);
+  return Number.isFinite(at) ? Math.max(0, at - Date.now()) : undefined;
+}
+
+function wait(ms: number, signal?: AbortSignal) {
+  return new Promise<void>((resolve, reject) => {
+    const abortError = () => Object.assign(new Error('Aborted'), { name: 'AbortError' });
+    if (signal?.aborted) return reject(abortError());
+    const t = setTimeout(() => {
+      signal?.removeEventListener?.('abort', onAbort);
+      resolve();
+    }, ms);
+    function onAbort() {
+      clearTimeout(t);
+      reject(abortError());
+    }
+    signal?.addEventListener?.('abort', onAbort);
+  });
+}
+
 /** The envelope every `/v1/mobile/**` route returns on failure. */
 type ErrorEnvelopeV1 = {
   statusCode?: number;
@@ -107,6 +164,8 @@ export class ApiError extends Error {
   requestId?: string;
   /** `/hostel/v2/**` only — whether the caller may safely retry as-is. */
   retryable?: boolean;
+  /** From the response's `Retry-After` header, when it sent one. */
+  retryAfterMs?: number;
 
   constructor(
     status: number,
@@ -280,6 +339,8 @@ type RequestOptions = {
    * second 401 ends the session instead of refreshing round and round.
    */
   retried?: boolean;
+  /** Set internally — how many times this read has already been retried. */
+  attempt?: number;
   /**
    * Public route: send no bearer token, and let a 401 through untouched.
    *
@@ -357,6 +418,7 @@ export async function request<T>(path: string, options: RequestOptions = {}): Pr
     idempotencyKey: idemOption,
     ifMatch,
     retried,
+    attempt = 0,
     anonymous,
     bearer,
   } = options;
@@ -409,7 +471,11 @@ export async function request<T>(path: string, options: RequestOptions = {}): Pr
     text = await response.text();
     releaseAbort();
 
-    if (!response.ok) throw toApiError(response.status, text);
+    if (!response.ok) {
+      const apiErr = toApiError(response.status, text);
+      apiErr.retryAfterMs = parseRetryAfter(response.headers.get('retry-after'));
+      throw apiErr;
+    }
     /* CSV exports and 204s are not JSON. */
     if (!text) return undefined as T;
     if (accept !== 'application/json') return text as unknown as T;
@@ -418,8 +484,25 @@ export async function request<T>(path: string, options: RequestOptions = {}): Pr
     } catch {
       return text as unknown as T;
     }
-  } catch (err) {
+  } catch (caught) {
     releaseAbort();
+
+    /* Anything that is not an HTTP answer, a timeout, or the caller's own abort
+       is a transport failure — named here so the retry below can see it. */
+    let err = caught;
+    if (!(err instanceof ApiError) && !timedOut && (err as Error)?.name !== 'AbortError') {
+      err = new ApiError(0, 'Cannot reach the server. Check your connection.', 'NETWORK');
+    }
+
+    if (
+      method === 'GET' &&
+      err instanceof ApiError &&
+      attempt < MAX_READ_RETRIES &&
+      isRetryableRead(err)
+    ) {
+      await wait(retryDelay(attempt, err.retryAfterMs), signal);
+      return request<T>(path, { ...options, attempt: attempt + 1 });
+    }
 
     if (err instanceof ApiError) {
       /* A 401 on an authenticated call means the token stopped being good, not
@@ -441,8 +524,7 @@ export async function request<T>(path: string, options: RequestOptions = {}): Pr
     }
     /* The caller aborted — `useQuery` swallows this, and it must not be
        rewritten into a failure the screen would then display. */
-    if ((err as Error)?.name === 'AbortError') throw err;
-    throw new ApiError(0, 'Cannot reach the server. Check your connection.', 'NETWORK');
+    throw err;
   }
 }
 
