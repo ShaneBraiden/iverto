@@ -1,9 +1,0 @@
-# Real credentials — never commit
-data/accounts.json
-data/tokens.json
-.env
-
-# Run output
-results/*
-!results/.gitkeep
-*.log
