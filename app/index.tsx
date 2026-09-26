@@ -10,10 +10,9 @@
  * 401 on a public route to the caller (see `lib/api/client.ts`), and a session
  * that really does end arrives here carrying its reason.
  *
- * Password is the only credential the API offers: there is no OTP sign-in and
- * no self-service sign-up, because accounts are provisioned by the hostel
- * office. That is why a 404 here is a "contact the office" message rather than
- * a second way in.
+ * Password is the only credential this app offers, and there is no
+ * self-service sign-up: accounts are provisioned by the hostel office. v2
+ * signs in against one hostel, so the form also asks for its code.
  *
  * Nobody picks a role here. The account's role comes back from the server on
  * the session and decides which dashboard opens, so the form has no say in it
@@ -39,7 +38,12 @@ import { Appear } from '@/components/motion';
 import { blur, colors, font, radius, shadow, spacing, type } from '@/theme';
 import { auth } from '@/lib/api/endpoints';
 import { errorCode, errorCopy, errorMessage, useMutation } from '@/lib/api/useQuery';
-import { lastIdentifier, rememberIdentifier } from '@/lib/session';
+import {
+  lastIdentifier,
+  lastTenantCode,
+  rememberIdentifier,
+  rememberTenantCode,
+} from '@/lib/session';
 import { routeFor, useAuth } from '@/lib/auth';
 
 /** What to say when a session ended without the user asking it to. */
@@ -52,7 +56,7 @@ const END_MESSAGE: Record<string, string> = {
 export default function LoginScreen() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [tenantId, setTenantId] = useState('');
+  const [tenantCode, setTenantCode] = useState('');
   const [showPass, setShowPass] = useState(false);
   const keyboardUp = useKeyboardVisible();
   const passwordRef = useRef<TextInput>(null);
@@ -72,6 +76,9 @@ export default function LoginScreen() {
     void lastIdentifier().then((saved) => {
       if (alive && saved) setEmail((current) => current || saved);
     });
+    void lastTenantCode().then((saved) => {
+      if (alive && saved) setTenantCode((current) => current || saved);
+    });
     return () => {
       alive = false;
     };
@@ -82,12 +89,10 @@ export default function LoginScreen() {
   const login = useMutation(
     async () => {
       const identifier = email.trim();
-      const session = await auth.login({
-        identifier,
-        password,
-        tenantId: tenantId.trim() || undefined,
-      });
+      const code = tenantCode.trim();
+      const session = await auth.login({ identifier, password, tenantCode: code });
       void rememberIdentifier(identifier);
+      void rememberTenantCode(code);
       return signIn(session);
     },
     {
@@ -96,19 +101,6 @@ export default function LoginScreen() {
       onError: () => clearSessionEnd(),
     }
   );
-
-  /* 409 means the same email exists in more than one tenant, and the server
-     needs to be told which. That is the only time the field appears — asking
-     for it up front would be noise for everyone else. */
-  const ambiguous = errorCode(login.error) === 'CONFLICT';
-  useEffect(() => {
-    if (ambiguous) setTenantId((t) => t);
-  }, [ambiguous]);
-
-  /* The roll number / email is on the hostel's records but has no login behind
-     it. Accounts are created by the office, so this is a different message from
-     "wrong password" — see §2 of the API doc. */
-  const unprovisioned = errorCode(login.error) === 'NOT_FOUND';
 
   /* 401 is the server saying the password does not match, and it is the one
      failure worth wording ourselves — the raw message is usually just
@@ -124,11 +116,13 @@ export default function LoginScreen() {
 
   const [forgotTo, setForgotTo] = useState<string | null>(null);
   const forgot = useMutation(
-    () => auth.forgotPassword({ identifier: email.trim(), tenantId: tenantId.trim() || undefined }),
+    () => auth.forgotPassword({ identifier: email.trim(), tenantCode: tenantCode.trim() }),
     { onSuccess: (result) => setForgotTo(result?.email ?? '') }
   );
 
-  const canSubmit = email.trim().length > 0 && password.length > 0 && !login.pending;
+  /* The contract's own rule for a tenant code: 2–12 letters or digits. */
+  const codeValid = /^[A-Za-z0-9]{2,12}$/.test(tenantCode.trim());
+  const canSubmit = codeValid && email.trim().length > 0 && password.length > 0 && !login.pending;
   const submit = () => {
     if (canSubmit) login.mutate();
   };
@@ -199,6 +193,22 @@ export default function LoginScreen() {
                 ) : null}
 
                 <View style={{ gap: spacing.lg, marginTop: spacing.xl }}>
+                  {/* v2 signs in against one hostel, and nothing in the build
+                      says which — the user does, once, and the device keeps it. */}
+                  <Field
+                    label="Hostel code"
+                    placeholder="Given to you by the hostel office"
+                    icon="business-outline"
+                    autoCapitalize="none"
+                    returnKeyType="next"
+                    value={tenantCode}
+                    onChangeText={setTenantCode}
+                    hint={
+                      tenantCode.trim() && !codeValid
+                        ? 'Letters and numbers only, 2 to 12 of them.'
+                        : undefined
+                    }
+                  />
                   <Field
                     label="Email address"
                     placeholder="you@college.edu"
@@ -235,40 +245,23 @@ export default function LoginScreen() {
                     }
                   />
 
-                  {/* Only shown once the server says the identifier is ambiguous
-                      across tenants — everyone else never sees the field. */}
-                  {ambiguous || tenantId ? (
-                    <Field
-                      label="Institution ID"
-                      placeholder="Given to you by the campus office"
-                      icon="business-outline"
-                      autoCapitalize="none"
-                      value={tenantId}
-                      onChangeText={setTenantId}
-                      hint="Your email exists at more than one institution, so we need to know which."
-                    />
-                  ) : null}
-
                   <Pressable
                     style={{ alignSelf: 'flex-end' }}
                     hitSlop={8}
-                    disabled={!email.trim() || forgot.pending}
+                    disabled={!email.trim() || !codeValid || forgot.pending}
                     onPress={() => forgot.mutate()}
                   >
                     <Text
                       style={[
                         type.smallMed,
-                        { color: email.trim() ? colors.primary : colors.textFaint },
+                        { color: email.trim() && codeValid ? colors.primary : colors.textFaint },
                       ]}
                     >
                       {forgot.pending ? 'Sending…' : 'Forgot password?'}
                     </Text>
                   </Pressable>
 
-                  {/* A 404 is not a typo to try again — it means the record
-                      exists but nobody has provisioned a login for it, and there
-                      is no self-service sign-up to offer. Say who to ask. */}
-                  {/* Ordered most specific first. The three credential cases are
+                  {/* Ordered most specific first. The two credential cases are
                       worded here because only this screen knows what they mean;
                       everything else — offline, rate-limited, a 500 — is worded
                       once in `errorCopy` and shown with its own icon, so the same
@@ -278,20 +271,15 @@ export default function LoginScreen() {
                       under the fields is read; one that is simply there on the
                       next frame is easy to miss, and this screen's whole job is
                       saying what went wrong. */}
-                  {unprovisioned ? (
-                    <Appear>
-                      <Note
-                        icon="information-circle-outline"
-                        tone="warning"
-                        text="No app account has been set up for these details yet. Contact the hostel office to have one created."
-                      />
-                    </Appear>
-                  ) : wrongCredentials ? (
+                  {/* v2 answers an unknown hostel code with the same 401 as a
+                      wrong password — it will not say which part was wrong —
+                      so one message covers both. */}
+                  {wrongCredentials ? (
                     <Appear>
                       <Note
                         icon="alert-circle-outline"
                         tone="danger"
-                        text="That email and password don't match an account. Check the password, or use “Forgot password?” below."
+                        text="Those details don't match an account at this hostel. Check the hostel code and password, or use “Forgot password?” below. If you have never signed in, ask the hostel office to set up your account."
                       />
                     </Appear>
                   ) : tooManyAttempts ? (

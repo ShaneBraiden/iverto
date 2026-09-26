@@ -17,8 +17,16 @@
 import * as SecureStore from 'expo-secure-store';
 import type { AuthUser, Linkage, Session } from '@/types';
 
-const TOKEN_KEY = 'iverto.tokens.v1';
-const PROFILE_KEY = 'iverto.profile.v1';
+/**
+ * `.v2` since sign-in moved to Hostel v2. A session saved by an older build
+ * holds v1 tokens the v2 server has never issued; under the old keys it would
+ * be restored, fail its first call, and greet the user with "your session
+ * ended". New keys mean an upgrade simply starts at the login screen, and the
+ * old entries are deleted on the next `clearSession`.
+ */
+const TOKEN_KEY = 'iverto.tokens.v2';
+const PROFILE_KEY = 'iverto.profile.v2';
+const LEGACY_KEYS = ['iverto.tokens.v1', 'iverto.profile.v1'];
 /**
  * The identifier of the last account to sign in on this device. Deliberately
  * *not* cleared on sign-out: it is how the login screen can offer the email
@@ -26,6 +34,8 @@ const PROFILE_KEY = 'iverto.profile.v1';
  * credential is kept with it.
  */
 const LAST_IDENTIFIER_KEY = 'iverto.lastIdentifier.v1';
+/** The hostel code last signed in with — kept for the same reason, and not a secret. */
+const LAST_TENANT_CODE_KEY = 'iverto.lastTenantCode.v1';
 
 type StoredTokens = {
   accessToken: string;
@@ -106,6 +116,15 @@ export async function lastIdentifier() {
   return read<string>(LAST_IDENTIFIER_KEY);
 }
 
+export async function rememberTenantCode(code: string) {
+  const trimmed = code.trim();
+  if (trimmed) await write(LAST_TENANT_CODE_KEY, trimmed);
+}
+
+export async function lastTenantCode() {
+  return read<string>(LAST_TENANT_CODE_KEY);
+}
+
 /**
  * Patches the stored user in place, leaving the tokens alone.
  *
@@ -139,7 +158,7 @@ export async function loadSession(): Promise<StoredSession | null> {
 
 export async function clearSession() {
   await Promise.all(
-    [TOKEN_KEY, PROFILE_KEY].map(async (key) => {
+    [TOKEN_KEY, PROFILE_KEY, ...LEGACY_KEYS].map(async (key) => {
       try {
         await SecureStore.deleteItemAsync(key);
       } catch {

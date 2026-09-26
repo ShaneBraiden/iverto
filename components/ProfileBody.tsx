@@ -287,21 +287,23 @@ function RequestStatus({ request }: { request: ProfileRequest }) {
   );
 }
 
-/** `POST /auth/password` — the server only wants the new one. */
+/** `POST /v2/auth/password/change` — the current password and the new one. */
 function PasswordSheet({ visible, onClose }: { visible: boolean; onClose: () => void }) {
+  const [current, setCurrent] = useState('');
   const [next, setNext] = useState('');
   const [confirm, setConfirm] = useState('');
   const { passwordChanged } = useAuth();
 
   const change = useMutation(
     async (value: string) => {
-      await authApi.changePassword(value);
+      await authApi.changePassword(current, value);
       /* Same call as the forced screen makes, so the "still on the default
          password" flag is cleared wherever the password is changed from. */
       await passwordChanged();
     },
     {
       onSuccess: () => {
+        setCurrent('');
         setNext('');
         setConfirm('');
         onClose();
@@ -312,7 +314,7 @@ function PasswordSheet({ visible, onClose }: { visible: boolean; onClose: () => 
 
   const tooShort = next.length > 0 && next.length < 8;
   const mismatch = confirm.length > 0 && next !== confirm;
-  const ready = next.length >= 8 && next === confirm && !change.pending;
+  const ready = current.length > 0 && next.length >= 8 && next === confirm && !change.pending;
 
   return (
     <Sheet
@@ -322,6 +324,15 @@ function PasswordSheet({ visible, onClose }: { visible: boolean; onClose: () => 
       subtitle="At least 8 characters."
     >
       <View style={{ paddingHorizontal: spacing.lg, gap: spacing.lg }}>
+        <Field
+          label="Current password"
+          placeholder="••••••••"
+          icon="key-outline"
+          secureTextEntry
+          autoCapitalize="none"
+          value={current}
+          onChangeText={setCurrent}
+        />
         <Field
           label="New password"
           placeholder="••••••••"

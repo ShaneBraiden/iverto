@@ -1,3 +1,63 @@
+# Iverto.ai 1.2.3 — sign-in moved to Hostel v2
+
+| | |
+|---|---|
+| **Version** | 1.2.3 (versionCode 10) |
+| **Platform** | Android |
+
+No one could sign in to 1.2.2. It pointed at `https://api.iverto.ai/devhostel`,
+but it still signed in through `/v1/mobile/auth/login`, and that deployment
+serves no v1 routes. Every sign-in got a 404, and the login screen reads a 404
+as "No app account has been set up for these details", so it looked like the
+accounts were missing. They weren't.
+
+## What changed
+
+- **Sign-in, refresh, logout, forgot password and change password now use
+  `/v2/auth/**`.** Login calls `POST /v2/auth/password/login` and then
+  `GET /v2/tenants/{tenantId}/me`, because v2 login returns the actor type but
+  not the role. Roles map as `student`→student, `guardian`→parent,
+  `warden`→warden, `tenant_admin`→admin.
+- **The login screen asks for a hostel code.** v2 needs a tenant code, and
+  nothing in the build sets one. The device remembers the last code that
+  signed in successfully. An unknown code gets the same 401 as a wrong
+  password, so one message covers both.
+- **Changing your password asks for the current one** (a v2 requirement), on
+  both the change-password screen and the profile sheet.
+- **Gate `security` accounts are turned away at sign-in with a clear message.**
+  The app has no screens for them; before, they landed in the student shell.
+- **Sessions are stored under new keychain keys (`iverto.*.v2`).** A v1
+  session saved by an older build isn't restored against v2. After upgrading,
+  users land on the login screen instead of seeing "your session ended".
+- **The push device is unregistered before logout**, while the token can still
+  authorise the DELETE.
+
+## Artifacts
+
+`dist/iverto-ai-1.2.3-vc10.aab` (26.99 MB) and
+`dist/iverto-ai-1.2.3-vc10-mapping.txt`. Signed with the upload key (SHA-1
+`89:A5:E7:60:75:A3:1A:DE:5D:FF:AA:B0:68:50:2C:6C:5C:D3:82:16`), and
+`jarsigner -verify` reports `jar verified`. The Hermes bundle contains
+`https://api.iverto.ai/devhostel` and `/auth/password/login`, and it does not
+contain `/hostel`, `/v1/mobile/auth/login`, or any tenant code. All 18 arm64
+libraries are 16 KB-aligned, and `tsc --noEmit` is clean.
+
+## Still on v1 (left as-is on purpose)
+
+Location sharing and geofence, the parent's ward-location card, the warden's
+"End pass", admin CSV exports and reports, and the v1 onboarding link. v2 has
+no plain route for these. On `/devhostel` they return 404, which these
+features already tolerate. v2 sign-in returns accounts already linked, so
+onboarding is never shown.
+
+## Known: staff MFA
+
+v2 reports `mfaEnrollmentRequired: true` for warden and admin accounts. Some
+of their capabilities (such as `announcement.manage`) need MFA level 1. The
+app has no MFA enrolment flow yet, so those actions may return 403 for staff.
+
+---
+
 # Iverto.ai 1.2.2 — points at the dev deployment
 
 | | |

@@ -28,14 +28,14 @@
  * `version` (the trailing `version?: string` parameter on each); every v2
  * mutation also carries a UUIDv7 `Idempotency-Key`.
  *
+ * `auth.*` is on v2 as of 1.2.3: the dev deployment serves no v1 auth routes.
+ * v2 sign-in needs the hostel's tenant code, which the user enters on the
+ * login screen — nothing in the build names a tenant.
+ *
  * **What is deliberately still on v1**, and why:
- * - `auth.*` and `onboarding.*` — the v2 equivalents need UI this app does not
- *   have yet (a tenant-code entry step ahead of login, a two-step recovery
- *   flow with a code/token, a current-password field, cryptographic
- *   invitation links replacing phone/roll-number linking). `auth.refresh`
- *   stays with them: the refresh token it rotates was issued by the v1 login,
- *   so it belongs to the v1 session and must go back to the service that
- *   issued it.
+ * - `onboarding.*` — v2 accounts arrive already linked, and v2's replacement
+ *   (cryptographic invitation links) needs a screen this app doesn't have.
+ *   Nothing routes to onboarding for a v2 session.
  * - `location.*`, `warden.endPass` — no v2 mapping in the migration matrix.
  * - `admin.exportPermissions`, `admin.exportProfileRequests`, `admin.reports`
  *   — v2 turns a synchronous CSV download into an async report job, which
@@ -43,7 +43,7 @@
  * - `admin.setRole` — unused by any screen; v2 keys off a `membershipId` and
  *   an `If-Match` version.
  */
-import { api, getSessionRole, requireTenantId, type Query } from './client';
+import { ApiError, api, getSessionRole, request, requireTenantId, type Query } from './client';
 import type {
   ActivityItem,
   AdminStats,
@@ -349,47 +349,142 @@ function inputTypeFor(field: string): EditableField['type'] {
 
 /* -------------------------------------------------------- 1. Auth & session */
 
+/** `MobileSessionResponse` — what v2 login and refresh answer with. */
+type V2MobileSession = {
+  accessToken: string;
+  refreshToken: string;
+  accessExpiresAt: string;
+  refreshExpiresAt: string;
+  /** On login only; a refresh sends tokens alone. */
+  user?: {
+    principalId: string;
+    actorType: 'tenant_staff' | 'student' | 'guardian';
+    tenantId: string;
+    membershipId: string | null;
+    studentId: string | null;
+    guardianLinkId: string | null;
+  };
+};
+
+/** Seconds from now until an ISO instant — `Session.expiresIn`'s unit. */
+function secondsUntil(iso: string) {
+  const ms = Date.parse(iso) - Date.now();
+  return Number.isFinite(ms) && ms > 0 ? Math.floor(ms / 1000) : 0;
+}
+
 /**
- * Password is the only credential. There is no OTP sign-in and no self-service
- * sign-up: accounts are provisioned by the hostel office, which is why a `404`
- * from `login` is a "contact the office" message rather than a way in.
+ * The v2 principal role → the app's `Role`. `null` for an account this app
+ * has no screens for (gate `security` staff), so sign-in can turn it away
+ * instead of dropping it into a shell whose every call answers 403.
+ */
+function roleFromV2(role: string | null | undefined, actorType: string): Role | null {
+  if (actorType === 'student' || role === 'student') return 'student';
+  if (actorType === 'guardian' || role === 'guardian' || role === 'parent') return 'parent';
+  if (role === 'tenant_admin' || role === 'admin') return 'admin';
+  if (role === 'warden') return 'warden';
+  return null;
+}
+
+/**
+ * Password is the only credential this app offers. There is no self-service
+ * sign-up: accounts are provisioned by the hostel office.
  *
- * All still on `/v1/mobile/**` — see the module header for why.
+ * On `/v2/auth/**`. The deployment this build targets does not serve
+ * `/v1/mobile/auth/**` at all, so v1 sign-in answered 404 for everyone and the
+ * login screen read that as "no account for these details".
  */
 export const auth = {
   /**
-   * `role` only tells the server how to read `identifier` (roll number, mobile
-   * number, email). The account's real role comes back in `user.role`, and the
-   * app routes on that — picking "Admin" on the login screen cannot get a
-   * student into the admin shell.
-   *
-   * `tenantId` is only needed when the same identifier exists in more than one
-   * tenant; a 409 is what tells you so.
+   * `POST /auth/password/login`, then `GET /tenants/{tenantId}/me` with the
+   * token it returned. v2 login answers with an actor type (`tenant_staff`,
+   * `student`, `guardian`) but not the role, and a warden and an admin are
+   * both `tenant_staff` — the role the app routes on only comes from `/me`.
+   * The server's role, never one picked on the login screen.
    */
-  login: (body: { identifier: string; password: string; role?: Role; tenantId?: string }) =>
-    api.postAnon<Session>(`${V1}/auth/login`, body),
+  login: async (body: { identifier: string; password: string; tenantCode: string }): Promise<Session> => {
+    const s = await api.postAnon<V2MobileSession>(`${V2}/auth/password/login`, {
+      ...body,
+      clientType: 'tenant_mobile',
+    });
+    const principal = s.user;
+    if (!principal?.tenantId) {
+      throw new ApiError(0, 'The server answered without an account. Try again.', 'UNKNOWN');
+    }
+    const self = await api.getAs<V2Self>(`${V2}/tenants/${principal.tenantId}/me`, s.accessToken);
+    const role = roleFromV2(self.role, principal.actorType);
+    if (!role) {
+      /* Best effort — the session is being abandoned either way. */
+      void request(`${V2}/auth/logout`, { method: 'POST', body: {}, bearer: s.accessToken }).catch(() => {});
+      throw new ApiError(
+        403,
+        'This account is for gate staff, which this app does not support. Use the gate console instead.',
+        'FORBIDDEN'
+      );
+    }
+    return {
+      accessToken: s.accessToken,
+      refreshToken: s.refreshToken,
+      expiresIn: secondsUntil(s.accessExpiresAt),
+      tokenType: 'Bearer',
+      user: {
+        id: principal.principalId,
+        role,
+        tenantId: principal.tenantId,
+        email: self.email ?? null,
+        phone: self.phone ?? null,
+        displayName: self.displayName ?? null,
+        siteIds: [],
+      },
+      /* v2 accounts are created already attached to their student or
+         guardian record, so there is no v1-style linking step to route to. */
+      linkage: {
+        studentId: principal.studentId,
+        rollNumber: null,
+        parentContactIds: principal.guardianLinkId ? [principal.guardianLinkId] : [],
+        childStudentIds: [],
+        linked: true,
+      },
+    };
+  },
 
   /**
-   * Trades the refresh token for a fresh access token. On v1 because the v1
-   * login issued it — see the module header. `lib/auth.tsx` feature-detects
-   * it and signs out with an explanation if the server answers 404.
+   * `POST /auth/refresh`. The refresh token rotates on every call, so the new
+   * one has to replace the stored one — reusing the old one is treated by the
+   * server as a replay and ends the session.
    */
-  refresh: (refreshToken: string) =>
-    api.postAnon<RefreshedSession>(`${V1}/auth/refresh`, { refreshToken }),
-
-  forgotPassword: (body: { identifier: string; role?: Role; tenantId?: string }) =>
-    api.postAnon<{ sent: boolean; email: string }>(`${V1}/auth/forgot-password`, body),
+  refresh: async (refreshToken: string): Promise<RefreshedSession> => {
+    const s = await api.postAnon<V2MobileSession>(`${V2}/auth/refresh`, { refreshToken });
+    return {
+      accessToken: s.accessToken,
+      refreshToken: s.refreshToken,
+      expiresIn: secondsUntil(s.accessExpiresAt),
+      tokenType: 'Bearer',
+    };
+  },
 
   /**
-   * Also what clears `user.mustChangePassword` — an account provisioned by the
-   * office starts on a default password and is sent here before anything else.
+   * `POST /auth/password/recovery/request`. Answers 202 whether or not the
+   * account exists, so it never says where the instructions went — `email` is
+   * always empty and the screen words it generically.
    */
-  changePassword: (newPassword: string) =>
-    api.post<{ updated: boolean }>(`${V1}/auth/password`, { newPassword }),
+  forgotPassword: async (body: { identifier: string; tenantCode: string }) => {
+    const r = await api.postAnon<{ accepted: boolean } | undefined>(
+      `${V2}/auth/password/recovery/request`,
+      body
+    );
+    return { sent: r?.accepted ?? true, email: '' };
+  },
 
-  /** Passing the push token disables it server-side so the device goes quiet. */
-  logout: (pushToken?: string) =>
-    api.post<{ signedOut: boolean }>(`${V1}/auth/logout`, pushToken ? { pushToken } : {}),
+  /** `POST /auth/password/change` — v2 wants the current password as well. */
+  changePassword: (currentPassword: string, newPassword: string) =>
+    api.post<void>(`${V2}/auth/password/change`, { currentPassword, newPassword }),
+
+  /**
+   * `POST /auth/logout`. It needs a JSON body even though it reads nothing
+   * from it — sent bare it answers 400. Push devices are unregistered
+   * separately (`lib/push.ts`).
+   */
+  logout: () => api.post<void>(`${V2}/auth/logout`, {}),
 };
 
 /* ------------------------------------------------- 2. Onboarding & profile */

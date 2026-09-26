@@ -39,7 +39,7 @@ import {
   updateStoredTokens,
   updateStoredUser,
 } from '@/lib/session';
-import { currentPushToken, registerForPush, unregisterForPush } from '@/lib/push';
+import { registerForPush, unregisterForPush } from '@/lib/push';
 import type { AuthUser, Linkage, Me, Role, Session, Shell } from '@/types';
 
 /**
@@ -194,9 +194,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       if (stored) {
         setAuthToken(stored.accessToken);
-        /* `/hostel/v2/tenants/{tenantId}/**` reads this on every request; v1
-           login already hands back `user.tenantId`, so no separate v2 tenant
-           lookup is needed to unlock the v2 data-plane calls below. */
+        /* `/v2/tenants/{tenantId}/**` reads this on every request. */
         setTenantId(stored.user.tenantId);
         setSessionRole(stored.user.role);
         setUser(stored.user);
@@ -294,30 +292,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const signOut = useCallback(async () => {
-    const pushToken = currentPushToken();
+    /* Unregister the push device first, while the token can still authorise
+       the DELETE — after logout it would be refused and the device would keep
+       receiving pushes for a session that has ended. `unregisterForPush`
+       swallows its own failure. */
+    await unregisterForPush();
     try {
-      /* Passing the token disables it server-side in the same round trip — one call
-         instead of logout plus DELETE /push/token. Without it the server keeps
-         pushing to a device nobody is signed in on. */
-      await authApi.logout(pushToken ?? undefined);
+      await authApi.logout();
     } catch {
       /* Signing out locally matters more than the server acknowledging it. */
     }
-
-    /*
-     * Always unregister the push device by id, even after a successful
-     * `POST /v1/mobile/auth/logout` above. That call is v1 and passes the
-     * raw provider token; device *registration* moved to
-     * `POST /hostel/v2/.../me/push-devices` (`lib/push.ts`), which is keyed by
-     * a server-assigned `deviceId` instead. Until both surfaces are
-     * confirmed to share one device table, the explicit v2 DELETE is the
-     * only call actually guaranteed to reach the record push registered —
-     * skipping it risks a device that keeps receiving pushes for a session
-     * that just ended. A redundant call here is harmless: `unregisterForPush`
-     * already swallows its own failure (a 404 because v1 logout got there
-     * first, most likely).
-     */
-    await unregisterForPush();
     clear();
     setSessionEnd({ reason: 'signed-out', at: Date.now() });
   }, [clear]);

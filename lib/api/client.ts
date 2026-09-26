@@ -290,6 +290,12 @@ type RequestOptions = {
    * is in the middle of resolving.
    */
   anonymous?: boolean;
+  /**
+   * Send this token instead of the session's, and treat a 401 the way
+   * `anonymous` does. Sign-in uses it to read `/me` with the token it was
+   * just handed, before any of that is published as the session.
+   */
+  bearer?: string;
 };
 
 /**
@@ -352,6 +358,7 @@ export async function request<T>(path: string, options: RequestOptions = {}): Pr
     ifMatch,
     retried,
     anonymous,
+    bearer,
   } = options;
   const isForm = typeof FormData !== 'undefined' && body instanceof FormData;
 
@@ -362,8 +369,9 @@ export async function request<T>(path: string, options: RequestOptions = {}): Pr
   /* Captured rather than read again below: by the time the response lands, a
      concurrent refresh may already have replaced the module-level token, and
      what matters is whether *this* request was authenticated. */
-  const sentWithToken = anonymous ? null : authToken;
-  if (sentWithToken) headers.Authorization = `Bearer ${sentWithToken}`;
+  const sentWithToken = anonymous || bearer ? null : authToken;
+  if (bearer) headers.Authorization = `Bearer ${bearer}`;
+  else if (sentWithToken) headers.Authorization = `Bearer ${sentWithToken}`;
   if (idemOption) headers['Idempotency-Key'] = idemOption === true ? idempotencyKey() : idemOption;
   if (ifMatch) headers['If-Match'] = ifMatch;
 
@@ -476,4 +484,6 @@ export const api = {
   /** For the public §1 auth routes — see `anonymous` in `RequestOptions`. */
   postAnon: <T>(path: string, body?: unknown) =>
     request<T>(path, { method: 'POST', body, anonymous: true }),
+  /** A read with a token that is not the session's yet — see `bearer` in `RequestOptions`. */
+  getAs: <T>(path: string, bearer: string) => request<T>(path, { method: 'GET', bearer }),
 };

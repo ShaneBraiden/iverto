@@ -11,7 +11,8 @@
  * signed-in user already looks for it. The back arrow here is only a
  * courtesy for a deep link that arrives without the flag set.
  *
- * `POST /auth/password` is what clears the flag server-side; `passwordChanged`
+ * `POST /v2/auth/password/change` needs the current password as well as the
+ * new one. It is what clears the flag server-side; `passwordChanged`
  * clears the local copy and answers with wherever the account goes next, so a
  * new user lands on onboarding or their dashboard without a second round trip.
  */
@@ -34,18 +35,20 @@ export default function ChangePasswordScreen() {
   const { user, passwordChanged, signOut } = useAuth();
   const forced = !!user?.mustChangePassword;
 
+  const [current, setCurrent] = useState('');
   const [password, setPassword] = useState('');
   const [confirm, setConfirm] = useState('');
   const [show, setShow] = useState(false);
+  const passwordRef = useRef<TextInput>(null);
   const confirmRef = useRef<TextInput>(null);
 
   const longEnough = password.length >= MIN_LENGTH;
   const matches = confirm.length > 0 && confirm === password;
-  const canSubmit = longEnough && matches;
+  const canSubmit = current.length > 0 && longEnough && matches;
 
   const save = useMutation(
     async () => {
-      await auth.changePassword(password);
+      await auth.changePassword(current, password);
       return passwordChanged();
     },
     { onSuccess: (destination) => router.replace(destination as never) }
@@ -89,14 +92,30 @@ export default function ChangePasswordScreen() {
 
         <View style={{ gap: spacing.lg, marginTop: forced ? spacing.lg : 0 }}>
           <Field
+            label="Current password"
+            placeholder="••••••••"
+            icon="key-outline"
+            secureTextEntry={!show}
+            autoCapitalize="none"
+            autoComplete="current-password"
+            returnKeyType="next"
+            autoFocus
+            value={current}
+            onChangeText={setCurrent}
+            onSubmitEditing={() => passwordRef.current?.focus()}
+            blurOnSubmit={false}
+            right={eye(show, () => setShow((v) => !v))}
+          />
+
+          <Field
             label="New password"
             placeholder="••••••••"
             icon="lock-closed-outline"
+            inputRef={passwordRef}
             secureTextEntry={!show}
             autoCapitalize="none"
             autoComplete="new-password"
             returnKeyType="next"
-            autoFocus
             value={password}
             onChangeText={setPassword}
             onSubmitEditing={() => confirmRef.current?.focus()}
