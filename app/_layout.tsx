@@ -4,6 +4,7 @@ import { Stack, useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import { KeyboardProvider } from 'react-native-keyboard-controller';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as SplashScreen from 'expo-splash-screen';
 import * as Notifications from 'expo-notifications';
@@ -108,39 +109,43 @@ export default function RootLayout() {
   return (
     <GestureHandlerRootView style={{ flex: 1 }} onLayout={onReady}>
       <SafeAreaProvider>
-        <StatusBar style="dark" />
-        {/* App-wide neutral canvas — every glass surface sits on top of this. */}
-        <LinearGradient colors={colors.bgGradient} style={{ flex: 1 }}>
-          <Canvas />
-          {/* The session lives above the navigator so every screen — and the
-              401 handler in the API client — can reach it. The app config,
-              branding and notification badge sit just inside it, because all
-              three need a token before they can be fetched. */}
-          <AuthProvider>
-            <AppProvider>
-              <PushRouting />
-              {/* Bottom sheets on screens outside the role shells draw here. */}
-              <PortalHost>
-                <Stack
-                  screenOptions={{
-                    headerShown: false,
-                    contentStyle: { backgroundColor: 'transparent' },
-                    animation: 'slide_from_right',
-                  }}
-                >
-                  <Stack.Screen name="index" />
-                  <Stack.Screen name="change-password" />
-                  <Stack.Screen name="onboarding" />
-                  <Stack.Screen name="notifications" />
-                  <Stack.Screen name="profile-request" />
-                  <Stack.Screen name="student" />
-                  <Stack.Screen name="parent" />
-                  <Stack.Screen name="admin" />
-                </Stack>
-              </PortalHost>
-            </AppProvider>
-          </AuthProvider>
-        </LinearGradient>
+        {/* Keeps the focused field above the software keyboard on every
+            screen — see components/KeyboardAware.tsx. */}
+        <KeyboardProvider>
+          <StatusBar style="dark" />
+          {/* App-wide neutral canvas — every glass surface sits on top of this. */}
+          <LinearGradient colors={colors.bgGradient} style={{ flex: 1 }}>
+            <Canvas />
+            {/* The session lives above the navigator so every screen — and the
+                401 handler in the API client — can reach it. The app config,
+                branding and notification badge sit just inside it, because all
+                three need a token before they can be fetched. */}
+            <AuthProvider>
+              <AppProvider>
+                <PushRouting />
+                {/* Bottom sheets on screens outside the role shells draw here. */}
+                <PortalHost>
+                  <Stack
+                    screenOptions={{
+                      headerShown: false,
+                      contentStyle: { backgroundColor: 'transparent' },
+                      animation: 'slide_from_right',
+                    }}
+                  >
+                    <Stack.Screen name="index" />
+                    <Stack.Screen name="change-password" />
+                    <Stack.Screen name="onboarding" />
+                    <Stack.Screen name="notifications" />
+                    <Stack.Screen name="profile-request" />
+                    <Stack.Screen name="student" />
+                    <Stack.Screen name="parent" />
+                    <Stack.Screen name="admin" />
+                  </Stack>
+                </PortalHost>
+              </AppProvider>
+            </AuthProvider>
+          </LinearGradient>
+        </KeyboardProvider>
       </SafeAreaProvider>
     </GestureHandlerRootView>
   );

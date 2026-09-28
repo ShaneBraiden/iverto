@@ -4,49 +4,25 @@
  * Two things have to be true on every screen that holds a text field: the
  * field the cursor is in must be visible above the keyboard, and a tap on a
  * button must land the first time rather than only dismissing the keyboard.
- * Neither comes for free, and the platforms get there differently:
  *
- *   iOS      `automaticallyAdjustKeyboardInsets` grows the scroll view's own
- *            bottom inset by the keyboard height. No `KeyboardAvoidingView`,
- *            which would add the same offset a second time.
- *   Android  nothing, as of Android 15. Up to Android 14 the window itself
- *            resized (`softwareKeyboardLayoutMode: "resize"` in app.json,
- *            `adjustResize` in the manifest) and the scroll view came back
- *            shorter. An app that draws edge-to-edge — which every app
- *            targeting Android 16 does, with no opt-out — gets `adjustResize`
- *            ignored: the window keeps its full height and the keyboard is
- *            drawn on top of it.
+ * Scrolling the focused field into view is done by
+ * `react-native-keyboard-controller`, natively, on both platforms. It used to
+ * be measured by hand here, and that could not be made reliable on Android 15+:
+ * an edge-to-edge window (every app targeting Android 16, with no opt-out)
+ * ignores `adjustResize`, so the keyboard is simply drawn over the screen, and
+ * the hand-rolled version raced its own padding — `scrollTo` ran before the
+ * extra bottom space had been laid out, got clamped to the old content height,
+ * and left the field under the keys. The library tracks the keyboard frame by
+ * frame and the focused input's layout from native, so neither race exists.
+ * `<KeyboardProvider>` in `app/_layout.tsx` is what switches it on.
  *
- * So on top of the platform mechanism this module measures: when the keyboard
- * opens, or the cursor moves to another field, it works out how far the field
- * sits below the bottom of what is still on screen and scrolls exactly that
- * far. The measurement is a no-op when the field is already visible, which is
- * what makes it safe to run on both platforms.
- *
- * Nothing below asks which Android version it is on. The keyboard's top edge
- * (`endCoordinates.screenY`) and the scroll frame's own bottom are both
- * measured, and the viewport ends at whichever is higher. On Android 14 the
- * window shrank, so the frame's bottom is already above the keyboard and wins;
- * on Android 15+ it did not, so the keyboard's top edge wins. One expression,
- * correct on both.
- *
- * `insideModal` marks the case iOS does not handle either. A `Modal` is its own
- * window, so `automaticallyAdjustKeyboardInsets` does not reach it — see
- * `components/Sheet.tsx`.
+ * `insideModal` is the bottom sheet. The sheet lifts itself clear of the
+ * keyboard (`useKeyboardOverlap`, below), so its scroller must not also make
+ * room — that would pad the sheet by a whole keyboard height a second time.
  */
 import React from 'react';
-import {
-  Keyboard,
-  KeyboardEvent,
-  NativeScrollEvent,
-  NativeSyntheticEvent,
-  Platform,
-  ScrollView,
-  StyleProp,
-  TextInput,
-  View,
-  ViewStyle,
-} from 'react-native';
+import { Keyboard, KeyboardEvent, Platform, ScrollView, StyleProp, View, ViewStyle } from 'react-native';
+import { KeyboardAwareScrollView } from 'react-native-keyboard-controller';
 import { animateLayout } from '@/components/motion';
 import { spacing } from '@/theme';
 
@@ -54,30 +30,6 @@ const isIOS = Platform.OS === 'ios';
 
 /** Breathing room left between the focused field and the top of the keyboard. */
 const FIELD_GAP = spacing.md;
-
-/** Anything with `measureInWindow` — a View ref, or the currently focused input. */
-type Measurable = {
-  measureInWindow: (callback: (x: number, y: number, width: number, height: number) => void) => void;
-};
-
-/* ------------------------------------------------------------ ensureVisible */
-
-/**
- * Published by the scroll container to the fields inside it.
- *
- * A `keyboardDidShow` only fires when the keyboard *opens*, so moving from one
- * field to the next while it is already up would otherwise leave the cursor
- * behind the keys. `Field` calls this on focus and the two together cover both.
- */
-const EnsureVisibleContext = React.createContext<(() => void) | null>(null);
-
-/**
- * Asks the enclosing scroll container to bring the focused field into view.
- * Returns null outside one, so a field can be used anywhere.
- */
-export function useEnsureVisible() {
-  return React.useContext(EnsureVisibleContext);
-}
 
 /* --------------------------------------------------------- Keyboard metrics */
 
@@ -210,154 +162,30 @@ export function KeyboardAwareScroll({
   /** Escape hatch for a caller that needs to drive the scroll itself. */
   onScrollRef?: (ref: ScrollView | null) => void;
 }) {
-  const scrollRef = React.useRef<ScrollView>(null);
-  /** The visible frame of the scroll view — what a field has to fit inside. */
-  const frameRef = React.useRef<View>(null);
-  /** Live scroll offset, so a correction can be applied on top of it. */
-  const offsetY = React.useRef(0);
-  /**
-   * Top edge of the keyboard in window coordinates — the same space
-   * `measureInWindow` reports in, so the two are directly comparable.
-   * `Infinity` while the keyboard is down, which makes it lose every
-   * `Math.min` below without needing a special case.
-   */
-  const keyboardTop = React.useRef(Number.POSITIVE_INFINITY);
-
-  /**
-   * True when the platform is already making room for the keyboard, so this
-   * module must not make it a second time. That is iOS on a plain screen, and
-   * only there: `automaticallyAdjustKeyboardInsets` is set for exactly that
-   * case below, and no version of Android does this for an edge-to-edge app.
-   */
-  const nativeInsetHandled = isIOS && !insideModal;
-
-  /**
-   * How much of the scroll frame the keyboard covers. Padding the content by
-   * this much is what makes it possible to scroll a field out from under the
-   * keyboard at all — without it there is nowhere for the last field to go.
-   * Measured rather than assumed, so a window that *did* shrink contributes
-   * nothing and the padding is never applied twice.
-   */
-  const [keyboardInset, setKeyboardInset] = React.useState(0);
-
-  const syncInset = React.useCallback(() => {
-    if (nativeInsetHandled) return;
-    const frame = frameRef.current;
-    if (!frame) return;
-    frame.measureInWindow((_x, frameTop, _w, frameHeight) => {
-      setKeyboardInset(Math.max(0, frameTop + frameHeight - keyboardTop.current));
-    });
-  }, [nativeInsetHandled]);
-
-  const ensureVisible = React.useCallback(() => {
-    const input = TextInput.State.currentlyFocusedInput() as Measurable | null;
-    const scroll = scrollRef.current;
-    const frame = frameRef.current;
-    if (!input || !scroll || !frame) return;
-
-    frame.measureInWindow((_fx, frameTop, _fw, frameHeight) => {
-      input.measureInWindow((_ix, inputTop, _iw, inputHeight) => {
-        /* The visible region ends at the bottom of the frame, or at the top of
-           the keyboard, whichever comes first. See the note at the top of the
-           file: this is what makes the same code right on an Android that
-           resized its window and one that did not. */
-        const viewportBottom = nativeInsetHandled
-          ? frameTop + frameHeight
-          : Math.min(frameTop + frameHeight, keyboardTop.current);
-
-        const below = inputTop + inputHeight + FIELD_GAP - viewportBottom;
-        if (below > 1) {
-          scroll.scrollTo({ y: offsetY.current + below, animated: true });
-          return;
-        }
-
-        /* The other direction: a field pushed off the *top* by the resize. */
-        const above = frameTop + FIELD_GAP - inputTop;
-        if (above > 1) {
-          scroll.scrollTo({ y: Math.max(0, offsetY.current - above), animated: true });
-        }
-      });
-    });
-  }, [nativeInsetHandled]);
-
-  React.useEffect(() => {
-    const showEvent = isIOS ? 'keyboardWillShow' : 'keyboardDidShow';
-    const hideEvent = isIOS ? 'keyboardWillHide' : 'keyboardDidHide';
-
-    let settle: ReturnType<typeof setTimeout> | undefined;
-
-    /* Room first, then the scroll into it — a scroll cannot reach past padding
-       that has not been applied yet. */
-    const settleKeyboard = () => {
-      syncInset();
-      ensureVisible();
-    };
-
-    const show = Keyboard.addListener(showEvent, (event: KeyboardEvent) => {
-      keyboardTop.current = event.endCoordinates?.screenY ?? Number.POSITIVE_INFINITY;
-
-      /* Measured twice on purpose. `keyboardDidShow` fires when the keyboard is
-         up, but on an Android that still resizes its window that resize reaches
-         this layout a frame or two later, and a measurement taken before it
-         lands is against the old, full-height frame. The second pass catches
-         that; it is a no-op whenever the first one was enough. */
-      requestAnimationFrame(settleKeyboard);
-      settle = setTimeout(settleKeyboard, 150);
-    });
-
-    const hide = Keyboard.addListener(hideEvent, () => {
-      keyboardTop.current = Number.POSITIVE_INFINITY;
-      setKeyboardInset(0);
-    });
-
-    return () => {
-      show.remove();
-      hide.remove();
-      if (settle) clearTimeout(settle);
-    };
-  }, [ensureVisible, syncInset]);
-
-  const onScroll = React.useCallback((event: NativeSyntheticEvent<NativeScrollEvent>) => {
-    offsetY.current = event.nativeEvent.contentOffset.y;
-  }, []);
-
-  const setScrollRef = React.useCallback(
-    (ref: ScrollView | null) => {
-      (scrollRef as React.MutableRefObject<ScrollView | null>).current = ref;
-      onScrollRef?.(ref);
-    },
-    [onScrollRef]
-  );
-
   /* `collapsable={false}` keeps the wrapper as a real Android view — a view
      the platform has optimised away cannot be measured. */
   const box: ViewStyle = fill ? { flex: 1 } : { flexShrink: 1 };
 
   return (
-    <EnsureVisibleContext.Provider value={ensureVisible}>
-      <View ref={frameRef} style={[box, style]} collapsable={false}>
-        <ScrollView
-          ref={setScrollRef}
-          style={box}
-          scrollEnabled={scrollEnabled}
-          showsVerticalScrollIndicator={false}
-          onScroll={onScroll}
-          scrollEventThrottle={16}
-          /* A tap on a button while the keyboard is up should press the button,
-             not just close the keyboard and make the user tap again. */
-          keyboardShouldPersistTaps="handled"
-          keyboardDismissMode={isIOS ? 'interactive' : 'on-drag'}
-          automaticallyAdjustKeyboardInsets={isIOS && !insideModal}
-          contentInsetAdjustmentBehavior="automatic"
-          contentContainerStyle={[
-            { paddingBottom: extraBottomSpace + keyboardInset },
-            contentContainerStyle,
-          ]}
-        >
-          {children}
-        </ScrollView>
-      </View>
-    </EnsureVisibleContext.Provider>
+    <View style={[box, style]} collapsable={false}>
+      <KeyboardAwareScrollView
+        ref={onScrollRef}
+        style={box}
+        /* The sheet has already been lifted above the keyboard; see the note
+           at the top of the file. */
+        enabled={!insideModal}
+        bottomOffset={FIELD_GAP}
+        scrollEnabled={scrollEnabled}
+        showsVerticalScrollIndicator={false}
+        /* A tap on a button while the keyboard is up should press the button,
+           not just close the keyboard and make the user tap again. */
+        keyboardShouldPersistTaps="handled"
+        keyboardDismissMode={isIOS ? 'interactive' : 'on-drag'}
+        contentContainerStyle={[{ paddingBottom: extraBottomSpace }, contentContainerStyle]}
+      >
+        {children}
+      </KeyboardAwareScrollView>
+    </View>
   );
 }
 
