@@ -28,6 +28,7 @@ import {
   Animated,
   LayoutChangeEvent,
   Modal,
+  Platform,
   Pressable,
   StyleSheet,
   Text,
@@ -37,8 +38,18 @@ import {
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { GlassPanel } from '@/components/ui';
-import { KeyboardAwareScroll, useKeyboardHeight } from '@/components/KeyboardAware';
-import { duration, ease, prefersReducedMotion, usePressMotion } from '@/components/motion';
+import {
+  FieldFocusProvider,
+  KeyboardAwareScroll,
+  useKeyboardHeight,
+} from '@/components/KeyboardAware';
+import {
+  animateLayout,
+  duration,
+  ease,
+  prefersReducedMotion,
+  usePressMotion,
+} from '@/components/motion';
 import { blur, colors, radius, shadow, spacing, type } from '@/theme';
 
 export function Sheet({
@@ -123,13 +134,47 @@ export function Sheet({
     return () => enter.stop();
   }, [visible, mounted, sheetHeight, t]);
 
+  /* Whether a field inside the sheet has focus. Blur is applied a beat late
+     so moving from one field to the next does not bounce the sheet. */
+  const [fieldFocused, setFieldFocused] = React.useState(false);
+  const blurTimer = React.useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  const onFieldFocus = React.useCallback((focused: boolean) => {
+    if (blurTimer.current) clearTimeout(blurTimer.current);
+    if (focused) {
+      setFieldFocused(true);
+      return;
+    }
+    blurTimer.current = setTimeout(() => setFieldFocused(false), 120);
+  }, []);
+  React.useEffect(() => () => blurTimer.current && clearTimeout(blurTimer.current), []);
+  React.useEffect(() => {
+    if (!visible) setFieldFocused(false);
+  }, [visible]);
+
+  /* Android, typing, and no keyboard height to lift by: the event that would
+     carry it is raised on the activity's window, not this one, so it can
+     simply never come. Rather than stay docked under the keys, the sheet
+     moves to the top of the screen and keeps to the half the keyboard does
+     not reach. When the event does arrive, the lift below is used instead. */
+  const dockTop = Platform.OS === 'android' && fieldFocused && keyboardHeight === 0;
+  const firstRender = React.useRef(true);
+  React.useEffect(() => {
+    if (firstRender.current) {
+      firstRender.current = false;
+      return;
+    }
+    animateLayout();
+  }, [dockTop]);
+
   /* The sheet gets whatever is left above the keyboard, minus room for the
      status bar, so a tall sheet becomes scrollable instead of being clipped. */
-  const maxHeight = windowHeight - keyboardHeight - insets.top - spacing.xxl;
+  const maxHeight = dockTop
+    ? windowHeight * 0.5 - insets.top - spacing.md
+    : windowHeight - keyboardHeight - insets.top - spacing.xxl;
 
   /* Once the keyboard is up it supplies the bottom clearance; the home
      indicator inset underneath it would just be a gap. */
-  const bottomPad = keyboardHeight > 0 ? spacing.lg : insets.bottom + spacing.lg;
+  const bottomPad = keyboardHeight > 0 || dockTop ? spacing.lg : insets.bottom + spacing.lg;
 
   const body = (
     <>
@@ -171,6 +216,7 @@ export function Sheet({
       <Animated.View
         style={[
           styles.dock,
+          dockTop && { justifyContent: 'flex-start', paddingTop: insets.top + spacing.md },
           {
             opacity: t,
             transform: [
@@ -189,23 +235,25 @@ export function Sheet({
           intensity={blur.header}
           strong
           onLayout={onSheetLayout}
-          style={[styles.sheet, { marginBottom: keyboardHeight }]}
+          style={[styles.sheet, dockTop && styles.sheetTop, { marginBottom: keyboardHeight }]}
         >
           {/* `maxHeight` goes on the scroller itself, not on the panel around
               it: a bound the scroll view can see is what makes it scroll, and
               one two levels up only clips. */}
-          {scroll ? (
-            <KeyboardAwareScroll
-              insideModal
-              fill={false}
-              style={{ maxHeight }}
-              extraBottomSpace={bottomPad}
-            >
-              {body}
-            </KeyboardAwareScroll>
-          ) : (
-            <View style={{ maxHeight, paddingBottom: bottomPad }}>{body}</View>
-          )}
+          <FieldFocusProvider value={onFieldFocus}>
+            {scroll ? (
+              <KeyboardAwareScroll
+                insideModal
+                fill={false}
+                style={{ maxHeight }}
+                extraBottomSpace={bottomPad}
+              >
+                {body}
+              </KeyboardAwareScroll>
+            ) : (
+              <View style={{ maxHeight, paddingBottom: bottomPad }}>{body}</View>
+            )}
+          </FieldFocusProvider>
         </GlassPanel>
       </Animated.View>
     </Modal>
@@ -222,6 +270,12 @@ const styles = StyleSheet.create({
     borderColor: colors.glassBorder,
     overflow: 'hidden',
     ...shadow.hover,
+  },
+  /* Docked at the top while typing — round the other edge too. */
+  sheetTop: {
+    borderBottomLeftRadius: radius.xxl,
+    borderBottomRightRadius: radius.xxl,
+    borderBottomWidth: 1,
   },
   grabber: {
     alignSelf: 'center',

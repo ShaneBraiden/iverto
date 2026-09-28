@@ -290,6 +290,15 @@ function refreshOnce() {
   return refreshInFlight;
 }
 
+/**
+ * Renews the access token ahead of a 401, through the same single flight the
+ * 401 path uses. The refresh token rotates on every call, so a proactive
+ * renewal racing a reactive one would replay a spent token and end the session.
+ */
+export function renewSession() {
+  return refreshOnce();
+}
+
 /* ------------------------------------------------------------------ Request */
 
 export type Query = Record<string, string | number | boolean | undefined | null>;

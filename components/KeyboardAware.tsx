@@ -79,6 +79,24 @@ export function useEnsureVisible() {
   return React.useContext(EnsureVisibleContext);
 }
 
+/* -------------------------------------------------------------- Field focus */
+
+/**
+ * Published by a bottom sheet to the fields inside it: `true` when one takes
+ * focus, `false` when it lets go. On Android a sheet is its own window, and
+ * the keyboard events React Native raises come from the activity's window —
+ * a keyboard opened for the sheet can arrive with no event at all, leaving
+ * the sheet docked right where the keys land. Knowing a field is focused is
+ * what lets the sheet move out of the way without waiting on that event.
+ */
+const FieldFocusContext = React.createContext<((focused: boolean) => void) | null>(null);
+
+export const FieldFocusProvider = FieldFocusContext.Provider;
+
+export function useFieldFocus() {
+  return React.useContext(FieldFocusContext);
+}
+
 /* --------------------------------------------------------- Keyboard metrics */
 
 /** Height of the software keyboard right now, in dp. Zero while it is closed. */

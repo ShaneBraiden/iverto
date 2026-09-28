@@ -27,7 +27,7 @@ import Ionicons from '@expo/vector-icons/Ionicons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { BlurView } from 'expo-blur';
 import { Logo } from '@/components/Logo';
-import { useEnsureVisible } from '@/components/KeyboardAware';
+import { useEnsureVisible, useFieldFocus } from '@/components/KeyboardAware';
 import { Appear, CountUp, LiveDot, usePop, usePressMotion } from '@/components/motion';
 import {
   blur,
@@ -281,6 +281,7 @@ export function Field({
   right?: React.ReactNode;
 }) {
   const ensureVisible = useEnsureVisible();
+  const fieldFocus = useFieldFocus();
 
   return (
     <View style={{ gap: spacing.sm }}>
@@ -319,8 +320,16 @@ export function Field({
             /* A frame late on purpose: on the first focus the keyboard has not
                finished coming up, and measuring against the old layout would
                scroll to the wrong place. */
-            if (ensureVisible) requestAnimationFrame(ensureVisible);
+            if (ensureVisible) {
+              requestAnimationFrame(ensureVisible);
+              /* And once more after the keyboard's own animation. Where the
+                 show event arrives late — or, in a sheet, not at all — the
+                 first pass measured against a screen with no keyboard on it. */
+              setTimeout(ensureVisible, 400);
+            }
+            fieldFocus?.(true);
           }}
+          onBlur={() => fieldFocus?.(false)}
           keyboardType={keyboardType}
           secureTextEntry={secureTextEntry}
           returnKeyType={returnKeyType ?? (multiline ? 'default' : 'done')}

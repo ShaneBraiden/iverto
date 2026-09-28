@@ -21,9 +21,11 @@ import React, {
   useRef,
   useState,
 } from 'react';
+import { AppState } from 'react-native';
 import { router } from 'expo-router';
 import {
   ApiError,
+  renewSession,
   setAuthToken,
   setSessionRole,
   setTenantId,
@@ -51,6 +53,14 @@ import type { AuthUser, Linkage, Me, Role, Session, Shell } from '@/types';
  * is indistinguishable from the app having lost the tap.
  */
 export type SessionEnd = { reason: SessionEndReason | 'signed-out'; at: number };
+
+/**
+ * How close to expiry an access token is renewed. Waiting for the 401 works,
+ * but only while the refresh token is still good — renewing early and on every
+ * return to the app keeps rotating it, so a session in regular use is never
+ * left to lapse. The server's own refresh-token lifetime is still the ceiling.
+ */
+const RENEW_BEFORE_MS = 5 * 60_000;
 
 /** Wardens work the same queues as admins, so they share the admin shell. */
 export function shellFor(role: Role | undefined): Shell {
@@ -213,10 +223,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
            would otherwise fire every dashboard call against a token that is
            already dead, take a 401 on each, and land the user on the login
            screen. Renew first when the stored expiry says it has lapsed. */
-        if (stored.expiresAt && stored.expiresAt <= Date.now()) {
+        if (stored.expiresAt && stored.expiresAt - RENEW_BEFORE_MS <= Date.now()) {
           /* A transient failure (offline, 429, busy server) throws; open the
              app on the cached session anyway and let the first call retry. */
-          await refreshAccessToken().catch(() => null);
+          await renewSession().catch(() => null);
           if (!alive) return;
         }
 
@@ -238,8 +248,49 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return () => {
       alive = false;
     };
-    /* `refreshAccessToken` is stable, so this still runs exactly once. */
-  }, [refreshAccessToken]);
+  }, []);
+
+  /* Keep a signed-in session warm: renew shortly before the access token runs
+     out, and again whenever the app comes back to the foreground with it
+     expired or close to it. Timers do not run while the app is backgrounded,
+     so the foreground check is what covers a phone left overnight. A renewal
+     that could not be answered throws and is simply tried again later; one
+     the server refuses returns null, and the next call ends the session
+     through the 401 handler as before. */
+  const signedIn = !!user;
+  useEffect(() => {
+    if (!signedIn) return;
+    let alive = true;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+
+    const schedule = async () => {
+      if (timer) clearTimeout(timer);
+      const stored = await loadSession();
+      if (!alive || !stored?.expiresAt) return;
+      const due = stored.expiresAt - RENEW_BEFORE_MS - Date.now();
+      if (due <= 0) {
+        const fresh = await renewSession().catch(() => null);
+        if (!alive) return;
+        /* Nothing new to schedule against; the foreground check retries. */
+        if (!fresh) return;
+        /* Re-read the new expiry a beat later rather than at once, so a server
+           that ever issues a token shorter than the margin cannot spin this. */
+        timer = setTimeout(() => void schedule(), 60_000);
+        return;
+      }
+      timer = setTimeout(() => void schedule(), due);
+    };
+
+    void schedule();
+    const sub = AppState.addEventListener('change', (next) => {
+      if (next === 'active') void schedule();
+    });
+    return () => {
+      alive = false;
+      if (timer) clearTimeout(timer);
+      sub.remove();
+    };
+  }, [signedIn]);
 
   const refreshMe = useCallback(async () => {
     setLoading(true);

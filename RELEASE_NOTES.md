@@ -1,3 +1,29 @@
+# Iverto.ai 1.2.4 — longer sessions, fields stay above the keyboard
+
+| | |
+|---|---|
+| **Version** | 1.2.4 (versionCode 11) |
+| **Platform** | Android |
+
+## What changed
+
+- **Sessions last longer.** The app used to renew its access token only after
+  a request failed with a 401. Now it renews about 5 minutes before the token
+  expires, and again whenever the app comes back to the foreground. The
+  refresh token keeps rotating while the app is in use, so regular users stay
+  signed in. The absolute limit is still the server's refresh-token lifetime.
+  Proactive renewals share the single-flight refresh with the 401 path, so
+  they can't replay a rotated token.
+- **The field you're typing in stays visible when the keyboard is up.**
+  - Bottom sheets (reject reason, change password, edit profile, messages)
+    move to the top of the screen while a field is focused on Android, where
+    the keyboard event that would lift them may never reach the sheet's
+    window.
+  - Every field now re-checks its position after the keyboard finishes
+    animating, not just at the moment it gets focus.
+
+---
+
 # Iverto.ai 1.2.3 — sign-in moved to Hostel v2
 
 | | |
