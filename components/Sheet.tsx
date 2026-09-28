@@ -4,16 +4,21 @@
  * Built on the platform `Modal` rather than a gesture library: the app only
  * needs tap-to-dismiss, and this keeps the dependency list where it is.
  *
- * KEYBOARD: a `Modal` is a separate window. Android's `adjustResize` applies to
- * the activity, not to a dialog — and `statusBarTranslucent` puts this one
- * outside the layout limits besides — while iOS never insets a modal at all.
- * So a sheet docked to the bottom of the screen is exactly where the keyboard
- * lands, and every sheet in this app that asks for a password, a rejection
- * reason or an emergency message would be typed into blind.
+ * KEYBOARD: a sheet docked to the bottom of the screen is exactly where the
+ * keyboard lands, and every sheet in this app that asks for a password, a
+ * rejection reason or an emergency message would be typed into blind. The fix
+ * is to lift the sheet by however far the keyboard reaches over it and let its
+ * body scroll: `insideModal` on the scroll container takes the keyboard into
+ * account when it measures the focused field.
  *
- * The fix is to lift the sheet by the keyboard's own height and let its body
- * scroll: `insideModal` on the scroll container adds the matching bottom inset
- * and takes the keyboard into account when it measures the focused field.
+ * That needs the keyboard events, which is why the sheet is not a `Modal` on
+ * Android. A modal there is a separate dialog window; in an edge-to-edge app
+ * `adjustResize` does not resize it and React Native's keyboard events — raised
+ * from the activity's window — never arrive, so the sheet had no way to know
+ * the keys were over it. On Android the sheet is drawn into the activity's
+ * window through a `Portal` instead (see `components/Portal.tsx`) and the
+ * hardware back button is wired up by hand. iOS keeps the `Modal`, whose
+ * keyboard events do arrive.
  *
  * MOTION: `Modal`'s own `animationType="slide"` moves the backdrop with the
  * sheet, so the dimming arrives as a grey rectangle sliding up from the bottom
@@ -26,6 +31,7 @@
 import React from 'react';
 import {
   Animated,
+  BackHandler,
   LayoutChangeEvent,
   Modal,
   Platform,
@@ -38,19 +44,17 @@ import {
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { GlassPanel } from '@/components/ui';
+import { KeyboardAwareScroll, useKeyboardOverlap } from '@/components/KeyboardAware';
+import { Portal } from '@/components/Portal';
 import {
-  FieldFocusProvider,
-  KeyboardAwareScroll,
-  useKeyboardHeight,
-} from '@/components/KeyboardAware';
-import {
-  animateLayout,
   duration,
   ease,
   prefersReducedMotion,
   usePressMotion,
 } from '@/components/motion';
 import { blur, colors, radius, shadow, spacing, type } from '@/theme';
+
+const isAndroid = Platform.OS === 'android';
 
 export function Sheet({
   visible,
@@ -72,7 +76,6 @@ export function Sheet({
   scroll?: boolean;
 }) {
   const insets = useSafeAreaInsets();
-  const keyboardHeight = useKeyboardHeight();
   const { height: windowHeight } = useWindowDimensions();
   const closePress = usePressMotion(0.88);
 
@@ -81,6 +84,11 @@ export function Sheet({
      they are. */
   const t = React.useRef(new Animated.Value(0)).current;
   const [mounted, setMounted] = React.useState(visible);
+
+  /* The full-screen layer the sheet docks to; the keyboard's reach over its
+     bottom edge is how far the sheet has to rise. */
+  const layerRef = React.useRef<View>(null);
+  const lift = useKeyboardOverlap(layerRef, mounted);
 
   /* How far the panel has to travel — its own height, measured. A fixed guess
      would either overshoot on a short sheet (which then spends the first half
@@ -134,47 +142,28 @@ export function Sheet({
     return () => enter.stop();
   }, [visible, mounted, sheetHeight, t]);
 
-  /* Whether a field inside the sheet has focus. Blur is applied a beat late
-     so moving from one field to the next does not bounce the sheet. */
-  const [fieldFocused, setFieldFocused] = React.useState(false);
-  const blurTimer = React.useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
-  const onFieldFocus = React.useCallback((focused: boolean) => {
-    if (blurTimer.current) clearTimeout(blurTimer.current);
-    if (focused) {
-      setFieldFocused(true);
-      return;
-    }
-    blurTimer.current = setTimeout(() => setFieldFocused(false), 120);
-  }, []);
-  React.useEffect(() => () => blurTimer.current && clearTimeout(blurTimer.current), []);
+  /* A `Modal` routes the back button to `onRequestClose`; the portal does not,
+     so on Android the sheet takes it itself while it is open. */
+  const onCloseRef = React.useRef(onClose);
   React.useEffect(() => {
-    if (!visible) setFieldFocused(false);
+    onCloseRef.current = onClose;
+  });
+  React.useEffect(() => {
+    if (!isAndroid || !visible) return;
+    const sub = BackHandler.addEventListener('hardwareBackPress', () => {
+      onCloseRef.current();
+      return true;
+    });
+    return () => sub.remove();
   }, [visible]);
-
-  /* Android, typing, and no keyboard height to lift by: the event that would
-     carry it is raised on the activity's window, not this one, so it can
-     simply never come. Rather than stay docked under the keys, the sheet
-     moves to the top of the screen and keeps to the half the keyboard does
-     not reach. When the event does arrive, the lift below is used instead. */
-  const dockTop = Platform.OS === 'android' && fieldFocused && keyboardHeight === 0;
-  const firstRender = React.useRef(true);
-  React.useEffect(() => {
-    if (firstRender.current) {
-      firstRender.current = false;
-      return;
-    }
-    animateLayout();
-  }, [dockTop]);
 
   /* The sheet gets whatever is left above the keyboard, minus room for the
      status bar, so a tall sheet becomes scrollable instead of being clipped. */
-  const maxHeight = dockTop
-    ? windowHeight * 0.5 - insets.top - spacing.md
-    : windowHeight - keyboardHeight - insets.top - spacing.xxl;
+  const maxHeight = windowHeight - lift - insets.top - spacing.xxl;
 
   /* Once the keyboard is up it supplies the bottom clearance; the home
      indicator inset underneath it would just be a gap. */
-  const bottomPad = keyboardHeight > 0 || dockTop ? spacing.lg : insets.bottom + spacing.lg;
+  const bottomPad = lift > 0 ? spacing.lg : insets.bottom + spacing.lg;
 
   const body = (
     <>
@@ -198,14 +187,10 @@ export function Sheet({
     </>
   );
 
-  return (
-    <Modal
-      visible={mounted}
-      transparent
-      animationType="none"
-      statusBarTranslucent
-      onRequestClose={onClose}
-    >
+  /* `collapsable={false}` keeps the layer a real Android view — one the
+     platform has optimised away cannot be measured. */
+  const layer = (
+    <View ref={layerRef} style={styles.layer} collapsable={false}>
       {/* Backdrop — tapping anywhere outside the sheet closes it. It darkens
           in place rather than sliding, so the room dims and the sheet arrives
           into it. */}
@@ -216,7 +201,6 @@ export function Sheet({
       <Animated.View
         style={[
           styles.dock,
-          dockTop && { justifyContent: 'flex-start', paddingTop: insets.top + spacing.md },
           {
             opacity: t,
             transform: [
@@ -235,32 +219,45 @@ export function Sheet({
           intensity={blur.header}
           strong
           onLayout={onSheetLayout}
-          style={[styles.sheet, dockTop && styles.sheetTop, { marginBottom: keyboardHeight }]}
+          style={[styles.sheet, { marginBottom: lift }]}
         >
           {/* `maxHeight` goes on the scroller itself, not on the panel around
               it: a bound the scroll view can see is what makes it scroll, and
               one two levels up only clips. */}
-          <FieldFocusProvider value={onFieldFocus}>
-            {scroll ? (
-              <KeyboardAwareScroll
-                insideModal
-                fill={false}
-                style={{ maxHeight }}
-                extraBottomSpace={bottomPad}
-              >
-                {body}
-              </KeyboardAwareScroll>
-            ) : (
-              <View style={{ maxHeight, paddingBottom: bottomPad }}>{body}</View>
-            )}
-          </FieldFocusProvider>
+          {scroll ? (
+            <KeyboardAwareScroll
+              insideModal
+              fill={false}
+              style={{ maxHeight }}
+              extraBottomSpace={bottomPad}
+            >
+              {body}
+            </KeyboardAwareScroll>
+          ) : (
+            <View style={{ maxHeight, paddingBottom: bottomPad }}>{body}</View>
+          )}
         </GlassPanel>
       </Animated.View>
+    </View>
+  );
+
+  if (isAndroid) return mounted ? <Portal>{layer}</Portal> : null;
+
+  return (
+    <Modal
+      visible={mounted}
+      transparent
+      animationType="none"
+      statusBarTranslucent
+      onRequestClose={onClose}
+    >
+      {layer}
     </Modal>
   );
 }
 
 const styles = StyleSheet.create({
+  layer: { flex: 1 },
   backdrop: { ...StyleSheet.absoluteFillObject, backgroundColor: colors.overlay },
   dock: { flex: 1, justifyContent: 'flex-end' },
   sheet: {
@@ -270,12 +267,6 @@ const styles = StyleSheet.create({
     borderColor: colors.glassBorder,
     overflow: 'hidden',
     ...shadow.hover,
-  },
-  /* Docked at the top while typing — round the other edge too. */
-  sheetTop: {
-    borderBottomLeftRadius: radius.xxl,
-    borderBottomRightRadius: radius.xxl,
-    borderBottomWidth: 1,
   },
   grabber: {
     alignSelf: 'center',

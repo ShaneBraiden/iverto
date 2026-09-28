@@ -103,11 +103,13 @@ export default function AdminHome() {
     [siteId]
   );
 
+  const { refetch: refetchActivity } = activity;
+  const { refetch: refetchEmergencies } = emergencies;
   const refreshAll = React.useCallback(() => {
     refresh();
-    activity.refetch();
-    emergencies.refetch();
-  }, [refresh, activity.refetch, emergencies.refetch]);
+    refetchActivity();
+    refetchEmergencies();
+  }, [refresh, refetchActivity, refetchEmergencies]);
 
   useRefetchOnFocus(refreshAll);
   useLivePermissions(refreshAll);

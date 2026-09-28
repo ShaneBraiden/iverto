@@ -18,6 +18,7 @@ import { Poppins_700Bold } from '@expo-google-fonts/poppins/700Bold';
 import { colors } from '@/theme';
 import { AuthProvider, useAuth } from '@/lib/auth';
 import { AppProvider } from '@/components/AppContext';
+import { PortalHost } from '@/components/Portal';
 import { foregroundBehaviour, routeForUri, uriFromNotification } from '@/lib/push';
 
 SplashScreen.preventAutoHideAsync().catch(() => {});
@@ -118,22 +119,25 @@ export default function RootLayout() {
           <AuthProvider>
             <AppProvider>
               <PushRouting />
-              <Stack
-                screenOptions={{
-                  headerShown: false,
-                  contentStyle: { backgroundColor: 'transparent' },
-                  animation: 'slide_from_right',
-                }}
-              >
-                <Stack.Screen name="index" />
-                <Stack.Screen name="change-password" />
-                <Stack.Screen name="onboarding" />
-                <Stack.Screen name="notifications" />
-                <Stack.Screen name="profile-request" />
-                <Stack.Screen name="student" />
-                <Stack.Screen name="parent" />
-                <Stack.Screen name="admin" />
-              </Stack>
+              {/* Bottom sheets on screens outside the role shells draw here. */}
+              <PortalHost>
+                <Stack
+                  screenOptions={{
+                    headerShown: false,
+                    contentStyle: { backgroundColor: 'transparent' },
+                    animation: 'slide_from_right',
+                  }}
+                >
+                  <Stack.Screen name="index" />
+                  <Stack.Screen name="change-password" />
+                  <Stack.Screen name="onboarding" />
+                  <Stack.Screen name="notifications" />
+                  <Stack.Screen name="profile-request" />
+                  <Stack.Screen name="student" />
+                  <Stack.Screen name="parent" />
+                  <Stack.Screen name="admin" />
+                </Stack>
+              </PortalHost>
             </AppProvider>
           </AuthProvider>
         </LinearGradient>

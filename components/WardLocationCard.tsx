@@ -48,10 +48,11 @@ export function WardLocationCard({ ward }: { ward: WardDetail }) {
 
   /* A guardian who opens this screen and leaves it open is watching. Refresh
      on a timer so the answer does not quietly go stale in front of them. */
+  const { refetch: refetchFix } = fix;
   React.useEffect(() => {
-    const timer = setInterval(() => fix.refetch(), POLL_MS);
+    const timer = setInterval(() => refetchFix(), POLL_MS);
     return () => clearInterval(timer);
-  }, [fix.refetch]);
+  }, [refetchFix]);
 
   /* 404 on either call is "this campus has not enabled it", not a failure.
      Matched on the status rather than the envelope's `error` code: a route the

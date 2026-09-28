@@ -79,47 +79,62 @@ export function useEnsureVisible() {
   return React.useContext(EnsureVisibleContext);
 }
 
-/* -------------------------------------------------------------- Field focus */
-
-/**
- * Published by a bottom sheet to the fields inside it: `true` when one takes
- * focus, `false` when it lets go. On Android a sheet is its own window, and
- * the keyboard events React Native raises come from the activity's window —
- * a keyboard opened for the sheet can arrive with no event at all, leaving
- * the sheet docked right where the keys land. Knowing a field is focused is
- * what lets the sheet move out of the way without waiting on that event.
- */
-const FieldFocusContext = React.createContext<((focused: boolean) => void) | null>(null);
-
-export const FieldFocusProvider = FieldFocusContext.Provider;
-
-export function useFieldFocus() {
-  return React.useContext(FieldFocusContext);
-}
-
 /* --------------------------------------------------------- Keyboard metrics */
 
-/** Height of the software keyboard right now, in dp. Zero while it is closed. */
-export function useKeyboardHeight() {
-  const [height, setHeight] = React.useState(0);
+/**
+ * How far the software keyboard reaches up over the view in `ref`, in dp.
+ * Zero while the keyboard is closed or clear of the view.
+ *
+ * Measured rather than taken from the event's `height`: on Android that height
+ * leaves out the navigation bar, which an edge-to-edge window still draws
+ * under, so lifting by it alone would leave the bottom of a sheet behind the
+ * keys. The keyboard's top edge and the view's bottom edge are both in window
+ * coordinates, and the gap between them is exactly the lift needed — on a
+ * window that did resize, the view already ends above the keyboard and the
+ * answer is zero.
+ *
+ * `active` is for a view that is not always mounted, like a closed sheet:
+ * nothing is measured while it is false, and turning it true re-checks a
+ * keyboard that is already open.
+ */
+export function useKeyboardOverlap(ref: React.RefObject<View | null>, active = true) {
+  const [overlap, setOverlap] = React.useState(0);
 
   React.useEffect(() => {
+    if (!active) {
+      setOverlap(0);
+      return;
+    }
+
     // `will*` fires before the keyboard animates on iOS; Android only has `did*`.
     const showEvent = isIOS ? 'keyboardWillShow' : 'keyboardDidShow';
     const hideEvent = isIOS ? 'keyboardWillHide' : 'keyboardDidHide';
 
+    const measure = (keyboardTop: number | undefined) => {
+      const view = ref.current;
+      if (keyboardTop == null || !view) return;
+      view.measureInWindow((_x, top, _w, height) =>
+        setOverlap(Math.max(0, top + height - keyboardTop))
+      );
+    };
+
+    /* Android raises the show event only when the keyboard goes from hidden to
+       shown, so a view that mounts while it is already up would never hear
+       about it. */
+    if (Keyboard.isVisible()) measure(Keyboard.metrics()?.screenY);
+
     const show = Keyboard.addListener(showEvent, (event: KeyboardEvent) =>
-      setHeight(event.endCoordinates?.height ?? 0)
+      measure(event.endCoordinates?.screenY)
     );
-    const hide = Keyboard.addListener(hideEvent, () => setHeight(0));
+    const hide = Keyboard.addListener(hideEvent, () => setOverlap(0));
 
     return () => {
       show.remove();
       hide.remove();
     };
-  }, []);
+  }, [ref, active]);
 
-  return height;
+  return overlap;
 }
 
 /**

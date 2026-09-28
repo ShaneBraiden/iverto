@@ -122,7 +122,6 @@ export function useMutation<TArgs extends unknown[], TResult>(
         if (alive.current) setPending(false);
       }
     },
-    // eslint-disable-next-line react-hooks/exhaustive-deps
     [action]
   );
 

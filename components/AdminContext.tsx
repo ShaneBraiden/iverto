@@ -40,7 +40,8 @@ export function AdminProvider({ children }: { children: React.ReactNode }) {
 
   const stats = useQuery((signal) => adminApi.stats(siteId, signal), [siteId]);
 
-  const refresh = useCallback(() => stats.refetch(), [stats.refetch]);
+  const { refetch: refetchStats } = stats;
+  const refresh = useCallback(() => refetchStats(), [refetchStats]);
 
   const value = useMemo<AdminContextValue>(
     () => ({

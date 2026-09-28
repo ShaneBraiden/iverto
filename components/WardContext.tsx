@@ -67,10 +67,12 @@ export function WardProvider({ children }: { children: React.ReactNode }) {
     [wards]
   );
 
+  const { refetch: refetchWards } = wardsQuery;
+  const { refetch: refetchQueue } = queueQuery;
   const refresh = useCallback(() => {
-    wardsQuery.refetch();
-    queueQuery.refetch();
-  }, [wardsQuery.refetch, queueQuery.refetch]);
+    refetchWards();
+    refetchQueue();
+  }, [refetchWards, refetchQueue]);
 
   const pendingFor = useCallback(
     (target: string) => queue.filter((p) => p.studentId === target),

@@ -1,5 +1,6 @@
 import React from 'react';
 import { Tabs } from 'expo-router';
+import { PortalHost } from '@/components/Portal';
 import { tabIcon, useTabScreenOptions } from '@/components/TabBar';
 import { LocationProvider } from '@/lib/location';
 
@@ -9,7 +10,10 @@ export default function StudentLayout() {
        it has to keep reporting while the student moves between tabs, and stop
        the moment they leave the shell. Opt-in — see `lib/location.tsx`. */
     <LocationProvider>
-      <StudentTabs />
+      {/* Sheets draw here, inside the provider, so they can still read it. */}
+      <PortalHost>
+        <StudentTabs />
+      </PortalHost>
     </LocationProvider>
   );
 }

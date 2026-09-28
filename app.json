@@ -2,7 +2,7 @@
   "expo": {
     "name": "Iverto.ai",
     "slug": "iverto-ai",
-    "version": "1.2.4",
+    "version": "1.2.5",
     "orientation": "portrait",
     "scheme": "iverto",
     "userInterfaceStyle": "light",
@@ -19,12 +19,12 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.iverto.ai",
-      "buildNumber": "5"
+      "buildNumber": "6"
     },
     "android": {
       "package": "com.iverto.ai",
       "googleServicesFile": "./google-services.json",
-      "versionCode": 11,
+      "versionCode": 12,
       "softwareKeyboardLayoutMode": "resize",
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": true,

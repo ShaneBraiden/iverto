@@ -1,5 +1,6 @@
 import React from 'react';
 import { Tabs } from 'expo-router';
+import { PortalHost } from '@/components/Portal';
 import { tabIcon, useTabScreenOptions } from '@/components/TabBar';
 import { AdminProvider, useAdmin } from '@/components/AdminContext';
 import { useAuth } from '@/lib/auth';
@@ -9,7 +10,10 @@ export default function AdminLayout() {
     /* The counters live above the tabs, so the badges and the overview tiles
        are the same numbers from the same call. */
     <AdminProvider>
-      <AdminTabs />
+      {/* Sheets draw here, inside the provider, so they can still read it. */}
+      <PortalHost>
+        <AdminTabs />
+      </PortalHost>
     </AdminProvider>
   );
 }

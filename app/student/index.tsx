@@ -46,10 +46,12 @@ export default function StudentHome() {
   const summary = useQuery((signal) => permissionApi.summary(signal), []);
   const curfew = useQuery((signal) => permissionApi.curfew(signal), []);
 
+  const { refetch: refetchSummary } = summary;
+  const { refetch: refetchCurfew } = curfew;
   const refresh = React.useCallback(() => {
-    summary.refetch();
-    curfew.refetch();
-  }, [summary.refetch, curfew.refetch]);
+    refetchSummary();
+    refetchCurfew();
+  }, [refetchSummary, refetchCurfew]);
 
   /* Coming back from the request form should show the request that was just
      raised, and a guardian deciding while this screen is open should land

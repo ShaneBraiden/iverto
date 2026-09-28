@@ -1,5 +1,6 @@
 import React from 'react';
 import { Tabs } from 'expo-router';
+import { PortalHost } from '@/components/Portal';
 import { tabIcon, useTabScreenOptions } from '@/components/TabBar';
 import { WardProvider, useWard } from '@/components/WardContext';
 
@@ -9,7 +10,10 @@ export default function ParentLayout() {
        pending queue — from here, so switching in the header re-points all
        four tabs at once. */
     <WardProvider>
-      <ParentTabs />
+      {/* Sheets draw here, inside the provider, so they can still read it. */}
+      <PortalHost>
+        <ParentTabs />
+      </PortalHost>
     </WardProvider>
   );
 }

@@ -1,3 +1,28 @@
+# Iverto.ai 1.2.5 — sheets rise above the keyboard
+
+| | |
+|---|---|
+| **Version** | 1.2.5 (versionCode 12) |
+| **Platform** | Android |
+
+## What changed
+
+- **Bottom sheets sit directly on top of the keyboard while you type.** In
+  1.2.4, sheets on Android jumped to the top of the screen when a field got
+  focus, because the sheet couldn't tell where the keyboard was. On Android a
+  sheet is no longer its own `Modal` window. It's drawn into the app's main
+  window through a portal, so it gets the same keyboard events as every other
+  screen. The sheet now lifts by exactly how far the keyboard reaches over it,
+  navigation bar included, and the field you're typing in scrolls into view
+  above the keys. This covers the reject reason, change password, edit
+  profile and messages sheets.
+- **The back button still closes an open sheet.** The `Modal` used to handle
+  that, so the sheet now does it itself.
+- **Lint is set up and clean.** `npm run lint` (ESLint with
+  `eslint-config-expo`) passes with no errors or warnings.
+
+---
+
 # Iverto.ai 1.2.4 — longer sessions, fields stay above the keyboard
 
 | | |
